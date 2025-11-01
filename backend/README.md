@@ -210,17 +210,3 @@ backend/
 ├── docker-compose.yml
 └── requirements.txt
 ```
-
-### Required `__init__.py` Files
-
-Create empty `__init__.py` files in the following directories to make them Python packages:
-
-```text
-backend/app/__init__.py
-backend/app/core/__init__.py
-backend/app/db/__init__.py
-backend/app/models/__init__.py
-backend/app/schemas/__init__.py
-backend/app/api/__init__.py
-backend/app/api/routes/__init__.py
-```
