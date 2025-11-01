@@ -2,8 +2,7 @@
 
 Directories:
 - docs: Documentation that does not belong to any specific directory
-- games: Base game engine and implementations
-- agents: Base agent and examples
+- gamelib: Base classes and game-specific implementations for agents, engines, states and moves
 - submissions: Agent builder and runner
 - orchestrator: Orchestrator for matches including containers and networking
 - backend: Backend API service
