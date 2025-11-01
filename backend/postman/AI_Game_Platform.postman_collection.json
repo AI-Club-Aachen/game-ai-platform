@@ -1,0 +1,727 @@
+{
+	"info": {
+		"name": "AI Game Competition Platform",
+		"description": "API collection for user management with JWT authentication and role-based access control",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test response status",
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"// Parse response",
+									"const response = pm.response.json();",
+									"",
+									"// Validate response structure",
+									"pm.test(\"Response has required fields\", function () {",
+									"    pm.expect(response).to.have.property('id');",
+									"    pm.expect(response).to.have.property('username');",
+									"    pm.expect(response).to.have.property('email');",
+									"    pm.expect(response).to.have.property('role');",
+									"    pm.expect(response).to.have.property('created_at');",
+									"});",
+									"",
+									"// Verify default role is guest",
+									"pm.test(\"Default role is guest\", function () {",
+									"    pm.expect(response.role).to.eql('guest');",
+									"});",
+									"",
+									"// Store user ID for later use",
+									"if (response.id) {",
+									"    pm.collectionVariables.set(\"user_id\", response.id);",
+									"}",
+									"",
+									"console.log(\"Registered user:\", response);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser\",\n    \"email\": \"testuser@example.com\",\n    \"password\": \"SecurePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/register",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "register"]
+						},
+						"description": "Register a new user with guest role"
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test response status",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// Parse response",
+									"const response = pm.response.json();",
+									"",
+									"// Validate response structure",
+									"pm.test(\"Response has access token\", function () {",
+									"    pm.expect(response).to.have.property('access_token');",
+									"    pm.expect(response).to.have.property('token_type');",
+									"    pm.expect(response.token_type).to.eql('bearer');",
+									"});",
+									"",
+									"// Store JWT token",
+									"if (response.access_token) {",
+									"    pm.collectionVariables.set(\"access_token\", response.access_token);",
+									"    console.log(\"JWT token saved to collection variables\");",
+									"}",
+									"",
+									"// Calculate token expiration (24 hours from now)",
+									"const expirationTime = new Date().getTime() + (24 * 60 * 60 * 1000);",
+									"pm.collectionVariables.set(\"token_expiration\", expirationTime);",
+									"",
+									"console.log(\"Login successful. Token expires in 24 hours.\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"testuser@example.com\",\n    \"password\": \"SecurePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Login and receive JWT access token (valid for 24 hours)"
+					}
+				},
+				{
+					"name": "Login as Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test response status",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// Parse response",
+									"const response = pm.response.json();",
+									"",
+									"// Store admin JWT token",
+									"if (response.access_token) {",
+									"    pm.collectionVariables.set(\"admin_token\", response.access_token);",
+									"    console.log(\"Admin JWT token saved\");",
+									"}",
+									"",
+									"// Calculate token expiration",
+									"const expirationTime = new Date().getTime() + (24 * 60 * 60 * 1000);",
+									"pm.collectionVariables.set(\"admin_token_expiration\", expirationTime);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"AdminPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Login as admin user and store admin token"
+					}
+				}
+			],
+			"description": "Authentication endpoints for registration and login"
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get Current User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Check if token exists",
+									"const token = pm.collectionVariables.get(\"access_token\");",
+									"",
+									"if (!token) {",
+									"    console.error(\"No access token found. Please login first.\");",
+									"    throw new Error(\"Authentication required. Run Login request first.\");",
+									"}",
+									"",
+									"// Check token expiration",
+									"const expiration = pm.collectionVariables.get(\"token_expiration\");",
+									"const now = new Date().getTime();",
+									"",
+									"if (expiration && now > expiration) {",
+									"    console.warn(\"Token expired. Please login again.\");",
+									"    pm.collectionVariables.unset(\"access_token\");",
+									"    throw new Error(\"Token expired. Please login again.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"",
+									"pm.test(\"Response has user data\", function () {",
+									"    pm.expect(response).to.have.property('id');",
+									"    pm.expect(response).to.have.property('username');",
+									"    pm.expect(response).to.have.property('email');",
+									"    pm.expect(response).to.have.property('role');",
+									"});",
+									"",
+									"console.log(\"Current user:\", response);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Get current authenticated user profile"
+					}
+				},
+				{
+					"name": "Update Current User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Check token validity",
+									"const token = pm.collectionVariables.get(\"access_token\");",
+									"if (!token) {",
+									"    throw new Error(\"Authentication required. Run Login request first.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"",
+									"pm.test(\"User updated successfully\", function () {",
+									"    pm.expect(response).to.have.property('updated_at');",
+									"});",
+									"",
+									"console.log(\"Updated user:\", response);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"updated_username\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Update current user profile (username, email, or password)"
+					}
+				},
+				{
+					"name": "Change Password",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const token = pm.collectionVariables.get(\"access_token\");",
+									"if (!token) {",
+									"    throw new Error(\"Authentication required. Run Login request first.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Password changed successfully\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('updated_at');",
+									"});",
+									"",
+									"console.log(\"Password changed successfully\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\": \"NewSecurePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Change current user password"
+					}
+				}
+			],
+			"description": "User profile management endpoints"
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Get User by ID",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Use admin token",
+									"const adminToken = pm.collectionVariables.get(\"admin_token\");",
+									"",
+									"if (!adminToken) {",
+									"    throw new Error(\"Admin authentication required. Run 'Login as Admin' request first.\");",
+									"}",
+									"",
+									"// Check admin token expiration",
+									"const expiration = pm.collectionVariables.get(\"admin_token_expiration\");",
+									"const now = new Date().getTime();",
+									"",
+									"if (expiration && now > expiration) {",
+									"    console.warn(\"Admin token expired. Please login again.\");",
+									"    pm.collectionVariables.unset(\"admin_token\");",
+									"    throw new Error(\"Admin token expired. Please login again.\");",
+									"}",
+									"",
+									"// Set admin token for this request",
+									"pm.request.headers.add({",
+									"    key: 'Authorization',",
+									"    value: 'Bearer ' + adminToken",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"",
+									"pm.test(\"Response contains user data\", function () {",
+									"    pm.expect(response).to.have.property('id');",
+									"    pm.expect(response).to.have.property('role');",
+									"});",
+									"",
+									"console.log(\"User details:\", response);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "{{user_id}}"]
+						},
+						"description": "Admin: Get user details by ID"
+					}
+				},
+				{
+					"name": "Promote User Role",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Use admin token",
+									"const adminToken = pm.collectionVariables.get(\"admin_token\");",
+									"",
+									"if (!adminToken) {",
+									"    throw new Error(\"Admin authentication required. Run 'Login as Admin' request first.\");",
+									"}",
+									"",
+									"// Set admin token",
+									"pm.request.headers.add({",
+									"    key: 'Authorization',",
+									"    value: 'Bearer ' + adminToken",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"",
+									"pm.test(\"Role updated successfully\", function () {",
+									"    pm.expect(response).to.have.property('role');",
+									"});",
+									"",
+									"console.log(\"User role updated:\", response);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"role\": \"user\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/{{user_id}}/role",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "{{user_id}}", "role"]
+						},
+						"description": "Admin: Change user role (guest/user/admin)"
+					}
+				},
+				{
+					"name": "Reset User Password",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Use admin token",
+									"const adminToken = pm.collectionVariables.get(\"admin_token\");",
+									"",
+									"if (!adminToken) {",
+									"    throw new Error(\"Admin authentication required. Run 'Login as Admin' request first.\");",
+									"}",
+									"",
+									"// Set admin token",
+									"pm.request.headers.add({",
+									"    key: 'Authorization',",
+									"    value: 'Bearer ' + adminToken",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const response = pm.response.json();",
+									"",
+									"pm.test(\"Password reset successful\", function () {",
+									"    pm.expect(response).to.have.property('updated_at');",
+									"});",
+									"",
+									"console.log(\"User password reset:\", response);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"new_password\": \"ResetPassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/{{user_id}}/reset-password",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "{{user_id}}", "reset-password"]
+						},
+						"description": "Admin: Reset user password"
+					}
+				}
+			],
+			"description": "Admin-only endpoints for user management"
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Root",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has message\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('message');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						},
+						"description": "API root endpoint"
+					}
+				},
+				{
+					"name": "Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Health status is healthy\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.status).to.eql('healthy');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Health check endpoint"
+					}
+				}
+			],
+			"description": "API health check endpoints"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global pre-request script",
+					"// Runs before every request in the collection",
+					"",
+					"console.log(\"=== Request:\", pm.info.requestName, \"===\");",
+					"console.log(\"URL:\", pm.request.url.toString());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test script",
+					"// Runs after every request in the collection",
+					"",
+					"// Log response time",
+					"console.log(\"Response time:\", pm.response.responseTime, \"ms\");",
+					"",
+					"// Log status code",
+					"console.log(\"Status:\", pm.response.code, pm.response.status);",
+					"",
+					"// Check for common errors",
+					"if (pm.response.code >= 400) {",
+					"    console.error(\"Error response:\", pm.response.json());",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "token_expiration",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_token_expiration",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

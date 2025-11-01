@@ -32,3 +32,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# IDE
+.idea/
+.vscode/
