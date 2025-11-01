@@ -1,0 +1,247 @@
+.tournaments-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.tournaments-header {
+  margin-bottom: 2rem;
+}
+
+.tournaments-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+}
+
+.tournaments-header p {
+  color: #888;
+  font-size: 1.1rem;
+}
+
+.tournaments-controls {
+  margin-bottom: 2rem;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.5rem;
+  background: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-buttons button {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 500;
+}
+
+.filter-buttons button:hover {
+  background: #2a2a2a;
+  color: #ddd;
+}
+
+.filter-buttons button.active {
+  background: #667eea;
+  color: white;
+}
+
+.tournaments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.tournament-card {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.tournament-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.tournament-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.tournament-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  flex: 1;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-upcoming {
+  background: #f59e0b22;
+  color: #f59e0b;
+}
+
+.status-active {
+  background: #ef444422;
+  color: #ef4444;
+}
+
+.status-completed {
+  background: #10b98122;
+  color: #10b981;
+}
+
+.tournament-details {
+  margin-bottom: 1.5rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row .label {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.detail-row .value {
+  font-weight: 500;
+}
+
+.detail-row .prize {
+  color: #f59e0b;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.participants-section {
+  margin-bottom: 1.5rem;
+}
+
+.participants-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s;
+}
+
+.tournament-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tournament-actions button {
+  flex: 1;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5568d3;
+}
+
+.btn-secondary {
+  background: #2a2a2a;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #3a3a3a;
+}
+
+@media (prefers-color-scheme: light) {
+  .filter-buttons {
+    background: #f5f5f5;
+  }
+
+  .filter-buttons button {
+    color: #666;
+  }
+
+  .filter-buttons button:hover {
+    background: #e0e0e0;
+    color: #333;
+  }
+
+  .tournament-card {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .tournament-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .detail-row {
+    border-bottom-color: #e0e0e0;
+  }
+
+  .progress-bar {
+    background: #e0e0e0;
+  }
+
+  .btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+  }
+
+  .btn-secondary:hover {
+    background: #d0d0d0;
+  }
+}
+
+@media (max-width: 768px) {
+  .tournaments-grid {
+    grid-template-columns: 1fr;
+  }
+}

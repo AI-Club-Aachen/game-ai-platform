@@ -1,0 +1,362 @@
+.live-games-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+}
+
+.page-header p {
+  color: #888;
+  font-size: 1.1rem;
+}
+
+.live-indicator {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.1rem;
+}
+
+.pulse {
+  width: 12px;
+  height: 12px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.game-card {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.game-type {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+}
+
+.viewers {
+  color: #888;
+  font-size: 0.95rem;
+}
+
+.players-section {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.player.player2 {
+  flex-direction: row-reverse;
+}
+
+.player-info {
+  flex: 1;
+}
+
+.player.player2 .player-info {
+  text-align: right;
+}
+
+.player-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.agent-name {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.player-score {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.vs-divider {
+  color: #888;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.game-progress {
+  margin-bottom: 1rem;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.progress-bar {
+  height: 6px;
+  background: #2a2a2a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s;
+}
+
+.btn-watch {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-watch:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.spectator-view {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.btn-back {
+  padding: 0.75rem 1.5rem;
+  background: #2a2a2a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 1.5rem;
+  transition: all 0.3s;
+}
+
+.btn-back:hover {
+  background: #3a3a3a;
+}
+
+.game-viewer {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.viewer-header {
+  margin-bottom: 2rem;
+}
+
+.player-info-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.player-details {
+  text-align: center;
+}
+
+.player-details h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+}
+
+.player-details p {
+  color: #888;
+  margin: 0 0 1rem 0;
+}
+
+.score-large {
+  font-size: 3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.vs-large {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #888;
+}
+
+.game-canvas {
+  background: #0a0a0a;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.canvas-placeholder {
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-board {
+  text-align: center;
+}
+
+.board-message h2 {
+  margin: 0 0 1rem 0;
+  font-size: 2rem;
+}
+
+.board-message p {
+  color: #888;
+  font-size: 1.2rem;
+  margin: 0.5rem 0;
+}
+
+.live-badge {
+  color: #ef4444 !important;
+  font-weight: 700;
+  font-size: 1.5rem !important;
+  margin-top: 1rem !important;
+}
+
+.game-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.stat-box {
+  background: #2a2a2a;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat-label {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: light) {
+  .live-indicator,
+  .game-card,
+  .game-viewer {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .progress-bar {
+    background: #e0e0e0;
+  }
+
+  .btn-back {
+    background: #e0e0e0;
+    color: #333;
+  }
+
+  .btn-back:hover {
+    background: #d0d0d0;
+  }
+
+  .stat-box {
+    background: #f5f5f5;
+  }
+
+  .game-canvas {
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+  }
+}
+
+@media (max-width: 768px) {
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-info-header {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .vs-large {
+    transform: rotate(90deg);
+  }
+
+  .game-stats {
+    grid-template-columns: 1fr;
+  }
+}

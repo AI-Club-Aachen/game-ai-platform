@@ -1,0 +1,262 @@
+.leaderboard-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.leaderboard-header {
+  margin-bottom: 2rem;
+}
+
+.leaderboard-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+}
+
+.leaderboard-header p {
+  color: #888;
+  font-size: 1.1rem;
+}
+
+.game-selector {
+  margin-bottom: 2rem;
+}
+
+.game-selector label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #aaa;
+}
+
+.game-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  background: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+.game-tabs button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 500;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.game-tabs button:hover {
+  background: #2a2a2a;
+  color: #ddd;
+}
+
+.game-tabs button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.leaderboard-controls {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timeframe-selector {
+  display: flex;
+  gap: 0.5rem;
+  background: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+.timeframe-selector button {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 500;
+}
+
+.timeframe-selector button:hover {
+  background: #2a2a2a;
+  color: #ddd;
+}
+
+.timeframe-selector button.active {
+  background: #667eea;
+  color: white;
+}
+
+.leaderboard-table-container {
+  background: #1e1e1e;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table thead {
+  background: #2a2a2a;
+}
+
+.leaderboard-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #aaa;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.leaderboard-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.leaderboard-table tbody tr {
+  transition: background 0.2s;
+}
+
+.leaderboard-table tbody tr:hover {
+  background: #252525;
+}
+
+.leaderboard-table tbody tr.top-three {
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(30, 30, 30, 0) 100%);
+}
+
+.rank-badge {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.agent-name {
+  color: #667eea;
+  font-weight: 500;
+}
+
+.language-tag {
+  background: #2a2a2a;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  color: #10b981;
+}
+
+.score {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.wins {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.losses {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.win-rate {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.win-rate-bar {
+  flex: 1;
+  height: 8px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.win-rate-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  transition: width 0.3s;
+}
+
+.win-rate span {
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}
+
+@media (prefers-color-scheme: light) {
+  .timeframe-selector {
+    background: #f5f5f5;
+  }
+
+  .timeframe-selector button {
+    color: #666;
+  }
+
+  .timeframe-selector button:hover {
+    background: #e0e0e0;
+    color: #333;
+  }
+
+  .leaderboard-table-container {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .leaderboard-table thead {
+    background: #f5f5f5;
+  }
+
+  .leaderboard-table th {
+    color: #666;
+  }
+
+  .leaderboard-table td {
+    border-bottom-color: #e0e0e0;
+  }
+
+  .leaderboard-table tbody tr:hover {
+    background: #fafafa;
+  }
+
+  .language-tag {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .win-rate-bar {
+    background: #e0e0e0;
+  }
+}
+
+@media (max-width: 768px) {
+  .leaderboard-table {
+    font-size: 0.9rem;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .rank-badge {
+    font-size: 1.2rem;
+  }
+}
