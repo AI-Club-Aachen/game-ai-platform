@@ -39,6 +39,7 @@ class UserResponse(BaseModel):
     username: str
     email: EmailStr
     role: UserRole
+    email_verified: bool
     created_at: datetime
     updated_at: datetime
 

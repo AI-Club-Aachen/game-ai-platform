@@ -19,6 +19,7 @@ dependencies = [
     "passlib[bcrypt]==1.7.4",
     "python-multipart==0.0.20",
     "alembic==1.17.1",
+    "aiosmtplib==5.0.0",
     "email-validator==2.3.0",
 ]
 
@@ -32,17 +33,11 @@ dev = [
     "mypy==1.7.1",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["app", "alembic"]
+
 [tool.uv]
 python-version = "3.11"
-
-[tool.poetry]
-name = "game-ai-platform-backend"
-version = "0.1.0"
-description = "AI Game Competition Platform Backend"
-authors = ["Your Name <you@example.com>"]
-packages = [
-    { include = "app" }
-]
 
 [tool.black]
 line-length = 120

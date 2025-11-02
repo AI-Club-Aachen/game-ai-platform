@@ -1,32 +1,28 @@
 # AI Game Competition Platform - Backend
 
-Secure user management system with FastAPI, PostgreSQL, JWT authentication, and role-based access control.
+Secure user management system with FastAPI, PostgreSQL, JWT authentication, email verification, and role-based access control.
 
 ## Features
 
-* User registration (default role: guest)
-
-* JWT-based authentication (24h expiration)
-
+* User registration with email verification (default role: guest)
+* Email verification with secure tokens (24h expiry)
+* Password reset via email with secure tokens (1h expiry)
+* JWT-based authentication (24h token expiration)
 * Role-based access control (guest, user, admin)
-
 * Password hashing with bcrypt
-
+* Async email sending via SMTP (netcup integration)
 * Strong typing with SQLModel and Pydantic
-
 * PostgreSQL database
+* Docker Compose for local development
 
-* Docker support
 
 ## Setup
 
 ### Prerequisites
 
+* Docker & Docker Compose (recommended)
 * Python 3.11+
-
-* PostgreSQL 16+ (or use Docker)
-
-* `uv` (optional, for local development)
+* PostgreSQL 16+ (included in Docker)
 
 ### Docker Setup (Recommended)
 
@@ -86,31 +82,23 @@ The API will be available at `http://localhost:8000`.
 
 ## Database Migrations
 
-Create a new migration:
+Migrations run automatically on startup. To manually manage:
 
+**Generate migration**
 ```bash
-alembic revision --autogenerate -m "description"
+docker-compose exec backend alembic revision --autogenerate -m "description"
 ```
 
-Apply migrations:
+**Apply migrations**
 
 ```bash
-alembic upgrade head
+docker-compose exec backend alembic upgrade head
 ```
 
-Rollback migration:
+**Rollback migration**
 
 ```bash
-alembic downgrade -1
-```
-
-### Initial Migration
-
-If starting from scratch:
-
-```bash
-alembic revision --autogenerate -m "Initial user model"
-alembic upgrade head
+docker-compose exec backend alembic downgrade -1
 ```
 
 ## API Endpoints
@@ -132,6 +120,24 @@ alembic upgrade head
   * `PATCH /api/v1/users/{user_id}/role` - Admin: Update user role
 
   * `POST /api/v1/users/{user_id}/reset-password` - Admin: Reset user password
+
+### Email Verification
+
+* `POST /api/v1/email/send-verification` - Resend verification email
+  * Requires: Bearer token
+
+* `POST /api/v1/email/verify` - Verify email with token
+  * Request: `token`
+  * Response: User object (email_verified: true)
+
+### Password Reset
+
+* `POST /api/v1/email/request-password-reset` - Request password reset
+  * Request: `email`
+
+* `POST /api/v1/email/reset-password` - Reset password with token
+  * Request: `token`, `new_password`
+
 
 ## User Roles
 
@@ -161,6 +167,26 @@ alembic upgrade head
 
   * Match management and debugging
 
+## Configuration
+
+Create `.env` from `.env.example` and set:
+```bash
+SMTP_HOST=mx2f17.netcup.net
+SMTP_PORT=465
+SMTP_USERNAME=your-netcup-email
+SMTP_PASSWORD=your-netcup-password
+SMTP_FROM_ADDRESS=no-reply@ai-club-aachen.com
+EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS=24
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
+```
+
+Generate secure JWT key:
+```bash
+openssl rand -hex 32
+```
+
+
+
 ## Creating First Admin
 
 Connect to the database and run:
@@ -174,6 +200,19 @@ Or using Docker:
 ```bash
 docker-compose exec db psql -U postgres -d gameai -c "UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';"
 ```
+
+## Email Verification & Password Reset
+
+### Registration Flow
+1. User registers → account created as `email_verified=false`
+2. Verification email sent with secure token (24h expiry)
+3. User clicks link → token verified → account activated
+4. User can now login
+
+### Password Reset Flow
+1. User requests reset → token sent via email (1h expiry)
+2. User clicks link → enters new password → token invalidated
+
 
 ## Security Notes
 
@@ -195,15 +234,24 @@ backend/
 │ ├── api/
 │ │ ├── deps.py # Dependencies (auth, DB session)
 │ │ └── routes/ # Route handlers
+│   └── routes/
+│       ├── auth.py            # Registration & login
+│       ├── email.py           # Email verification & password reset
+│       └── users.py           # User management
 │ ├── core/
-│ │ ├── config.py # Settings
-│ │ └── security.py # JWT & password hashing
+│ │   ├── config.py            # Environment settings
+│ │   ├── security.py          # JWT & password hashing
+│ │   ├── email.py             # Email service (SMTP)
+│ │   └── tokens.py            # Token generation & verification
 │ ├── db/
 │ │ ├── base.py # SQLModel base
 │ │ ├── connection.py # Database engine
 │ │ └── session.py # Session dependency
 │ ├── models/ # SQLModel database models
-│ ├── schemas/ # Pydantic request/response schemas
+│ ├── schemas/
+│ │   ├── auth.py              # Auth schemas
+│ │   ├── email.py             # Email verification schemas
+│ │   └── user.py              # User schemas
 │ └── main.py # FastAPI application
 ├── alembic/ # Database migrations
 ├── Dockerfile

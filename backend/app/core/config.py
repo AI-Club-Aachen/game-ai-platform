@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_HOURS: int = 24
 
+    # SMTP Configuration
+    SMTP_HOST: str
+    SMTP_PORT: int = 465
+    SMTP_USERNAME: str
+    SMTP_PASSWORD: str
+    SMTP_FROM_ADDRESS: str
+    SMTP_FROM_NAME: str
+    SMTP_USE_TLS: bool = True
+
+    # Email Verification
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60
+
     # Application
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Game Competition Platform"
