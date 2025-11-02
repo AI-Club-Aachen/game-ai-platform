@@ -1,0 +1,30 @@
+services:
+  github-runner-1:
+    build:
+      context: .
+      args:
+        DOCKER_GID: ${DOCKER_GID:-999}
+    container_name: github-runner-1
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+    environment:
+      - RUNNER_NAME=dockerNode-1
+
+  github-runner-2:
+    build:
+      context: .
+      args:
+        DOCKER_GID: ${DOCKER_GID:-999}
+    container_name: github-runner-2
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+    environment:
+      - RUNNER_NAME=dockerNode-2
