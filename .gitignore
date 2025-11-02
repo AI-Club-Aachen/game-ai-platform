@@ -23,6 +23,10 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Package manager
+poetry.lock
+uv.lock
+
 # Environments
 .env
 .envrc
