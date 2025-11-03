@@ -1,11 +1,19 @@
-from typing import Annotated
+"""API dependencies for authentication and database access"""
+
+import logging
+from typing import Annotated, Optional
 from uuid import UUID
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
+
+from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.session import get_session
 from app.models.user import User, UserRole
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -14,38 +22,59 @@ def get_current_user(
         credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
         session: Annotated[Session, Depends(get_session)]
 ) -> User:
-    """Dependency to get current authenticated user"""
+    """
+    Dependency to get current authenticated user from JWT token.
+
+    Args:
+        credentials: Bearer token from request header
+        session: Database session
+
+    Returns:
+        User: The authenticated user object
+
+    Raises:
+        HTTPException: 401 if token is invalid or user not found
+    """
     token = credentials.credentials
+
+    # Decode token with validation
     payload = decode_access_token(token)
 
     if payload is None:
+        logger.warning(f"Invalid token attempted from client")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id_str: str | None = payload.get("sub")
+    # Extract user ID from token
+    user_id_str: Optional[str] = payload.get("sub")
     if user_id_str is None:
+        logger.warning("Token missing 'sub' claim")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Parse UUID
     try:
         user_id = UUID(user_id_str)
-    except ValueError:
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Invalid UUID in token: {user_id_str}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token format",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Fetch user from database
     statement = select(User).where(User.id == user_id)
     user = session.exec(statement).first()
 
     if user is None:
+        logger.warning(f"User not found for ID: {user_id}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
@@ -58,10 +87,134 @@ def get_current_user(
 def get_current_admin(
         current_user: Annotated[User, Depends(get_current_user)]
 ) -> User:
-    """Dependency to ensure current user is an admin"""
+    """
+    Dependency to ensure current user has admin role.
+
+    Args:
+        current_user: The authenticated user
+
+    Returns:
+        User: The admin user
+
+    Raises:
+        HTTPException: 403 if user is not admin
+    """
     if current_user.role != UserRole.ADMIN:
+        logger.warning(f"Non-admin user {current_user.id} attempted admin action")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin role required.",
+            detail="Insufficient permissions. Admin role required.",
         )
     return current_user
+
+
+def get_optional_current_user(
+        session: Annotated[Session, Depends(get_session)],
+        credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)] = None
+) -> Optional[User]:
+    """
+    Optional dependency for endpoints that support both authenticated and anonymous access.
+    Returns None if no valid token is provided, otherwise returns the user.
+
+    Args:
+        session: Database session
+        credentials: Optional Bearer token from request header
+
+    Returns:
+        Optional[User]: The user if authenticated, None if not
+    """
+    if credentials is None:
+        return None
+
+    token = credentials.credentials
+    payload = decode_access_token(token)
+
+    if payload is None:
+        logger.debug("Invalid optional token")
+        return None
+
+    user_id_str: Optional[str] = payload.get("sub")
+    if user_id_str is None:
+        logger.debug("Optional token missing 'sub' claim")
+        return None
+
+    try:
+        user_id = UUID(user_id_str)
+    except (ValueError, TypeError):
+        logger.debug("Invalid UUID in optional token")
+        return None
+
+    statement = select(User).where(User.id == user_id)
+    user = session.exec(statement).first()
+
+    if user is None:
+        logger.debug(f"User not found for optional auth: {user_id}")
+        return None
+
+    return user
+
+
+def verify_email_verified(
+        current_user: Annotated[User, Depends(get_current_user)]
+) -> User:
+    """
+    Dependency to ensure user has verified their email.
+
+    Args:
+        current_user: The authenticated user
+
+    Returns:
+        User: The user with verified email
+
+    Raises:
+        HTTPException: 403 if email is not verified
+    """
+    if not current_user.email_verified:
+        logger.warning(f"Unverified user {current_user.id} attempted action requiring verification")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email verification required to access this resource.",
+        )
+    return current_user
+
+
+def verify_user_role(required_role: UserRole):
+    """
+    Factory function to create a dependency that verifies user has a specific role.
+
+    Args:
+        required_role: The minimum required role
+
+    Returns:
+        Callable: Dependency function
+
+    Example:
+        @app.get("/endpoint")
+        def endpoint(user: User = Depends(verify_user_role(UserRole.USER))):
+            ...
+    """
+
+    def check_role(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+        """Check if user has required role"""
+        role_hierarchy = {
+            UserRole.GUEST: 0,
+            UserRole.USER: 1,
+            UserRole.ADMIN: 2,
+        }
+
+        if role_hierarchy.get(current_user.role, -1) < role_hierarchy.get(required_role, -1):
+            logger.warning(f"User {current_user.id} with role {current_user.role} attempted {required_role} action")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This action requires {required_role.value} role or higher.",
+            )
+        return current_user
+
+    return check_role
+
+
+# Type aliases for common dependencies
+CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentAdmin = Annotated[User, Depends(get_current_admin)]
+VerifiedUser = Annotated[User, Depends(verify_email_verified)]
+OptionalUser = Annotated[Optional[User], Depends(get_optional_current_user)]
