@@ -7,6 +7,7 @@ class MoveBase():
     """
     Base class for move representations.
     """
+
     @classmethod
     def from_json(cls, json_str: str):
         """

@@ -18,6 +18,7 @@ class State(GameStateBase):
 
     Additionally, an integer that indicates which player's turn it is.
     """
+
     def __init__(self):
         self.board = [-1] * 9  # Initialize an empty board
         self.current_player = 0  # Start with player 0

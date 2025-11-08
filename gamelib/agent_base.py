@@ -3,17 +3,25 @@ Base class for game agent implementations.
 Provides common functionality and interfaces for different game agents.
 """
 
+from gamelib.gamestate_base import GameStateBase as State
+from gamelib.move_base import MoveBase as Move
+
+
 class AgentBase():
+    """
+    Base class for game agent implementations.
+    """
+
     def __init__(self):
         """
         Initialize the agent and game loop.
         """
-        self._read_init()
-        self.initialize()
+        init_data = self._read_init()
+        self.initialize(init_data)
         while True:
-            self._read_state()
-            move = self.get_move()
-            print(move)
+            state: State = self._read_state()
+            move: Move = self.get_move(state)
+            self._write_output(move.to_json())
 
     def _read_input(self):
         """
@@ -24,25 +32,31 @@ class AgentBase():
         except EOFError as eof:
             raise SystemExit(eof)
 
+    def _write_output(self, output: str):
+        """
+        Writes output to stdout
+        """
+        print(output)
+
     def _read_init(self):
         """
-        Reads initialization input for the agent.
+        Reads initialization input for the agent and returns it as a dictionary.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def initialize(self):
+    def initialize(self, init_data: dict):
         """
         Initialize the agent before the game starts.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def _read_state(self):
+    def _read_state(self) -> State:
         """
-        Reads the current game state input for the agent.
+        Reads the current game state input for the agent and returns it as a State object.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def get_move(self):
+    def get_move(self) -> Move:
         """
         Decide on a move based on the current game state.
         """

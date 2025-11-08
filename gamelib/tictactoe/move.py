@@ -11,6 +11,7 @@ class Move(MoveBase):
     """
     Tic-Tac-Toe move representation.
     """
+
     def __init__(self, player: int, position: int):
         self.player = player
         self.position = position

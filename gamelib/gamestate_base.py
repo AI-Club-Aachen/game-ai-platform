@@ -7,6 +7,7 @@ class GameStateBase():
     """
     Base class for game state representations.
     """
+
     def clone(self):
         """
         Return a deep copy of the game state.

@@ -7,22 +7,36 @@ from gamelib.tictactoe.gamestate import State
 
 
 class Agent(AgentBase):
-    def __init__(self):
-        super().__init__()
+    """
+    Base Tic-Tac-Toe Agent Implementation.
+    Inherits from the generic AgentBase and implements Tic-Tac-Toe specific input reading.
+    To implement a Tic-Tac-Toe agent, subclass this Agent class and override the initialize and get_move methods.
+    Do not override __init__; use initialize() instead.
+    """
+
+    def __init__(self, run_init: bool = True):
+        """
+        Initialize the Tic-Tac-Toe agent.
+        Args:
+            run_init (bool): Whether to run the init loop.
+        """
+        if run_init:
+            super().__init__()
     
-    def _read_init(self):
+    def _read_init(self) -> dict:
         """
         Reads initialization input for the agent.
         In this case, player id.
         """
         init_input = self._read_input()
         init_state = State.from_json(init_input)
-        self.player_id = init_state.current_player  # Assuming init input contains which player the agent is
+        player_id = init_state.current_player  # Assuming init input contains which player the agent is
+        return {"player_id": player_id}
 
-    def _read_state(self):
+    def _read_state(self) -> State:
         """
         Reads the current Tic-Tac-Toe game state input for the agent.
         """
         state_input = self._read_input()
-        cur_state = State.from_json(state_input)
-        self.state = cur_state
+        state = State.from_json(state_input)
+        return state
