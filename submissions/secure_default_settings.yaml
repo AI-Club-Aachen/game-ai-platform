@@ -1,0 +1,10 @@
+cap_drop: ["ALL"]
+security_opt: ["no-new-privileges"]
+read_only: true
+tmpfs: ["/tmp", "/run"]
+pids_limit: 256
+ulimit_nofile: "1024:1024"
+cpus: 1.0
+memory: "512m"
+network: "none"
+stop_timeout: 2
