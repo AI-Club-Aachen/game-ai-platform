@@ -1,0 +1,15 @@
+# Ignored by default for agent submissions
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+.git/
+.gitignore
+.env
+*.ipynb
+dist/
+build/
+venv/
+*.log
+.DS_Store

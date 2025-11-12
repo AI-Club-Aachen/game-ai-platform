@@ -1,4 +1,4 @@
-cap_drop: ["ALL"]
+cap_drop: ["ALL"]  # sobald hier was fehlschlägt, können wir die erhöhen, aktuell nämlich gar keine capabilities
 security_opt: ["no-new-privileges"]
 read_only: true
 tmpfs: ["/tmp", "/run"]
