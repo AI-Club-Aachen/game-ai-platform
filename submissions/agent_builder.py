@@ -50,7 +50,6 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
             raise BuildError("agent.py fehlt in der ZIP.")
         
         # .dockerignore wird hinzugefügt, falls der User keins drin hat
-        # .dockerignore hinzufügen (falls der User keins mitliefert)
         di = ctx / ".dockerignore"
         if not di.exists():
             if DEFAULT_DOCKERIGNORE_PATH.exists():
@@ -82,4 +81,28 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
         "size": image.attrs.get("Size")
     }
 
-    
+if __name__ == "__main__":
+    import argparse
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="Build an agent image from a ZIP file.")
+    parser.add_argument("zip_path", help="Path to the agent ZIP.")
+    parser.add_argument("--owner", default="localtest", help="Owner ID label.")
+    args = parser.parse_args()
+
+    zip_file = Path(args.zip_path)
+    if not zip_file.exists():
+        print("ZIP not found:", zip_file)
+        exit(1)
+
+    data = zip_file.read_bytes()
+
+    try:
+        result = build_from_zip(data, owner_id=args.owner)
+        print("Build completed.")
+        print("Image ID:", result["image_id"])
+        print("Tag:", result["tag"])
+        print("Size:", result["size"])
+    except Exception as e:
+        print("Build failed:", e)
+        exit(1)
