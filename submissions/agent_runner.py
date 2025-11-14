@@ -33,8 +33,67 @@ def build_docker_run_kwargs(settings):
     return {k: settings[k] for k in allowed if k in settings}
 
 def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
-    return {}
+    client = docker.from_env()
+    settings = load_secure_defaults()
+    run_kwargs = build_docker_run_kwargs(settings)
 
+    env = settings.get("env, {}").copy()
+    if extra_env:
+        env.update(extra_env)
+
+    time_limit = settings.get("time_limit_seconds", 30)
+    log_tail = settings.get("log_tail", 10000)
+
+    try:
+        container = client.containers.run(
+            image_ref,
+            detach=True,
+            environment=env,
+            **run_kwargs
+        )
+    except docker.errors.ImageNotFound:
+        raise RunError(f"Image not found: {image_ref}")
+    except Exception as e:
+        raise RunError(f"Failed to start container: {e}")
+    
+    timeout_flag = False
+    exit_code = None
+
+    try:
+        # wait for container with timeout
+        result = container.wait(timeout=time_limit)
+        exit_code = result.get("StatusCode")
+    except Exception:
+        # timeout or container hang
+        timeout_flag = True
+        try:
+            container.stop(timeout=run_kwargs.get("stop_timeout", 2))
+        except Exception:
+            pass
+        try:
+            container.kill()
+        except Exception:
+            pass
+        exit_code = 124 # standard timeout code
+
+    try:
+        raw_logs = container.logs(stdout=True, stderr=True, tail=log_tail)
+    except Exception:
+        raw_logs = b""
+
+    logs = raw_logs.decode(errors="replace")
+
+    try:
+        container.remove(force=True)
+    except Exception:
+        pass
+
+    return {
+        "exit_code": exit_code,
+        "timeout": timeout_flag,
+        "logs": logs,
+        "container_id": container.id
+    }
 
 
 if __name__ == "__main__":
