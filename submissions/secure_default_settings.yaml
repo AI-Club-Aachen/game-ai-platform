@@ -1,10 +1,28 @@
-cap_drop: ["ALL"]  # sobald hier was fehlschlägt, können wir die erhöhen, aktuell nämlich gar keine capabilities
+# runtime security
+cap_drop: ["ALL"]   # sobald deswegen was kaputtgeht, die entsprechende Berechtigung geben
 security_opt: ["no-new-privileges"]
 read_only: true
-tmpfs: ["/tmp", "/run"]
+
+# tmpfs mounts with secure options
+tmpfs:
+  "/tmp": "rw,noexec,nosuid,nodev"
+  "/run": "rw,noexec,nosuid,nodev"
+
+# limits
 pids_limit: 256
-ulimit_nofile: "1024:1024"
-cpus: 1.0
-memory: "512m"
-network: "none"
+ulimits:
+  - name: "nofile"
+    soft: 1024
+    hard: 1024
+
+# resources
+mem_limit: "512m"
+nano_cpus: 1000000000   # = 1 CPU
+
+# network + container shutdown
+network_mode: "none"
 stop_timeout: 2
+
+# runtime
+time_limit_seconds: 30
+log_tail: 10000
