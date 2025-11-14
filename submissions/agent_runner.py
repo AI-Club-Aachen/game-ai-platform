@@ -27,8 +27,7 @@ def build_docker_run_kwargs(settings):
         "ulimits",
         "mem_limit",
         "nano_cpus",
-        "network_mode",
-        "stop_timeout",
+        "network_mode"
     ]
     return {k: settings[k] for k in allowed if k in settings}
 
@@ -37,12 +36,14 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
     settings = load_secure_defaults()
     run_kwargs = build_docker_run_kwargs(settings)
 
-    env = settings.get("env, {}").copy()
+    base_env = settings.get("env") or {}
+    env = dict(base_env)
     if extra_env:
         env.update(extra_env)
 
     time_limit = settings.get("time_limit_seconds", 30)
     log_tail = settings.get("log_tail", 10000)
+    stop_timeout = settings.get("stop_timeout", 2)
 
     try:
         container = client.containers.run(
@@ -55,19 +56,17 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
         raise RunError(f"Image not found: {image_ref}")
     except Exception as e:
         raise RunError(f"Failed to start container: {e}")
-    
+
     timeout_flag = False
     exit_code = None
 
     try:
-        # wait for container with timeout
         result = container.wait(timeout=time_limit)
         exit_code = result.get("StatusCode")
     except Exception:
-        # timeout or container hang
         timeout_flag = True
         try:
-            container.stop(timeout=run_kwargs.get("stop_timeout", 2))
+            container.stop(timeout=stop_timeout)
         except Exception:
             pass
         try:
