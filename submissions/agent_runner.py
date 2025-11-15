@@ -11,13 +11,13 @@ class RunError(Exception):
     pass
 
 
-def load_secure_defaults() -> dict:
+def _load_secure_defaults() -> dict:
     settings_path = Path(__file__).parent / "secure_default_settings.yaml"
     if not settings_path.exists():
         raise RunError("secure_default_settings.yaml not found.")
     return yaml.safe_load(settings_path.read_text(encoding="utf-8"))
 
-def build_docker_run_kwargs(settings):
+def _build_docker_run_kwargs(settings):
     allowed = [
         "cap_drop",
         "security_opt",
@@ -31,10 +31,24 @@ def build_docker_run_kwargs(settings):
     ]
     return {k: settings[k] for k in allowed if k in settings}
 
+# ---------------------------------------------------------------------------
+# INTERNAL USE ONLY
+# ---------------------------------------------------------------------------
+
 def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
+    """
+    Run an agent image as a blocking task.
+
+    This method is intended for local tests or short debug runs.
+    It should not be used for real matches, because it waits for the
+    container to finish and removes it afterwards.
+
+    Use start_agent_container() for actual match execution.
+    """
+
     client = docker.from_env()
-    settings = load_secure_defaults()
-    run_kwargs = build_docker_run_kwargs(settings)
+    settings = _load_secure_defaults()
+    run_kwargs = _build_docker_run_kwargs(settings)
 
     base_env = settings.get("env") or {}
     env = dict(base_env)
@@ -93,6 +107,72 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
         "logs": logs,
         "container_id": container.id
     }
+
+# ---------------------------------------------------------------------------
+# PUBLIC API – for match execution
+# ---------------------------------------------------------------------------
+
+def start_agent_container(
+        image_ref: str,
+        *,
+        match_id: str,
+        agent_id: str,
+        owner_id: str,
+        extra_env: dict[str, str] | None = None,
+        name: str | None = None
+) -> dict:
+    """
+    Start a long-running agent container for a match.
+
+    The container runs independently and is not removed automatically.
+    It stays active until stopped or deleted by management functions.
+
+    Returns a dict containing:
+        container_id: Docker container ID
+        name:         assigned container name
+        image:        image reference used
+    """
+    
+    client = docker.from_env()
+    settings = _load_secure_defaults()
+    run_kwargs = _build_docker_run_kwargs(settings)
+
+    base_env = settings.get("env") or {}
+    env = dict(base_env)
+    if extra_env:
+        env.update(extra_env)
+
+    if name is None:
+        name = f"match-{match_id}-agent-{agent_id}"
+    
+    labels = {
+        "org.gameai.kind": "agent-container",
+        "org.gameai.owner_id": owner_id,
+        "org.gameai.agent_id": agent_id,
+        "org.gameai.match_id": match_id
+    }
+
+    try:
+        container = client.containers.run(
+            image_ref,
+            detach=True,
+            name=name,
+            environment=env,
+            labels=labels,
+            **run_kwargs
+        )
+    except docker.errors.ImageNotFound:
+        raise RunError(f"Image not found: {image_ref}")
+    except Exception as e:
+        raise RunError(f"Failed to start container: {e}")
+    
+    return {
+        "conatiner_id": container.id,
+        "name": container.name,
+        "image": image_ref
+    }
+
+
 
 
 if __name__ == "__main__":

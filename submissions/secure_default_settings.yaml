@@ -19,9 +19,8 @@ ulimits:
 mem_limit: "512m"
 nano_cpus: 1000000000   # = 1 CPU
 
-# network + container shutdown
+# network
 network_mode: "none"
-stop_timeout: 2
 
 # runtime
 time_limit_seconds: 30
