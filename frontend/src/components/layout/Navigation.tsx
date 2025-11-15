@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { SportsEsports } from '@mui/icons-material';
 import './Navigation.css';
 
 export function Navigation() {
@@ -8,8 +9,17 @@ export function Navigation() {
   return (
     <nav className="navigation">
       <div className="nav-container">
-        <Link to="/" className="nav-logo">
-          <h2>🎮 Game AI Platform</h2>
+        <Link to="/home" className="nav-logo" style={{ 
+          background: 'linear-gradient(90deg, #00D98B 0%, #00A6FF 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          <SportsEsports style={{ fontSize: '2rem', color: '#00A6FF' }} />
+          <h2>AICA Game Platform</h2>
         </Link>
         
         <div className="nav-links">

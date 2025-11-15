@@ -25,7 +25,7 @@
 .nav-logo h2 {
   margin: 0;
   font-size: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(90deg, #00D98B 0%, #00A6FF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -47,7 +47,7 @@
 
 .nav-links a:hover {
   background: #2a2a2a;
-  color: #667eea;
+  color: #00A6FF;
 }
 
 .admin-dropdown {
@@ -59,7 +59,7 @@
   background: transparent;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 6px;
+  border-radius: 0;
   transition: all 0.3s;
   cursor: pointer;
   font-size: 1rem;
@@ -76,7 +76,7 @@
 
 .admin-dropdown-trigger:hover {
   background: #2a2a2a;
-  color: #667eea;
+  color: #00A6FF;
 }
 
 .dropdown-arrow {
@@ -94,7 +94,7 @@
   right: 0;
   background: #2a2a2a;
   border: 1px solid #444;
-  border-radius: 6px;
+  border-radius: 0;
   min-width: 200px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   margin-top: 0.25rem;
@@ -149,6 +149,7 @@
   transition: all 0.2s;
   border-radius: 0;
   position: relative;
+  text-align: center;
 }
 
 .admin-dropdown-menu a:first-child {
@@ -156,8 +157,8 @@
 }
 
 .admin-dropdown-menu a:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #2a2a2a;
+  color: #00A6FF;
 }
 
 .nav-auth {
@@ -185,38 +186,28 @@
 .btn-primary, .btn-secondary, .btn-admin {
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 400;
   transition: all 0.3s;
+  background: transparent;
+  color: #ddd;
 }
 
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5568d3;
+.btn-primary:hover, .btn-admin:hover {
+  background: #2a2a2a;
+  color: #00A6FF;
 }
 
 .btn-secondary {
-  background: #333;
-  color: white;
+  background: transparent;
+  color: #ddd;
 }
 
 .btn-secondary:hover {
-  background: #444;
-}
-
-.btn-admin {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
-}
-
-.btn-admin:hover {
-  opacity: 0.9;
+  background: #2a2a2a;
+  color: #00A6FF;
 }
 
 @media (prefers-color-scheme: light) {
@@ -231,6 +222,7 @@
 
   .nav-links a:hover {
     background: #f5f5f5;
+    color: #00A6FF;
   }
 
   .admin-dropdown-trigger {
@@ -239,7 +231,7 @@
 
   .admin-dropdown-trigger:hover {
     background: #f5f5f5;
-    color: #667eea;
+    color: #00A6FF;
   }
 
   .admin-dropdown-menu {

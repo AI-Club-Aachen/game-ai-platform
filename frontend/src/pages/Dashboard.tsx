@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext';
-import './Dashboard.css';
+import { Box, Container, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
+import { AdminPanelSettings, Dashboard as DashboardIcon, Settings } from '@mui/icons-material';
 
 interface Submission {
   id: string;
@@ -36,140 +37,177 @@ export function Dashboard() {
     { id: '3', name: 'GammaNet', language: 'Python', wins: 52, losses: 8, rank: 1, lastActive: '2025-11-01' },
   ];
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'success';
+      case 'pending': return 'warning';
+      case 'rejected': return 'error';
+      default: return 'default';
+    }
+  };
+
   if (!user) {
     return (
-      <div className="dashboard">
-        <div className="not-logged-in">
-          <h2>Please log in to view your dashboard</h2>
-          <p>Use the login buttons in the navigation to continue</p>
-        </div>
-      </div>
+      <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
+        <Typography variant="h4" gutterBottom>
+          Please log in to view your dashboard
+        </Typography>
+        <Typography color="text.secondary">
+          Use the login buttons in the navigation to continue
+        </Typography>
+      </Container>
     );
   }
 
   return (
-    <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>{isAdmin ? '👑 Admin Dashboard' : '📊 User Dashboard'}</h1>
-        <p>Welcome back, {user.username}!</p>
-      </div>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isAdmin ? <><AdminPanelSettings /> Admin Dashboard</> : <><DashboardIcon /> User Dashboard</>}
+        </Typography>
+        <Typography color="text.secondary">
+          Welcome back, {user.username}!
+        </Typography>
+      </Box>
 
-      <div className="dashboard-grid">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {/* Submissions Section */}
-        <section className="dashboard-card">
-          <h2>📤 Recent Submissions</h2>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Agent Name</th>
-                  <th>Version</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th>Score</th>
-                  {isAdmin && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map(sub => (
-                  <tr key={sub.id}>
-                    <td>{sub.agentName}</td>
-                    <td><code>{sub.version}</code></td>
-                    <td>
-                      <span className={`status status-${sub.status}`}>
-                        {sub.status}
-                      </span>
-                    </td>
-                    <td>{sub.submittedAt}</td>
-                    <td>{sub.score || '-'}</td>
-                    {isAdmin && (
-                      <td>
-                        <button className="btn-small">Review</button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button className="btn-primary">+ New Submission</button>
-        </section>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              📤 Recent Submissions
+            </Typography>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Agent Name</TableCell>
+                    <TableCell>Version</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Submitted</TableCell>
+                    <TableCell>Score</TableCell>
+                    {isAdmin && <TableCell>Actions</TableCell>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {submissions.map(sub => (
+                    <TableRow key={sub.id}>
+                      <TableCell>{sub.agentName}</TableCell>
+                      <TableCell>
+                        <Typography component="code" sx={{ fontSize: '0.875rem', backgroundColor: '#333', px: 1, py: 0.5, borderRadius: 0 }}>
+                          {sub.version}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={sub.status} color={getStatusColor(sub.status) as any} size="small" />
+                      </TableCell>
+                      <TableCell>{sub.submittedAt}</TableCell>
+                      <TableCell>{sub.score || '-'}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <Button variant="outlined" size="small">Review</Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Box sx={{ mt: 2 }}>
+              <Button variant="contained">+ New Submission</Button>
+            </Box>
+          </CardContent>
+        </Card>
 
         {/* Agent Tracking Section */}
-        <section className="dashboard-card">
-          <h2>🤖 Agent Tracking</h2>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Language</th>
-                  <th>W/L</th>
-                  <th>Rank</th>
-                  <th>Last Active</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {agents.map(agent => (
-                  <tr key={agent.id}>
-                    <td><strong>{agent.name}</strong></td>
-                    <td>{agent.language}</td>
-                    <td>
-                      <span className="win-loss">
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              🤖 Agent Tracking
+            </Typography>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Language</TableCell>
+                    <TableCell>W/L</TableCell>
+                    <TableCell>Rank</TableCell>
+                    <TableCell>Last Active</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {agents.map(agent => (
+                    <TableRow key={agent.id}>
+                      <TableCell><strong>{agent.name}</strong></TableCell>
+                      <TableCell>{agent.language}</TableCell>
+                      <TableCell>
                         {agent.wins}W / {agent.losses}L
-                      </span>
-                    </td>
-                    <td>
-                      <span className="rank">#{agent.rank}</span>
-                    </td>
-                    <td>{agent.lastActive}</td>
-                    <td>
-                      <button className="btn-small">View</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={`#${agent.rank}`} color="primary" size="small" />
+                      </TableCell>
+                      <TableCell>{agent.lastActive}</TableCell>
+                      <TableCell>
+                        <Button variant="outlined" size="small">View</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
 
         {/* Stats Overview */}
-        <section className="dashboard-card stats-card">
-          <h2>📈 Quick Stats</h2>
-          <div className="stats-grid">
-            <div className="stat-item">
-              <div className="stat-value">3</div>
-              <div className="stat-label">Active Agents</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-value">135</div>
-              <div className="stat-label">Total Games</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-value">68%</div>
-              <div className="stat-label">Win Rate</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-value">#3</div>
-              <div className="stat-label">Best Rank</div>
-            </div>
-          </div>
-        </section>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              📈 Quick Stats
+            </Typography>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+              gap: 3 
+            }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h3" color="primary">3</Typography>
+                <Typography color="text.secondary">Active Agents</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h3" color="primary">135</Typography>
+                <Typography color="text.secondary">Total Games</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h3" color="primary">68%</Typography>
+                <Typography color="text.secondary">Win Rate</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h3" color="primary">#3</Typography>
+                <Typography color="text.secondary">Best Rank</Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
 
         {/* Admin Only Section */}
         {isAdmin && (
-          <section className="dashboard-card admin-section">
-            <h2>⚙️ Admin Controls</h2>
-            <div className="admin-actions">
-              <button className="btn-admin">Manage Users</button>
-              <button className="btn-admin">Review Submissions</button>
-              <button className="btn-admin">View System Logs</button>
-              <button className="btn-admin">Configure Tournaments</button>
-            </div>
-          </section>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Settings /> Admin Controls
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Button variant="contained">Manage Users</Button>
+                <Button variant="contained">Review Submissions</Button>
+                <Button variant="contained">View System Logs</Button>
+                <Button variant="contained">Configure Tournaments</Button>
+              </Box>
+            </CardContent>
+          </Card>
         )}
-      </div>
-    </div>
+      </Box>
+    </Container>
   );
 }

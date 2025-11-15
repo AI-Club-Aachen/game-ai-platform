@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import './LiveGames.css';
+import { Box, Container, Typography, Card, CardContent, Button, Chip, LinearProgress } from '@mui/material';
+import { Visibility, ArrowBack, PlayCircle, Videocam } from '@mui/icons-material';
 
 interface LiveGame {
   id: string;
@@ -23,7 +24,6 @@ interface LiveGame {
 export function LiveGames() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
 
-  // Mock live games data
   const liveGames: LiveGame[] = [
     {
       id: 'game_1',
@@ -59,126 +59,91 @@ export function LiveGames() {
 
   const selectedGameData = liveGames.find(g => g.id === selectedGame);
 
+  if (selectedGame && selectedGameData) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Button startIcon={<ArrowBack />} onClick={() => setSelectedGame(null)} sx={{ mb: 3 }}>
+          Back to Live Games
+        </Button>
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, flexGrow: 1 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6">{selectedGameData.player1.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">{selectedGameData.player1.agent}</Typography>
+                  <Typography variant="h4" color="primary" sx={{ mt: 1 }}>{selectedGameData.player1.score}</Typography>
+                </Box>
+                <Typography variant="h5" color="text.secondary">VS</Typography>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6">{selectedGameData.player2.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">{selectedGameData.player2.agent}</Typography>
+                  <Typography variant="h4" color="primary" sx={{ mt: 1 }}>{selectedGameData.player2.score}</Typography>
+                </Box>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+        <Card sx={{ mb: 3, minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CardContent sx={{ textAlign: 'center' }}>
+            <Videocam sx={{ fontSize: 64, mb: 2, color: 'primary.main' }} />
+            <Typography variant="h4" gutterBottom>Game Visualization</Typography>
+            <Typography variant="h6" color="text.secondary" gutterBottom>Round {selectedGameData.round} of {selectedGameData.maxRounds}</Typography>
+            <Chip label="LIVE" color="error" sx={{ mt: 2 }} />
+          </CardContent>
+        </Card>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+          <Card><CardContent><Typography variant="body2" color="text.secondary">Game Type</Typography><Typography variant="h6">{selectedGameData.gameType}</Typography></CardContent></Card>
+          <Card><CardContent><Typography variant="body2" color="text.secondary">Started</Typography><Typography variant="h6">{selectedGameData.startedAt}</Typography></CardContent></Card>
+          <Card><CardContent><Typography variant="body2" color="text.secondary">Viewers</Typography><Typography variant="h6"><Visibility sx={{ fontSize: 20, mr: 0.5, verticalAlign: 'middle' }} />{selectedGameData.viewers}</Typography></CardContent></Card>
+        </Box>
+      </Container>
+    );
+  }
+
   return (
-    <div className="live-games-page">
-      <div className="page-header">
-        <h1>🔴 Live Games</h1>
-        <p>Watch AI agents compete in real-time</p>
-      </div>
-
-      {!selectedGame ? (
-        <>
-          <div className="live-indicator">
-            <span className="pulse"></span>
-            <span>{liveGames.length} games currently in progress</span>
-          </div>
-
-          <div className="games-grid">
-            {liveGames.map((game) => (
-              <div key={game.id} className="game-card">
-                <div className="game-header">
-                  <span className="game-type">{game.gameType}</span>
-                  <span className="viewers">👁️ {game.viewers}</span>
-                </div>
-
-                <div className="players-section">
-                  <div className="player player1">
-                    <div className="player-info">
-                      <div className="player-name">{game.player1.name}</div>
-                      <div className="agent-name">{game.player1.agent}</div>
-                    </div>
-                    <div className="player-score">{game.player1.score}</div>
-                  </div>
-
-                  <div className="vs-divider">VS</div>
-
-                  <div className="player player2">
-                    <div className="player-score">{game.player2.score}</div>
-                    <div className="player-info">
-                      <div className="player-name">{game.player2.name}</div>
-                      <div className="agent-name">{game.player2.agent}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="game-progress">
-                  <div className="progress-info">
-                    <span>Round {game.round} / {game.maxRounds}</span>
-                    <span>{game.startedAt}</span>
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${(game.round / game.maxRounds) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                <button
-                  className="btn-watch"
-                  onClick={() => setSelectedGame(game.id)}
-                >
-                  Watch Game
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="spectator-view">
-          <button
-            className="btn-back"
-            onClick={() => setSelectedGame(null)}
-          >
-            ← Back to Live Games
-          </button>
-
-          <div className="game-viewer">
-            <div className="viewer-header">
-              <div className="player-info-header">
-                <div className="player-details">
-                  <h3>{selectedGameData?.player1.name}</h3>
-                  <p>{selectedGameData?.player1.agent}</p>
-                  <div className="score-large">{selectedGameData?.player1.score}</div>
-                </div>
-                <div className="vs-large">VS</div>
-                <div className="player-details">
-                  <h3>{selectedGameData?.player2.name}</h3>
-                  <p>{selectedGameData?.player2.agent}</p>
-                  <div className="score-large">{selectedGameData?.player2.score}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="game-canvas">
-              <div className="canvas-placeholder">
-                <div className="game-board">
-                  <div className="board-message">
-                    <h2>🎮 Game Visualization</h2>
-                    <p>Round {selectedGameData?.round} of {selectedGameData?.maxRounds}</p>
-                    <p className="live-badge">🔴 LIVE</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="game-stats">
-              <div className="stat-box">
-                <div className="stat-label">Game Type</div>
-                <div className="stat-value">{selectedGameData?.gameType}</div>
-              </div>
-              <div className="stat-box">
-                <div className="stat-label">Started</div>
-                <div className="stat-value">{selectedGameData?.startedAt}</div>
-              </div>
-              <div className="stat-box">
-                <div className="stat-label">Viewers</div>
-                <div className="stat-value">👁️ {selectedGameData?.viewers}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PlayCircle sx={{ fontSize: 36 }} /> Live Games
+        </Typography>
+        <Typography color="text.secondary">Watch AI agents compete in real-time</Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+        <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite', '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } } }} />
+        <Typography>{liveGames.length} games currently in progress</Typography>
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 3 }}>
+        {liveGames.map((game) => (
+          <Card key={game.id}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Chip label={game.gameType} size="small" sx={{ borderRadius: 0 }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Visibility sx={{ fontSize: 16 }} /><Typography variant="body2">{game.viewers}</Typography></Box>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Box><Typography variant="body2" fontWeight="bold">{game.player1.name}</Typography><Typography variant="caption" color="text.secondary">{game.player1.agent}</Typography></Box>
+                  <Typography variant="h5" color="primary">{game.player1.score}</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', my: 1 }}>VS</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box><Typography variant="body2" fontWeight="bold">{game.player2.name}</Typography><Typography variant="caption" color="text.secondary">{game.player2.agent}</Typography></Box>
+                  <Typography variant="h5" color="primary">{game.player2.score}</Typography>
+                </Box>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption">Round {game.round} / {game.maxRounds}</Typography>
+                  <Typography variant="caption">{game.startedAt}</Typography>
+                </Box>
+                <LinearProgress variant="determinate" value={(game.round / game.maxRounds) * 100} sx={{ height: 6, borderRadius: 0, backgroundColor: '#333', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #00D98B 0%, #00A6FF 100%)' } }} />
+              </Box>
+              <Button variant="contained" fullWidth onClick={() => setSelectedGame(game.id)}>Watch Game</Button>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+    </Container>
   );
 }

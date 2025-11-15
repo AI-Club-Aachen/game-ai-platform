@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import './Tournaments.css';
+import { Box, Container, Typography, Button, Card, CardContent, Chip, LinearProgress } from '@mui/material';
+import { EmojiEvents, CalendarToday, PlayArrow, CheckCircle } from '@mui/icons-material';
 
 interface Tournament {
   id: string;
@@ -79,112 +80,182 @@ export function Tournaments() {
     t => filter === 'all' || t.status === filter
   );
 
-  const getStatusBadge = (status: Tournament['status']) => {
-    const badges = {
-      upcoming: { emoji: '📅', class: 'status-upcoming' },
-      active: { emoji: '🔴', class: 'status-active' },
-      completed: { emoji: '✅', class: 'status-completed' },
+  const getStatusConfig = (status: Tournament['status']) => {
+    const configs = {
+      upcoming: { icon: CalendarToday, color: 'default' as const },
+      active: { icon: PlayArrow, color: 'success' as const },
+      completed: { icon: CheckCircle, color: 'default' as const },
     };
-    return badges[status];
+    return configs[status];
   };
 
   return (
-    <div className="tournaments-page">
-      <div className="tournaments-header">
-        <h1>🏆 Tournaments</h1>
-        <p>Compete with the best AI agents in competitive tournaments</p>
-      </div>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <EmojiEvents sx={{ fontSize: 36 }} /> Tournaments
+        </Typography>
+        <Typography color="text.secondary">
+          Compete with the best AI agents in competitive tournaments
+        </Typography>
+      </Box>
 
-      <div className="tournaments-controls">
-        <div className="filter-buttons">
-          <button
-            className={filter === 'all' ? 'active' : ''}
-            onClick={() => setFilter('all')}
-          >
-            All Tournaments
-          </button>
-          <button
-            className={filter === 'upcoming' ? 'active' : ''}
-            onClick={() => setFilter('upcoming')}
-          >
-            Upcoming
-          </button>
-          <button
-            className={filter === 'active' ? 'active' : ''}
-            onClick={() => setFilter('active')}
-          >
-            Active
-          </button>
-          <button
-            className={filter === 'completed' ? 'active' : ''}
-            onClick={() => setFilter('completed')}
-          >
-            Completed
-          </button>
-        </div>
-      </div>
+      <Box sx={{ mb: 4, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button
+          onClick={() => setFilter('all')}
+          sx={{
+            borderRadius: 0,
+            border: filter === 'all' ? 'none' : '1px solid #333',
+            backgroundColor: filter === 'all' ? '#2a2a2a !important' : 'transparent',
+            backgroundImage: 'none !important',
+            color: filter === 'all' ? '#00A6FF !important' : '#ddd',
+            '&:hover': {
+              border: '1px solid #00A6FF',
+              backgroundColor: '#2a2a2a !important',
+              backgroundImage: 'none !important',
+              color: '#00A6FF !important',
+            },
+          }}
+        >
+          All Tournaments
+        </Button>
+        <Button
+          onClick={() => setFilter('upcoming')}
+          sx={{
+            borderRadius: 0,
+            border: filter === 'upcoming' ? 'none' : '1px solid #333',
+            backgroundColor: filter === 'upcoming' ? '#2a2a2a !important' : 'transparent',
+            backgroundImage: 'none !important',
+            color: filter === 'upcoming' ? '#00A6FF !important' : '#ddd',
+            '&:hover': {
+              border: '1px solid #00A6FF',
+              backgroundColor: '#2a2a2a !important',
+              backgroundImage: 'none !important',
+              color: '#00A6FF !important',
+            },
+          }}
+        >
+          Upcoming
+        </Button>
+        <Button
+          onClick={() => setFilter('active')}
+          sx={{
+            borderRadius: 0,
+            border: filter === 'active' ? 'none' : '1px solid #333',
+            backgroundColor: filter === 'active' ? '#2a2a2a !important' : 'transparent',
+            backgroundImage: 'none !important',
+            color: filter === 'active' ? '#00A6FF !important' : '#ddd',
+            '&:hover': {
+              border: '1px solid #00A6FF',
+              backgroundColor: '#2a2a2a !important',
+              backgroundImage: 'none !important',
+              color: '#00A6FF !important',
+            },
+          }}
+        >
+          Active
+        </Button>
+        <Button
+          onClick={() => setFilter('completed')}
+          sx={{
+            borderRadius: 0,
+            border: filter === 'completed' ? 'none' : '1px solid #333',
+            backgroundColor: filter === 'completed' ? '#2a2a2a !important' : 'transparent',
+            backgroundImage: 'none !important',
+            color: filter === 'completed' ? '#00A6FF !important' : '#ddd',
+            '&:hover': {
+              border: '1px solid #00A6FF',
+              backgroundColor: '#2a2a2a !important',
+              backgroundImage: 'none !important',
+              color: '#00A6FF !important',
+            },
+          }}
+        >
+          Completed
+        </Button>
+      </Box>
 
-      <div className="tournaments-grid">
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+        gap: 3 
+      }}>
         {filteredTournaments.map((tournament) => {
-          const badge = getStatusBadge(tournament.status);
+          const statusConfig = getStatusConfig(tournament.status);
           const participationRate = (tournament.participants / tournament.maxParticipants) * 100;
 
           return (
-            <div key={tournament.id} className="tournament-card">
-              <div className="tournament-header">
-                <h3>{tournament.name}</h3>
-                <span className={`status-badge ${badge.class}`}>
-                  {badge.emoji} {tournament.status}
-                </span>
-              </div>
+            <Card key={tournament.id}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                    {tournament.name}
+                  </Typography>
+                  <Chip 
+                    icon={<statusConfig.icon />}
+                    label={tournament.status}
+                    color={statusConfig.color}
+                    size="small"
+                    sx={{ borderRadius: 0 }}
+                  />
+                </Box>
 
-              <div className="tournament-details">
-                <div className="detail-row">
-                  <span className="label">Format:</span>
-                  <span className="value">{tournament.format}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Prize Pool:</span>
-                  <span className="value prize">{tournament.prizePool}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Dates:</span>
-                  <span className="value">
-                    {tournament.startDate} - {tournament.endDate}
-                  </span>
-                </div>
-              </div>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Format:</Typography>
+                    <Typography variant="body2">{tournament.format}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Prize Pool:</Typography>
+                    <Typography variant="body2" color="primary" fontWeight="bold">
+                      {tournament.prizePool}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Dates:</Typography>
+                    <Typography variant="body2">
+                      {tournament.startDate} - {tournament.endDate}
+                    </Typography>
+                  </Box>
+                </Box>
 
-              <div className="participants-section">
-                <div className="participants-header">
-                  <span>Participants</span>
-                  <span>
-                    {tournament.participants} / {tournament.maxParticipants}
-                  </span>
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${participationRate}%` }}
-                  ></div>
-                </div>
-              </div>
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2">Participants</Typography>
+                    <Typography variant="body2">
+                      {tournament.participants} / {tournament.maxParticipants}
+                    </Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={participationRate}
+                    sx={{
+                      height: 8,
+                      borderRadius: 0,
+                      backgroundColor: '#333',
+                      '& .MuiLinearProgress-bar': {
+                        background: 'linear-gradient(90deg, #00D98B 0%, #00A6FF 100%)'
+                      }
+                    }}
+                  />
+                </Box>
 
-              <div className="tournament-actions">
-                {tournament.status === 'upcoming' && (
-                  <button className="btn-primary">Register</button>
-                )}
-                {tournament.status === 'active' && (
-                  <button className="btn-secondary">View Bracket</button>
-                )}
-                {tournament.status === 'completed' && (
-                  <button className="btn-secondary">View Results</button>
-                )}
-              </div>
-            </div>
+                <Box>
+                  {tournament.status === 'upcoming' && (
+                    <Button variant="contained" fullWidth>Register</Button>
+                  )}
+                  {tournament.status === 'active' && (
+                    <Button variant="outlined" fullWidth>View Bracket</Button>
+                  )}
+                  {tournament.status === 'completed' && (
+                    <Button variant="outlined" fullWidth>View Results</Button>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
           );
         })}
-      </div>
-    </div>
+      </Box>
+    </Container>
   );
 }
