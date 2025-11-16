@@ -1,265 +1,255 @@
-# AI Game Competition Platform - Backend
+# AI Game Competition Platform – Backend
 
-Secure user management system with FastAPI, PostgreSQL, JWT authentication, email verification, and role-based access control.
+Secure backend for an AI game competition platform, built with FastAPI, PostgreSQL, SQLModel, and JWT authentication. It provides robust user management, email‑based verification and password resets, and role‑based access control, with a clean layered architecture (HTTP adapters → services → repositories → core/infrastructure).
 
 ## Features
 
-* User registration with email verification (default role: guest)
-* Email verification with secure tokens (24h expiry)
-* Password reset via email with secure tokens (1h expiry)
-* JWT-based authentication (24h token expiration)
-* Role-based access control (guest, user, admin)
-* Password hashing with bcrypt
-* Async email sending via SMTP (netcup integration)
-* Strong typing with SQLModel and Pydantic
-* PostgreSQL database
-* Docker Compose for local development
-* Rate limiting with slowapi
-* Redis caching support
-* Comprehensive logging
-* Alembic for database migrations
+- User registration with email verification (default role: `guest`)
+- Email verification with secure tokens and configurable expiry
+- Password reset via email with secure tokens
+- JWT‑based authentication for API access
+- Role‑based access control (`guest`, `user`, `admin`)
+- Password hashing with bcrypt and strong password validation
+- Async email delivery via SMTP with retry/backoff and environment‑aware behavior (log‑only in development)
+- Strong typing with SQLModel and Pydantic for models and schemas
+- PostgreSQL database with Alembic migrations
+- Docker Compose setup for backend, PostgreSQL, and Redis
+- Rate limiting with SlowAPI (per‑endpoint quotas)
+- Centralized logging and structured error handling
+- Security middleware (CORS, security headers, HSTS in production)
 
+## Environment and configuration behavior
 
+The backend uses an `ENVIRONMENT` setting (`development`, `staging`, `production`) to toggle behavior without changing code. SMTP settings (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_ADDRESS`) are optional in development but required in staging/production via configuration validation. Two helpers on `Settings` expose `smtp_configured` (all SMTP fields present) and `smtp_required` (true in staging/production, false in development).
+
+### Local development (no SMTP required)
+
+In local development (`ENVIRONMENT=development`), SMTP is not required: the app boots and all auth flows work without a mail server. The `EmailClient` reads SMTP configuration from settings and caches flags like `smtp_configured` and `is_development` for runtime decisions.
+
+- If SMTP is not configured and the environment is development, `send_email`:
+  - Does not attempt an SMTP connection.
+  - Logs a warning that SMTP is not configured.
+  - Logs the recipient, subject, and full HTML content of the email.
+  - Returns `True` so registration and password‑reset flows behave as if the email was sent.
+
+### Staging/production behavior
+
+In environments where SMTP is required and configured (staging/production), `EmailClient.send_email`:
+
+- Validates inputs (addresses, subject, HTML).
+- Builds a MIME multipart message (text + HTML).
+- Connects to SMTP with TLS, authenticates, and sends the message.
+- Applies retry/backoff on transient failures.
+- Logs timeouts and SMTP errors, failing securely if delivery is impossible.
+
+Deployments in staging/production enforce full SMTP configuration at startup, so misconfigured email causes a fast failure rather than silent breakage of verification/password‑reset flows.
+
+Local developers get a frictionless setup: they only need DB/JWT/CORS environment variables; all emails (verification and password reset) are visible in logs and links can be copy‑pasted for manual testing.
 
 ## Setup
 
 ### Prerequisites
 
-* Docker & Docker Compose (recommended)
-* Python 3.11+
-* PostgreSQL 16+ (included in Docker)
-* Redis (included in Docker)
+- Docker & Docker Compose (recommended)
+- Python 3.11+
+- PostgreSQL 16+ (included in Docker)
+- Redis (included in Docker)
 
-### Docker Setup (Recommended)
+### Docker setup (recommended)
 
 1. Set environment variables (optional, can also be in `.env`):
 
-   ```bash
+   ```
    export JWT_SECRET_KEY="your-secure-secret-key-here"
-    ```
+   export ENVIRONMENT="development"
+   ```
 
-2.  Start services:
+2. Start services:
 
-    ```bash
-    docker-compose up --build
-    ```
+   ```
+   docker-compose up --build
+   ```
 
 The API will be available at `http://localhost:8000`.
 
-### Local Development with `uv`
+### Local development with `uv`
 
-1.  Install `uv`:
+1. Install `uv`:
 
-    ```bash
-    curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
-    ```
+   ```
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
 
-2.  Create and activate virtual environment:
+2. Create and activate virtual environment:
 
-    ```bash
-    uv venv
-    source .venv/bin/activate # On Windows: .venv\Scripts\activate
-    ```
+   ```
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
 
-3.  Install dependencies:
+3. Install dependencies:
 
-    ```bash
-    uv pip install -r requirements.txt
-    ```
+   ```
+   uv pip install -r requirements.txt
+   ```
 
-4.  Set up environment variables:
+4. Set up environment variables:
 
-    ```bash
-    cp .env.example .env
-    # Edit .env with your configuration
-    ```
+   ```
+   cp .env.example .env
+   # Edit .env with your configuration (JWT, DB, CORS, ENVIRONMENT, SMTP, etc.)
+   ```
 
-5.  Run migrations:
+5. Run migrations:
 
-    ```bash
-    alembic upgrade head
-    ```
+   ```
+   alembic upgrade head
+   ```
 
-6.  Start the server:
+6. Start the server:
 
-    ```bash
-    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-    ```
+   ```
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
 
-## Database Migrations
+## Database migrations
 
-Migrations run automatically on startup. To manually manage:
+Migrations run automatically on startup in Docker. To manually manage them:
 
-**Generate migration**
-```bash
+**Generate migration:**
+
+```
 docker-compose exec backend alembic revision --autogenerate -m "description"
 ```
 
-**Apply migrations**
+**Apply migrations:**
 
-```bash
+```
 docker-compose exec backend alembic upgrade head
 ```
 
-**Rollback migration**
+**Rollback migration:**
 
-```bash
+```
 docker-compose exec backend alembic downgrade -1
 ```
 
-## API Endpoints
+## API endpoints
 
-### Authentication
+For full API documentation:
 
-  * `POST /api/v1/auth/register` - Register new user (guest role)
+- Local: `http://localhost:8000/docs` (when `ENVIRONMENT=development`)
+- Scalar: `https://registry.scalar.com/@aica/apis/ai-game-competition-platform/latest?format=preview`
 
-  * `POST /api/v1/auth/login` - Login and receive JWT token
-
-### Users
-
-  * `GET /api/v1/users/me` - Get current user profile
-
-  * `PATCH /api/v1/users/me` - Update own profile/password
-
-  * `GET /api/v1/users/{user_id}` - Admin: Get user by ID
-
-  * `PATCH /api/v1/users/{user_id}/role` - Admin: Update user role
-
-  * `POST /api/v1/users/{user_id}/reset-password` - Admin: Reset user password
-
-### Email Verification
-
-* `POST /api/v1/email/send-verification` - Resend verification email
-  * Requires: Bearer token
-
-* `POST /api/v1/email/verify` - Verify email with token
-  * Request: `token`
-  * Response: User object (email_verified: true)
-
-### Password Reset
-
-* `POST /api/v1/email/request-password-reset` - Request password reset
-  * Request: `email`
-
-* `POST /api/v1/email/reset-password` - Reset password with token
-  * Request: `token`, `new_password`
-
-
-## User Roles
+## User roles
 
 ### Guest (default)
 
-  * Read-only access to public content
-
-  * Cannot upload models or participate in matches
-
-  * Must be promoted to user by admin
+- Read‑only access to public content.
+- Cannot upload models or participate in matches.
+- Must be promoted to `user` by an admin.
 
 ### User
 
-  * Can upload and manage AI models
-
-  * Can participate in competitions
-
-  * Can view all leaderboards and matches
+- Can upload and manage AI models.
+- Can participate in competitions.
+- Can view leaderboards and matches.
 
 ### Admin
 
-  * Full platform control
-
-  * User management and role changes
-
-  * Game engine and platform configuration
-
-  * Match management and debugging
+- Full platform control.
+- User management and role changes.
+- Game engine and platform configuration.
+- Match management and debugging.
 
 ## Configuration
 
-Create `.env` from `.env.example` and set:
-```bash
-SMTP_HOST=mx2f17.netcup.net
-SMTP_PORT=465
-SMTP_USERNAME=your-netcup-email
-SMTP_PASSWORD=your-netcup-password
-SMTP_FROM_ADDRESS=no-reply@ai-club-aachen.com
-EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS=24
-PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
-```
+Create `.env` from `.env.example` and set all parameters accordingly. Key settings:
 
-Generate secure JWT key:
-```bash
-openssl rand -hex 32
-```
+- `ENVIRONMENT`: `development`, `staging`, or `production`.
+- `DATABASE_URL`: PostgreSQL connection string.
+- `JWT_SECRET_KEY`, `JWT_ACCESS_TOKEN_EXPIRE_HOURS`.
+- `ALLOW_ORIGINS`: CORS origins for your frontend.
+- SMTP:
+  - Required in staging/production: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_ADDRESS`.
+  - Optional in development (emails are logged instead of sent).
 
-
-
-## Creating First Admin
+## Creating first admin
 
 Connect to the database and run:
 
-```sql
+```
 UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';
 ```
 
 Or using Docker:
 
-```bash
-docker-compose exec db psql -U postgres -d gameai -c "UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';"
+```
+docker-compose exec db psql -U postgres -d gameai \
+  -c "UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';"
 ```
 
-## Email Verification & Password Reset
+## Email verification & password reset
 
-### Registration Flow
-1. User registers → account created as `email_verified=false`
-2. Verification email sent with secure token (24h expiry)
-3. User clicks link → token verified → account activated
-4. User can now login
+### Registration flow
 
-### Password Reset Flow
-1. User requests reset → token sent via email (1h expiry)
-2. User clicks link → enters new password → token invalidated
+1. User registers → account created with `role=guest` and `email_verified=false`.
+2. `AuthService` generates an email‑verification token (hashed in DB with expiry).
+3. `EmailNotificationService` sends a verification email with a secure link.
+4. User clicks the link → token is verified → user is marked `email_verified=true`.
+5. User can now log in and be promoted to `user`/`admin` as needed.
 
+### Password reset flow
 
-## Security Notes
+1. User requests a password reset → a reset token is generated and stored (hashed) with expiry.
+2. `EmailNotificationService` sends a reset link via email.
+3. User clicks the link → supplies a new password → token is verified and invalidated.
+4. Password is updated (with validation and bcrypt hashing) and the reset token fields are cleared.
 
-  * Always change `JWT_SECRET_KEY` in production
+## Security notes
 
-  * Use strong passwords (minimum 8 characters)
+- Always change `JWT_SECRET_KEY` in production and keep it secret.
+- Use strong passwords and consider enforcing length/complexity via `validate_password_strength`.
+- Keep dependencies updated and rebuild images regularly.
+- Enable HTTPS in production (TLS termination via reverse proxy or load balancer).
+- Configure CORS to only allow your trusted frontend origins.
+- The app sets security headers (HSTS, CSP, X‑Frame‑Options, etc.) and hides server details by default.
 
-  * Keep dependencies updated
+## Project structure
 
-  * Enable HTTPS in production
+The backend is organized into clear layers so that HTTP, business logic, and persistence stay decoupled and easy to test:
 
-  * Configure CORS appropriately for your frontend
+- `api/routes`: Thin HTTP adapters (FastAPI routers). They:
+  - Parse and validate requests.
+  - Call services.
+  - Translate domain exceptions into HTTP responses and status codes.
 
-## Project Structure
+- `api/services`: Application services (e.g. auth, user, email notifications). They:
+  - Implement use‑cases like “register user”, “login”, “change password”, “send verification email”.
+  - Coordinate repositories, token helpers, security utilities, and the email client.
+  - Contain orchestration logic, but no direct HTTP or SQL.
 
-```text
-backend/
-├── app/
-│ ├── api/
-│ │ ├── deps.py # Dependencies (auth, DB session)
-│ │ └── routes/
-│       ├── auth.py            # Registration & login
-│       ├── email.py           # Email verification & password reset
-│       └── users.py           # User management
-│ ├── core/
-│ │   ├── config.py            # Environment settings
-│ │   ├── security.py          # JWT & password hashing
-│ │   ├── email.py             # Email service (SMTP)
-│ │   └── tokens.py            # Token generation & verification
-│ ├── db/
-│ │ ├── base.py # SQLModel base
-│ │ ├── connection.py # Database engine
-│ │ └── session.py # Session dependency
-│ ├── models/ # SQLModel database models
-│ ├── schemas/
-│ │   ├── auth.py              # Auth schemas
-│ │   ├── email.py             # Email verification schemas
-│ │   └── user.py              # User schemas
-│ └── main.py # FastAPI application
-├── alembic/ # Database migrations
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
-```
+- `api/repositories`: Data access layer. It:
+  - Encapsulates all SQLModel queries and transaction handling.
+  - Exposes a small, typed API (e.g. `UserRepository.get_by_id`, `list_users`, `save`, `delete`).
+  - Shields the rest of the codebase from SQL details.
+
+- `core`: Cross‑cutting infrastructure and policies. It includes:
+  - Configuration (`Settings`) with `ENVIRONMENT`, DB, JWT, SMTP, and CORS.
+  - Security utilities (password hashing, JWT creation/verification, secure comparisons).
+  - Token utilities (generation, hashing, expiry logic).
+  - A low‑level `EmailClient` that handles SMTP, retries, and environment‑aware behavior.
+
+- `models`, `schemas`, `db`:
+  - `models`: SQLModel entities that map to database tables (e.g. `User` with roles and token fields).
+  - `schemas`: Pydantic models that define the public API contracts.
+  - `db`: Engine and session setup plus Alembic integration.
+
+This layout reflects the runtime architecture:
+
+- Routes only know about HTTP and services.
+- Services express the domain logic and can be tested without FastAPI or a database.
+- Repositories isolate persistence concerns.
+- Core holds shared infrastructure that can be reused by multiple services.
+
+The result is a backend that is easy to extend with new domains (games, matches, leaderboards) while keeping authentication and user management clean, testable, and secure.
