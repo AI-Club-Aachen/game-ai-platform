@@ -14,6 +14,11 @@ Secure user management system with FastAPI, PostgreSQL, JWT authentication, emai
 * Strong typing with SQLModel and Pydantic
 * PostgreSQL database
 * Docker Compose for local development
+* Rate limiting with slowapi
+* Redis caching support
+* Comprehensive logging
+* Alembic for database migrations
+
 
 
 ## Setup
@@ -23,6 +28,7 @@ Secure user management system with FastAPI, PostgreSQL, JWT authentication, emai
 * Docker & Docker Compose (recommended)
 * Python 3.11+
 * PostgreSQL 16+ (included in Docker)
+* Redis (included in Docker)
 
 ### Docker Setup (Recommended)
 
@@ -233,8 +239,7 @@ backend/
 ├── app/
 │ ├── api/
 │ │ ├── deps.py # Dependencies (auth, DB session)
-│ │ └── routes/ # Route handlers
-│   └── routes/
+│ │ └── routes/
 │       ├── auth.py            # Registration & login
 │       ├── email.py           # Email verification & password reset
 │       └── users.py           # User management

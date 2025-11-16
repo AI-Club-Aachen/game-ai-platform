@@ -14,21 +14,3 @@ class LoginResponse(BaseModel):
     token_type: str
     user_id: str
     username: str
-
-
-class TokenData(BaseModel):
-    """Schema for JWT token payload"""
-    sub: Optional[str] = None
-    role: Optional[str] = None
-
-
-class PasswordReset(BaseModel):
-    """Schema for password reset request"""
-    email: EmailStr = Field(..., description="User email address")
-    reset_token: str = Field(..., description="Password reset token")
-    new_password: str = Field(..., min_length=8, description="New password")
-
-
-class PasswordResetRequest(BaseModel):
-    """Schema for initiating password reset"""
-    email: EmailStr = Field(..., description="User email address")

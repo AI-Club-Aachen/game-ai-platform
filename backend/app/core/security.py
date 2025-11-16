@@ -34,7 +34,7 @@ def hash_password(password: str) -> str:
     Raises:
         ValueError: If password is too weak or invalid
     """
-    _validate_password_strength(password)
+    validate_password_strength(password)
     return pwd_context.hash(password)
 
 
@@ -57,7 +57,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
-def _validate_password_strength(password: str) -> None:
+def validate_password_strength(password: str) -> None:
     """
     Validate password strength requirements.
 

@@ -3,10 +3,7 @@
 # Authentication schemas
 from app.schemas.auth import (
     LoginRequest,
-    LoginResponse,
-    TokenData,
-    PasswordReset,
-    PasswordResetRequest as AuthPasswordResetRequest,
+    LoginResponse
 )
 
 # User schemas
@@ -20,19 +17,12 @@ from app.schemas.user import (
 
 # Email schemas
 from app.schemas.email import (
-    EmailVerificationRequest,
-    PasswordResetRequest,
-    PasswordResetConfirm,
-    ResendVerificationEmailRequest,
+    EmailVerificationRequest
 )
 
 __all__ = [
     # Auth
     "LoginRequest",
-    "LoginResponse",
-    "TokenData",
-    "PasswordReset",
-    "AuthPasswordResetRequest",
     # User
     "UserCreate",
     "UserUpdate",
@@ -40,8 +30,5 @@ __all__ = [
     "UserRoleUpdate",
     "PasswordChangeRequest",
     # Email
-    "EmailVerificationRequest",
-    "PasswordResetRequest",
-    "PasswordResetConfirm",
-    "ResendVerificationEmailRequest",
+    "EmailVerificationRequest"
 ]

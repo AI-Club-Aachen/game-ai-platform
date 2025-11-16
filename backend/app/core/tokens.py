@@ -1,7 +1,6 @@
 """Token generation and verification with secure comparisons and validation"""
 
 import hashlib
-import hmac
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone

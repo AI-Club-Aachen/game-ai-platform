@@ -4,7 +4,9 @@ import asyncio
 import logging
 import re
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import format_datetime, make_msgid
+
 
 import aiosmtplib
 from email.mime.text import MIMEText
@@ -154,13 +156,15 @@ class EmailService:
             aiosmtplib.SMTPException: On SMTP errors
             asyncio.TimeoutError: On connection timeout
         """
+        now_utc = datetime.now(timezone.utc)
+
         # Create MIME multipart message
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
         message["From"] = f"{self.from_name} <{self.from_address}>"
         message["To"] = to_email
-        message["Date"] = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
-        message["Message-ID"] = f"<{datetime.utcnow().timestamp()}@{self.smtp_host}>"
+        message["Date"] = format_datetime(now_utc)
+        message["Message-ID"] = make_msgid(domain=self.smtp_host)
 
         # Attach plain text first (fallback for email clients)
         part1 = MIMEText(text_content, "plain", "utf-8")
@@ -184,7 +188,7 @@ class EmailService:
                 # Send message
                 await smtp.send_message(message)
 
-        except aiosmtplib.SMTPAuthenticationError as e:
+        except aiosmtplib.SMTPAuthenticationError:
             logger.critical("SMTP authentication failed - check credentials")
             raise
         except Exception as e:
