@@ -90,7 +90,10 @@ The API will be available at `http://localhost:8000`.
 3. Install dependencies:
 
    ```
-   uv pip install -r requirements.txt
+   uv pip install -r pyproject.toml
+   
+   (for testing/development)
+   uv pip install .[dev]
    ```
 
 4. Set up environment variables:
