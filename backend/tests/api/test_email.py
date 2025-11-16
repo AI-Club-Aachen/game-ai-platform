@@ -51,7 +51,7 @@ async def _verify_latest_email(api_client, fake_email_client) -> dict:
     )
     assert response.status_code == 200
     user = response.json()
-    assert user["emailverified"] is True
+    assert user["email_verified"] is True
     assert user["email"] == email["to_email"]
     return user
 
@@ -70,7 +70,7 @@ async def _register_verify_login_bearer(api_client, fake_email_client, username,
     )
     assert login_response.status_code == 200
     data = login_response.json()
-    return f"Bearer {data['accesstoken']}"
+    return f"Bearer {data['access_token']}"
 
 
 # ---------------------------------------------------------------------------
@@ -95,9 +95,9 @@ async def test_email_verification_full_flow_success(api_client, fake_email_clien
     # Fetch the newly created user from the DB.
     user = db_session.exec(select(User).where(User.email == email)).first()
     assert user is not None
-    assert user.emailverified is False
-    assert user.emailverificationtokenhash is not None
-    original_token_hash = user.emailverificationtokenhash
+    assert user.email_verified is False
+    assert user.email_verification_token_hash is not None
+    original_token_hash = user.email_verification_token_hash
 
     # Create a JWT for this unverified user to call status/resend endpoints.
     bearer = _make_bearer_for_user(user)
@@ -110,9 +110,9 @@ async def test_email_verification_full_flow_success(api_client, fake_email_clien
     assert status_response.status_code == 200
     status_data = status_response.json()
     assert status_data["email"] == email
-    assert status_data["emailverified"] is False
-    assert status_data["canresend"] is True
-    assert status_data["verificationexpiresat"] is not None
+    assert status_data["email_verified"] is False
+    assert status_data["can_resend"] is True
+    assert status_data["verification_expires_at"] is not None
 
     # 3) Resend verification email.
     resend_response = await api_client.post(
@@ -131,8 +131,8 @@ async def test_email_verification_full_flow_success(api_client, fake_email_clien
 
     # Token in DB should have been refreshed.
     db_session.refresh(user)
-    assert user.emailverificationtokenhash is not None
-    assert user.emailverificationtokenhash != original_token_hash
+    assert user.email_verification_token_hash is not None
+    assert user.email_verification_token_hash != original_token_hash
 
     # 4) Verify email using token from the resent email.
     verification_token = _extract_token_from_html(second_email["html_content"])
@@ -143,13 +143,13 @@ async def test_email_verification_full_flow_success(api_client, fake_email_clien
     assert verify_response.status_code == 200
     verify_data = verify_response.json()
     assert verify_data["email"] == email
-    assert verify_data["emailverified"] is True
+    assert verify_data["email_verified"] is True
 
     # User record should be updated accordingly.
     db_session.refresh(user)
-    assert user.emailverified is True
-    assert user.emailverificationtokenhash is None
-    assert user.emailverificationexpiresat is None
+    assert user.email_verified is True
+    assert user.email_verification_token_hash is None
+    assert user.email_verification_expires_at is None
 
     # 5) Verification status after successful verification.
     status_response_2 = await api_client.get(
@@ -159,10 +159,10 @@ async def test_email_verification_full_flow_success(api_client, fake_email_clien
     assert status_response_2.status_code == 200
     status_data_2 = status_response_2.json()
     assert status_data_2["email"] == email
-    assert status_data_2["emailverified"] is True
-    assert status_data_2["canresend"] is False
+    assert status_data_2["email_verified"] is True
+    assert status_data_2["can_resend"] is False
     # After verification, expiry is cleared.
-    assert status_data_2["verificationexpiresat"] is None
+    assert status_data_2["verification_expires_at"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -176,9 +176,17 @@ async def test_verify_email_fails_for_invalid_token_format(api_client):
         f"{API_PREFIX}/email/verify-email",
         json={"token": "short"},
     )
-    assert response.status_code == 400
+    # Expect Pydantic validation error
+    assert response.status_code == 422
     data = response.json()
-    assert data["detail"] == "Invalid verification token format"
+    # Basic sanity check on the validation error structure
+    assert "detail" in data
+    # Optional: assert that the validation refers to 'token'
+    assert any(
+        err.get("loc", [None])[-1] == "token"
+        for err in data["detail"]
+    )
+
 
 
 @pytest.mark.anyio

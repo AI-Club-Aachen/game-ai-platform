@@ -42,7 +42,7 @@ async def _verify_latest_email(api_client, fake_email_client) -> dict:
     )
     assert response.status_code == 200
     user = response.json()
-    assert user["emailverified"] is True
+    assert user["email_verified"] is True
     assert user["email"] == email["to_email"]
     return user
 
@@ -78,8 +78,8 @@ async def test_auth_happy_path_register_verify_login_reset_password(api_client, 
     )
     assert login_response.status_code == 200
     login_data = login_response.json()
-    assert isinstance(login_data["accesstoken"], str)
-    assert login_data["tokentype"] == "bearer"
+    assert isinstance(login_data["access_token"], str)
+    assert login_data["token_type"] == "bearer"
     assert login_data["username"] == username
 
     # 4) Request password reset -> reset email sent.
@@ -99,12 +99,12 @@ async def test_auth_happy_path_register_verify_login_reset_password(api_client, 
     reset_token = _extract_token_from_html(reset_email["html_content"])
     reset_response = await api_client.post(
         f"{API_PREFIX}/auth/reset-password",
-        params={"token": reset_token, "newpassword": new_password},
+        params={"token": reset_token, "new_password": new_password},
     )
     assert reset_response.status_code == 200
     reset_user = reset_response.json()
     assert reset_user["email"] == email
-    assert reset_user["emailverified"] is True
+    assert reset_user["email_verified"] is True
 
     # 6) Old password no longer works.
     old_login_response = await api_client.post(
@@ -120,8 +120,8 @@ async def test_auth_happy_path_register_verify_login_reset_password(api_client, 
     )
     assert new_login_response.status_code == 200
     new_login_data = new_login_response.json()
-    assert isinstance(new_login_data["accesstoken"], str)
-    assert new_login_data["tokentype"] == "bearer"
+    assert isinstance(new_login_data["access_token"], str)
+    assert new_login_data["token_type"] == "bearer"
 
 
 @pytest.mark.anyio
@@ -165,7 +165,7 @@ async def test_login_fails_with_wrong_credentials(api_client, fake_email_client)
 async def test_register_fails_if_user_already_exists(api_client, fake_email_client):
     username = "existinguser"
     email = "existinguser@example.com"
-    password = "Exist1ngUserPass!"
+    password = "Exist1ngAcc0unt!1"
 
     await _create_verified_user(api_client, fake_email_client, username, email, password)
 

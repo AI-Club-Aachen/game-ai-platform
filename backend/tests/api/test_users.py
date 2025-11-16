@@ -44,7 +44,7 @@ async def _verify_latest_email(api_client, fake_email_client) -> dict:
     )
     assert response.status_code == 200
     user = response.json()
-    assert user["emailverified"] is True
+    assert user["email_verified"] is True
     assert user["email"] == email["to_email"]
     return user
 
@@ -65,8 +65,8 @@ async def _create_verified_user_and_token(
     )
     assert login_response.status_code == 200
     data = login_response.json()
-    user_id = data["userid"]
-    bearer_token = f"Bearer {data['accesstoken']}"
+    user_id = data["user_id"]
+    bearer_token = f"Bearer {data['access_token']}"
     return user_id, bearer_token
 
 
@@ -101,8 +101,8 @@ async def _create_admin_and_token(
 async def test_user_profile_and_change_password_success(api_client, fake_email_client):
     username = "user_profile_change"
     email = "user_profile_change@example.com"
-    original_password = "UserProf1lePass!"
-    new_password = "UserProf1lePassNew!"
+    original_password = "Us€rPr0f1leP4ss!"
+    new_password = "Us€rProf1leP4ssN€w!"
 
     # Create verified user and login.
     user_id, bearer_token = await _create_verified_user_and_token(
@@ -138,8 +138,8 @@ async def test_user_profile_and_change_password_success(api_client, fake_email_c
         f"{API_PREFIX}/users/change-password",
         headers={"Authorization": bearer_token},
         json={
-            "currentpassword": original_password,
-            "newpassword": new_password,
+            "current_password": original_password,
+            "new_password": new_password,
         },
     )
     assert change_pw_response.status_code == 200
@@ -153,7 +153,7 @@ async def test_user_profile_and_change_password_success(api_client, fake_email_c
     )
     assert login_new_response.status_code == 200
     login_new_data = login_new_response.json()
-    assert login_new_data["userid"] == user_id
+    assert login_new_data["user_id"] == user_id
     assert login_new_data["username"] == new_username
 
 
@@ -168,7 +168,7 @@ async def test_admin_list_get_update_role_delete_user_success(
     # Target user the admin will manage.
     target_username = "managed_user"
     target_email = "managed_user@example.com"
-    target_password = "ManagedUserPass1!"
+    target_password = "ManagedAcc0unt!1"
     target_id, _ = await _create_verified_user_and_token(
         api_client, fake_email_client, target_username, target_email, target_password
     )
@@ -176,14 +176,14 @@ async def test_admin_list_get_update_role_delete_user_success(
     # Admin.
     admin_username = "admin_user"
     admin_email = "admin_user@example.com"
-    admin_password = "Adm1nUserPass!"
+    admin_password = "RootRol3Str0ng!1"
     admin_id, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
 
     # 1) Admin list users.
     list_response = await api_client.get(
-        f"{API_PREFIX}/users?skip=0&limit=10",
+        f"{API_PREFIX}/users/?skip=0&limit=10",
         headers={"Authorization": admin_token},
     )
     assert list_response.status_code == 200
@@ -239,7 +239,7 @@ async def test_admin_resend_verification_email_for_unverified_user_success(
     # Create unverified user (register but do not verify).
     username = "unverified_for_admin"
     email = "unverified_for_admin@example.com"
-    password = "UnverifiedAdminPass1!"
+    password = "Unver1fiedAcc0unt!2"
 
     fake_email_client.sent.clear()
     await _register_user(api_client, username, email, password)
@@ -247,13 +247,13 @@ async def test_admin_resend_verification_email_for_unverified_user_success(
     # Fetch user from DB to confirm unverified.
     user = db_session.exec(select(User).where(User.email == email)).first()
     assert user is not None
-    assert user.emailverified is False
-    old_token_hash = user.emailverificationtokenhash
+    assert user.email_verified is False
+    old_token_hash = user.email_verification_token_hash
 
     # Admin.
     admin_username = "admin_for_resend"
     admin_email = "admin_for_resend@example.com"
-    admin_password = "AdminResendPass1!"
+    admin_password = "ResendRootX!3"
     _, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
@@ -265,15 +265,15 @@ async def test_admin_resend_verification_email_for_unverified_user_success(
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["userid"] == str(user.id)
+    assert data["user_id"] == str(user.id)
     assert data["message"] == "Verification email sent"
 
     # Token fields should be updated in DB.
     db_session.refresh(user)
-    assert user.emailverified is False
-    assert user.emailverificationtokenhash is not None
-    assert user.emailverificationtokenhash != old_token_hash
-    assert user.emailverificationexpiresat is not None
+    assert user.email_verified is False
+    assert user.email_verification_token_hash is not None
+    assert user.email_verification_token_hash != old_token_hash
+    assert user.email_verification_expires_at is not None
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +300,7 @@ async def test_update_current_user_profile_unauthenticated_fails(api_client):
 async def test_change_password_unauthenticated_fails(api_client):
     response = await api_client.post(
         f"{API_PREFIX}/users/change-password",
-        json={"currentpassword": "irrelevant", "newpassword": "AlsoIrrelevant1!"},
+        json={"current_password": "irrelevant", "new_password": "AlsoIrrelevant1!"},
     )
     assert response.status_code == 403
 
@@ -316,14 +316,14 @@ async def test_non_admin_cannot_use_admin_endpoints(
     # Create a normal verified user (role GUEST).
     username = "non_admin_user"
     email = "non_admin_user@example.com"
-    password = "NonAdminUserPass1!"
+    password = "NonPrivAcc0unt!1"
     user_id, user_token = await _create_verified_user_and_token(
         api_client, fake_email_client, username, email, password
     )
 
     # 1) List users (admin-only).
     list_response = await api_client.get(
-        f"{API_PREFIX}/users?skip=0&limit=10",
+        f"{API_PREFIX}/users/?skip=0&limit=10",
         headers={"Authorization": user_token},
     )
     assert list_response.status_code == 403
@@ -369,7 +369,7 @@ async def test_admin_get_update_delete_nonexistent_user_fails(
     # Admin.
     admin_username = "admin_nonexistent"
     admin_email = "admin_nonexistent@example.com"
-    admin_password = "AdminNonexistentPass1!"
+    admin_password = "SuperRootX!4"
     _, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
