@@ -1,9 +1,8 @@
 from sqlmodel import create_engine
 from app.core.config import settings
 
-# Create engine
 engine = create_engine(
     settings.DATABASE_URL,
-    echo=True, #TODO set to False in production
+    echo=settings.isdevelopment,  # SQL logs only in dev
     pool_pre_ping=True,
 )
