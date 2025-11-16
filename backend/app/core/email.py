@@ -37,11 +37,19 @@ class EmailService:
         self.smtp_username = settings.SMTP_USERNAME
         self.smtp_password = settings.SMTP_PASSWORD
         self.smtp_use_tls = settings.SMTP_USE_TLS
-        self.from_address = settings.SMTP_FROM_ADDRESS
+
+        # Fallback from address in dev if none is provided
+        self.from_address = settings.SMTP_FROM_ADDRESS or "dev-noreply@example.local"
         self.from_name = settings.SMTP_FROM_NAME
+
         self.timeout = 10  # seconds
         self.max_retries = 3
         self.retry_backoff = 2  # exponential backoff multiplier
+
+        # Flags derived from settings
+        self.smtp_configured = settings.smtp_configured
+        self.smtp_required = settings.smtp_required
+        self.is_development = settings.is_development
 
     async def send_email(
         self,
@@ -71,6 +79,32 @@ class EmailService:
             ...     html_content="<p>Welcome!</p>"
             ... )
         """
+        # --- local development (SMTP not configured) ---
+        if not self.smtp_configured:
+            if self.is_development:
+                # Dev behavior: log instead of sending
+                logger.warning(
+                    "SMTP not configured in development; email will NOT be sent, "
+                    "only logged."
+                )
+                logger.info("Dev email to=%s subject=%s", to_email, subject)
+                logger.info("Dev email HTML content:\n%s", html_content)
+                return True  # Pretend success so flows continue
+
+            if self.smtp_required:
+                # In staging/production this should not happen because Settings
+                # already enforces SMTP, but fail safe if it does.
+                logger.critical(
+                    "SMTP is required in this environment but not configured; "
+                    "cannot send email."
+                )
+                return False
+
+            # Non-required, non-dev fallback (just in case)
+            logger.error("SMTP not configured; skipping email send.")
+            return False
+
+        # --- staging / prod (SMTP configured) ---
         # Validate inputs
         if not self._validate_email(to_email):
             logger.error(f"Invalid email address: {to_email}")
