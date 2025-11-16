@@ -15,6 +15,8 @@ from app.models.user import User, UserRole
 from app.api.repositories.user import UserRepository
 from app.api.services.user import UserService
 from app.api.services.auth import AuthService
+from app.core.email import EmailClient, email_client
+from app.api.services.email import EmailNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +37,27 @@ def get_user_service(
     return UserService(user_repository)
 
 
+def get_email_client() -> EmailClient:
+    """Provide the shared EmailClient instance."""
+    return email_client
+
+
+def get_email_notification_service(
+    client: Annotated[EmailClient, Depends(get_email_client)],
+) -> EmailNotificationService:
+    """Provide an EmailNotificationService with an injected EmailClient."""
+    return EmailNotificationService(client)
+
+
 def get_auth_service(
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+    email_notifications: Annotated[
+        EmailNotificationService,
+        Depends(get_email_notification_service),
+    ],
 ) -> AuthService:
-    """Provide an AuthService with an injected UserRepository."""
-    return AuthService(user_repository)
+    """Provide an AuthService with injected UserRepository and EmailNotificationService."""
+    return AuthService(user_repository, email_notifications)
 
 
 def get_current_user(

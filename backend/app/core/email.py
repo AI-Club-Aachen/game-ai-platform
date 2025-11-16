@@ -1,37 +1,34 @@
-"""Email service module with retry logic, security, and async support"""
+"""Email client with SMTP transport, retry logic, and environment-aware behavior."""
 
 import asyncio
 import logging
 import re
-from typing import Optional
 from datetime import datetime, timezone
-from email.utils import format_datetime, make_msgid
-
-
-import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import format_datetime, make_msgid
+from typing import Optional
+
+import aiosmtplib
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-class EmailService:
+class EmailClient:
     """
-    Async SMTP email service with retry logic and security best practices.
+    Low-level SMTP email client with retry logic and environment-aware behavior.
 
-    Features:
-    - TLS/SSL encryption for all connections
-    - Exponential backoff retry logic (3 attempts by default)
-    - Timeout handling (10 seconds)
-    - Connection pooling and cleanup
-    - HTML and plain text templates
-    - Logging for all operations
+    Responsibilities:
+    - Read SMTP configuration from settings
+    - Decide whether to actually send or only log (dev vs staging/prod)
+    - Build and send MIME messages
+    - Handle timeouts, retries, and logging of errors
     """
 
-    def __init__(self):
-        """Initialize email service with SMTP settings"""
+    def __init__(self) -> None:
+        """Initialize email client with SMTP settings."""
         self.smtp_host = settings.SMTP_HOST
         self.smtp_port = settings.SMTP_PORT
         self.smtp_username = settings.SMTP_USERNAME
@@ -46,7 +43,7 @@ class EmailService:
         self.max_retries = 3
         self.retry_backoff = 2  # exponential backoff multiplier
 
-        # Flags derived from settings
+        # Flags derived from settings / ENVIRONMENT
         self.smtp_configured = settings.smtp_configured
         self.smtp_required = settings.smtp_required
         self.is_development = settings.is_development
@@ -71,21 +68,13 @@ class EmailService:
 
         Returns:
             bool: True if sent successfully, False otherwise
-
-        Example:
-            success = await email_service.send_email(
-            ...     to_email="user@example.com",
-            ...     subject="Welcome!",
-            ...     html_content="<p>Welcome!</p>"
-            ... )
         """
         # --- local development (SMTP not configured) ---
         if not self.smtp_configured:
             if self.is_development:
                 # Dev behavior: log instead of sending
                 logger.warning(
-                    "SMTP not configured in development; email will NOT be sent, "
-                    "only logged."
+                    "SMTP not configured in development; email will NOT be sent, only logged."
                 )
                 logger.info("Dev email to=%s subject=%s", to_email, subject)
                 logger.info("Dev email HTML content:\n%s", html_content)
@@ -95,8 +84,7 @@ class EmailService:
                 # In staging/production this should not happen because Settings
                 # already enforces SMTP, but fail safe if it does.
                 logger.critical(
-                    "SMTP is required in this environment but not configured; "
-                    "cannot send email."
+                    "SMTP is required in this environment but not configured; cannot send email."
                 )
                 return False
 
@@ -105,9 +93,10 @@ class EmailService:
             return False
 
         # --- staging / prod (SMTP configured) ---
+
         # Validate inputs
         if not self._validate_email(to_email):
-            logger.error(f"Invalid email address: {to_email}")
+            logger.error("Invalid email address: %s", to_email)
             return False
 
         if not subject or not html_content:
@@ -130,44 +119,49 @@ class EmailService:
                         to_email=to_email,
                         subject=subject,
                         html_content=html_content,
-                        text_content=text_content
+                        text_content=text_content,
                     ),
-                    timeout=self.timeout
+                    timeout=self.timeout,
                 )
-                logger.info(f"Email sent successfully to {to_email}")
+                logger.info("Email sent successfully to %s", to_email)
                 return True
 
             except asyncio.TimeoutError:
                 logger.warning(
-                    f"Email send timeout for {to_email} "
-                    f"(attempt {attempt + 1}/{retry_count})"
-                )
-
-            except aiosmtplib.SMTPException as e:
-                logger.error(
-                    f"SMTP error sending to {to_email} "
-                    f"(attempt {attempt + 1}/{retry_count}): {type(e).__name__}"
+                    "Email send timeout for %s (attempt %d/%d)",
+                    to_email,
+                    attempt + 1,
+                    retry_count,
                 )
 
             except aiosmtplib.SMTPAuthenticationError as e:
-                logger.critical(f"SMTP authentication failed: {e}")
+                logger.critical("SMTP authentication failed: %s", e)
                 return False  # Don't retry on auth failure
 
-            except Exception as e:
+            except aiosmtplib.SMTPException as e:
                 logger.error(
-                    f"Unexpected error sending email to {to_email}: "
-                    f"{type(e).__name__}: {str(e)}"
+                    "SMTP error sending to %s (attempt %d/%d): %s",
+                    to_email,
+                    attempt + 1,
+                    retry_count,
+                    type(e).__name__,
+                )
+
+            except Exception as e:  # noqa: BLE001
+                logger.error(
+                    "Unexpected error sending email to %s: %s: %s",
+                    to_email,
+                    type(e).__name__,
+                    str(e),
                 )
 
             # Exponential backoff between retries (except on last attempt)
             if attempt < retry_count - 1:
-                wait_time = self.retry_backoff ** attempt
-                logger.debug(f"Retrying in {wait_time}s...")
+                wait_time = self.retry_backoff**attempt
+                logger.debug("Retrying in %ss...", wait_time)
                 await asyncio.sleep(wait_time)
 
-        logger.error(
-            f"Failed to send email to {to_email} after {retry_count} attempts"
-        )
+        logger.error("Failed to send email to %s after %d attempts", to_email, retry_count)
         return False
 
     async def _send_via_smtp(
@@ -190,13 +184,13 @@ class EmailService:
             aiosmtplib.SMTPException: On SMTP errors
             asyncio.TimeoutError: On connection timeout
         """
-        now_utc = datetime.now(timezone.utc)
-
         # Create MIME multipart message
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
         message["From"] = f"{self.from_name} <{self.from_address}>"
         message["To"] = to_email
+
+        now_utc = datetime.now(timezone.utc)
         message["Date"] = format_datetime(now_utc)
         message["Message-ID"] = make_msgid(domain=self.smtp_host)
 
@@ -225,164 +219,9 @@ class EmailService:
         except aiosmtplib.SMTPAuthenticationError:
             logger.critical("SMTP authentication failed - check credentials")
             raise
-        except Exception as e:
-            logger.error(f"SMTP connection error: {type(e).__name__}: {e}")
+        except Exception as e:  # noqa: BLE001
+            logger.error("SMTP connection error: %s: %s", type(e).__name__, e)
             raise
-
-    async def send_verification_email(
-        self,
-        to_email: str,
-        username: str,
-        token: str,
-    ) -> bool:
-        """
-        Send email verification link.
-
-        Args:
-            to_email: Recipient email
-            username: User's display name
-            token: Verification token (plain, not hashed)
-
-        Returns:
-            bool: True if sent successfully
-        """
-        # Build verification URL (frontend should handle this)
-        verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
-
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2c3e50;">Welcome, {self._escape_html(username)}!</h2>
-                    
-                    <p>Thank you for signing up. Please verify your email address to complete your registration.</p>
-                    
-                    <div style="margin: 30px 0;">
-                        <a href="{verify_url}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                            Verify Email
-                        </a>
-                    </div>
-                    
-                    <p style="color: #7f8c8d; font-size: 14px;">
-                        Or copy this link:<br>
-                        <code style="background-color: #f5f5f5; padding: 5px 10px; border-radius: 3px;">{verify_url}</code>
-                    </p>
-                    
-                    <hr style="border: none; border-top: 1px solid #ecf0f1; margin: 20px 0;">
-                    
-                    <p style="color: #7f8c8d; font-size: 12px;">
-                        This verification link expires in {settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS} hours.
-                    </p>
-                    
-                    <p style="color: #7f8c8d; font-size: 12px;">
-                        If you didn't create this account, please ignore this email.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
-
-        text_content = f"""
-Welcome, {username}!
-
-Thank you for signing up. Please verify your email address to complete your registration.
-
-Verify Email:
-{verify_url}
-
-Or copy this link:
-{verify_url}
-
-This verification link expires in {settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS} hours.
-
-If you didn't create this account, please ignore this email.
-        """
-
-        return await self.send_email(
-            to_email=to_email,
-            subject="Verify Your Email Address",
-            html_content=html_content,
-            text_content=text_content,
-        )
-
-    async def send_password_reset_email(
-        self,
-        to_email: str,
-        username: str,
-        token: str,
-    ) -> bool:
-        """
-        Send password reset link via email.
-
-        Args:
-            to_email: Recipient email
-            username: User's display name
-            token: Password reset token (plain, not hashed)
-
-        Returns:
-            bool: True if sent successfully
-        """
-        reset_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
-
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2c3e50;">Password Reset Request</h2>
-                    
-                    <p>Hi {self._escape_html(username)},</p>
-                    
-                    <p>We received a request to reset your password. Click the link below to create a new password:</p>
-                    
-                    <div style="margin: 30px 0;">
-                        <a href="{reset_url}" style="display: inline-block; background-color: #e74c3c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                            Reset Password
-                        </a>
-                    </div>
-                    
-                    <p style="color: #7f8c8d; font-size: 14px;">
-                        Or copy this link:<br>
-                        <code style="background-color: #f5f5f5; padding: 5px 10px; border-radius: 3px;">{reset_url}</code>
-                    </p>
-                    
-                    <hr style="border: none; border-top: 1px solid #ecf0f1; margin: 20px 0;">
-                    
-                    <p style="color: #7f8c8d; font-size: 12px;">
-                        This reset link expires in {settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES} minutes.
-                    </p>
-                    
-                    <p style="color: #7f8c8d; font-size: 12px;">
-                        If you didn't request this, please secure your account and ignore this email.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
-
-        text_content = f"""
-Password Reset Request
-
-Hi {username},
-
-We received a request to reset your password. Click the link below to create a new password:
-
-Reset Password:
-{reset_url}
-
-Or copy this link:
-{reset_url}
-
-This reset link expires in {settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES} minutes.
-
-If you didn't request this, please secure your account and ignore this email.
-        """
-
-        return await self.send_email(
-            to_email=to_email,
-            subject="Password Reset Request",
-            html_content=html_content,
-            text_content=text_content,
-        )
 
     @staticmethod
     def _validate_email(email: str) -> bool:
@@ -399,7 +238,11 @@ If you didn't request this, please secure your account and ignore this email.
             return False
 
         # Simple regex for email validation
-        pattern = r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+        pattern = (
+            r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+            r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+            r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+        )
         return bool(re.match(pattern, email))
 
     @staticmethod
@@ -414,19 +257,31 @@ If you didn't request this, please secure your account and ignore this email.
             str: Plain text version
         """
         # Remove script and style elements
-        text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(
+            r"<script[^>]*>.*?</script>",
+            "",
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        text = re.sub(
+            r"<style[^>]*>.*?</style>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
 
         # Remove HTML tags
         text = re.sub(r"<[^>]+>", "", text)
 
         # Decode HTML entities
-        text = text.replace("&nbsp;", " ")
-        text = text.replace("&lt;", "<")
-        text = text.replace("&gt;", ">")
-        text = text.replace("&amp;", "&")
-        text = text.replace("&quot;", '"')
-        text = text.replace("&#39;", "'")
+        text = (
+            text.replace("&nbsp;", " ")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&amp;", "&")
+            .replace("&quot;", '"')
+            .replace("&#39;", "'")
+        )
 
         # Clean up whitespace
         text = re.sub(r"\n\s*\n", "\n\n", text)
@@ -434,28 +289,6 @@ If you didn't request this, please secure your account and ignore this email.
 
         return text.strip()
 
-    @staticmethod
-    def _escape_html(text: str) -> str:
-        """
-        Escape HTML special characters to prevent XSS in emails.
-
-        Args:
-            text: Text to escape
-
-        Returns:
-            str: Escaped text safe for HTML
-        """
-        if not isinstance(text, str):
-            text = str(text)
-
-        return (
-            text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-            .replace("'", "&#39;")
-        )
-
 
 # Singleton instance
-email_service = EmailService()
+email_client = EmailClient()
