@@ -62,9 +62,9 @@ app = FastAPI(
     version="0.1.0",
     description="AI Game Competition Platform Backend with secure authentication and rate limiting",
     lifespan=lifespan,
-    docs_url="/docs" if settings.is_development else None,
-    redoc_url="/redoc" if settings.is_development else None,
-    openapi_url="/openapi.json" if settings.is_development else None,
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
 
 # Add rate limiter to app state
@@ -234,6 +234,6 @@ async def root():
     return {
         "name": settings.PROJECT_NAME,
         "version": "0.1.0",
-        "docs": "/docs" if settings.is_development else None,
+        "docs": "/docs" if settings.docs_enabled else None,
         "health": "/health",
     }

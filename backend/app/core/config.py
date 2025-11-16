@@ -78,6 +78,10 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT.lower() == "development"
 
     @property
+    def docs_enabled(self) -> bool:
+        return self.is_development or self.is_staging
+
+    @property
     def smtp_required(self) -> bool:
         # Only require SMTP in staging and production
         return self.is_staging or self.is_production
