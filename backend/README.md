@@ -115,6 +115,24 @@ The API will be available at `http://localhost:8000`.
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
+## Testing
+
+The backend ships with async end‑to‑end tests for auth, email verification, and user/role management, built with `pytest` and `pytest-anyio`. 
+
+### Running tests
+
+From the `backend` directory:
+
+    pytest
+
+The test suite:
+
+- Spins up the FastAPI app in‑process and talks to it via an async HTTP client. 
+- Uses a dedicated Postgres test database and overrides the app’s DB session via `tests/conftest.py`.
+- Injects a fake email client so verification and reset emails are captured in memory instead of hitting SMTP.
+
+Test environment variables (DB URLs, JWT secret, `ENVIRONMENT=test`) are configured in `tests/pytest.ini` using `pytest-env`, so no extra shell setup is needed beyond starting the test Postgres/Redis containers (for example with `docker compose -f docker-compose.test.yml up -d`).
+
 ## Database migrations
 
 Migrations run automatically on startup in Docker. To manually manage them:
