@@ -3,7 +3,6 @@
 User submissions must be a `.zip` containing:
 
 * **agent.py** — required entrypoint
-* **requirements.txt** — optional
 
 This directory includes:
 
