@@ -3,9 +3,9 @@ Test suite for full game scenarios in gamelib.
 """
 
 from gamelib.tictactoe.engine import Engine
-from gamelib.tictactoe.gamestate import State
+from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.move import Move
-from gamelib.tictactoe.examples.simple_agent import TicTacToeAgent
+from gamelib.tictactoe.examples.simple_agent import TicTacToeAgent as Agent
 
 
 def test_validate_move():
@@ -13,7 +13,7 @@ def test_validate_move():
     Test the validate_move method of the TicTacToe engine.
     """
     engine = Engine()
-    state = State()
+    state = State.initial()
     valid_move = Move(player=0, position=0)
     invalid_move_out_of_bounds = Move(player=0, position=9)
     invalid_move_occupied = Move(player=0, position=0)
@@ -28,18 +28,18 @@ def test_full_game():
     """
     Test a full game of Tic-Tac-Toe between two simple agents.
     """
-    agent1 = TicTacToeAgent(run_init=False)
+    agent1 = Agent(run_init=False)
     agent1.player_id = 0
-    agent2 = TicTacToeAgent(run_init=False)
+    agent2 = Agent(run_init=False)
     agent2.player_id = 1
     engine = Engine()
-    assert engine.status == 0, "Initial game status should be ongoing (0)."
-    state = State()  # Initial empty state
+    state = State.initial()  # Initial empty state
+    assert state.turn == 0, "Initial turn should be player 0."
+    assert state.status == -1, "Initial game status should be ongoing (-1)."
 
     while not engine.is_game_over(state):
-        assert engine.status == 0, "Game should be ongoing."
-
-        if state.current_player == 0:
+        assert state.status == -1, "Game should be ongoing."
+        if state.turn == 0:
             move = agent1.get_move(state)
         else:
             move = agent2.get_move(state)
@@ -47,27 +47,29 @@ def test_full_game():
         assert engine.validate_move(state, move), f"Move {move} should be valid."
         state = engine.apply_move(state, move)
 
-    assert engine.status != 0, "Game should be over."
-    result = engine.get_winner(state)
-    assert result == 1, "Player 1 should win the game."
-    assert result != 2, "Player 2 should not win the game."
-    assert result != -1, "The game should not end in a draw."
+    assert state.status != -1, "Game should be over."
+    assert state.status == 0, "Player 0 should win the game."
 
 
 def test_serialization():
     """
     Test serialization and deserialization of game state and moves.
     """
-    state = State()
+    state = State.initial({"turn": 1})
+    cloned_state = state.clone()
+    assert state.board == cloned_state.board, "Cloned state board should match original."
+    assert state.turn == cloned_state.turn, "Cloned state turn should match original."
     move = Move(player=0, position=4)
 
     state_json = state.to_json()
+    cloned_state_json = cloned_state.to_json()
+    assert state_json == cloned_state_json, "Serialized JSON of cloned state should match original."
     move_json = move.to_json()
 
     restored_state = State.from_json(state_json)
     restored_move = Move.from_json(move_json)
 
     assert state.board == restored_state.board, "Restored state board should match original."
-    assert state.current_player == restored_state.current_player, "Restored state current player should match original."
+    assert state.turn == restored_state.turn, "Restored state current player should match original."
     assert move.player == restored_move.player, "Restored move player should match original."
     assert move.position == restored_move.position, "Restored move position should match original."

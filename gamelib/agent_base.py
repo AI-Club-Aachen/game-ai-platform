@@ -3,11 +3,13 @@ Base class for game agent implementations.
 Provides common functionality and interfaces for different game agents.
 """
 
+from abc import ABC, abstractmethod
+
 from gamelib.gamestate_base import GameStateBase as State
 from gamelib.move_base import MoveBase as Move
 
 
-class AgentBase():
+class AgentBase(ABC):
     """
     Base class for game agent implementations.
     """
@@ -38,26 +40,30 @@ class AgentBase():
         """
         print(output)
 
+    @abstractmethod
     def _read_init(self):
         """
         Reads initialization input for the agent and returns it as a dictionary.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
+    @abstractmethod
     def initialize(self, init_data: dict):
         """
         Initialize the agent before the game starts.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
+    @abstractmethod
     def _read_state(self) -> State:
         """
         Reads the current game state input for the agent and returns it as a State object.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def get_move(self) -> Move:
+    @abstractmethod
+    def get_move(self, game_state: State) -> Move:
         """
-        Decide on a move based on the current game state.
+        Decide on a move based on the given game state.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")

@@ -2,8 +2,10 @@
 Base Tic-Tac-Toe Agent Implementation.
 """
 
+from typing import override
+
 from gamelib.agent_base import AgentBase
-from gamelib.tictactoe.gamestate import State
+from gamelib.tictactoe.gamestate import GameState as State
 
 
 class Agent(AgentBase):
@@ -23,6 +25,7 @@ class Agent(AgentBase):
         if run_init:
             super().__init__()
     
+    @override
     def _read_init(self) -> dict:
         """
         Reads initialization input for the agent.
@@ -30,9 +33,10 @@ class Agent(AgentBase):
         """
         init_input = self._read_input()
         init_state = State.from_json(init_input)
-        player_id = init_state.current_player  # Assuming init input contains which player the agent is
+        player_id = init_state.turn  # Assuming init input contains which player the agent is
         return {"player_id": player_id}
 
+    @override
     def _read_state(self) -> State:
         """
         Reads the current Tic-Tac-Toe game state input for the agent.
