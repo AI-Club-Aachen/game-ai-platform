@@ -17,7 +17,7 @@ def _safe_extract_zip(zip_bytes: bytes, dst: Path) -> None:
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         for m in zf.infolist():
             p = (dst / m.filename).resolve()
-            # passiert, wenn man versucht aus der zip auszubrechen, also in folder drüber gehen will
+            # will trigger when one tries to escape from the zip by trying to access folders higher up
             if not str(p).startswith(str(dst)):
                 raise BuildError(f"Illegal Path in ZIP: {m.filename}")
         zf.extractall(dst)
@@ -31,9 +31,39 @@ def _content_hash(root: Path) -> str:
                 h.update(b)
     return h.hexdigest()
 
+def _find_and_normalize_agent_entry(ctx: Path) -> None:
+    """
+    Find the agent entry file in the build directory.
+    Accepted patterns:
+      - agent.py
+      - *_agent.py
+
+    Ensures exactly one match and renames it to agent.py if needed.
+    """
+    candidates = [
+        p for p in ctx.iterdir() if p.is_file() and (p.name == "agent.py" or p.name.endswith("_agent.py"))
+    ]
+
+    if not candidates:
+        raise BuildError(
+            "No agent entry file found. Expected 'agent.py' or a file ending with '_agent.py'."
+        )
+    
+    if len(candidates) > 1:
+        names = ", ".join(p.name for p in candidates)
+        raise BuildError(
+            f"Multiple agent entry files found: {names}. "
+            "Provide exactly one file."
+        )
+
+    entry = candidates[0]
+    if entry.name != "agent.py":
+        entry.rename(ctx / "agent.py")
+
+
 def build_from_zip(zip_bytes: bytes, owner_id: str,
                    repo_prefix: str="agent", base_label_ns: str="org.aiclub") -> dict:
-    """Verwendet submissions/Dockerfile, baut Image aus ZIP-Inhalt."""
+    """Uses submissions/Dockerfile to build a Docker image from the ZIP contents."""
     client = docker.from_env()
     project_root = Path(__file__).resolve().parent # submissions/
     dockerfile_path = project_root / "Dockerfile"
@@ -45,22 +75,20 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
         ctx = Path(td)
         _safe_extract_zip(zip_bytes, ctx)
 
-        # kleiner check
-        if not (ctx / "agent.py").exists():
-            raise BuildError("agent.py fehlt in der ZIP.")
+        _find_and_normalize_agent_entry(ctx)
         
-        # agent_requirements ins build-directory kopieren
+        # copy agent_requirements into the build-directory 
         global_reqs = project_root / "agent_requirements.txt"
         if global_reqs.exists():
             shutil.copy(global_reqs, ctx / "agent_requirements.txt")
 
-        # .dockerignore wird hinzugefügt, falls der User keins drin hat
+        # add .dockerignore, if the user does not provide one
         di = ctx / ".dockerignore"
         if not di.exists():
             if DEFAULT_DOCKERIGNORE_PATH.exists():
                 di.write_text(DEFAULT_DOCKERIGNORE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
-        # deterministischer Tag + Label
+        # deterministic tag + label
         sha = _content_hash(ctx)
         tag = f"{repo_prefix}-{sha[:8]}"
         labels = {
@@ -77,7 +105,7 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
             labels=labels,
             rm=True,
             pull=False,
-            network_mode="default" # Build darf Netz haben, nur die runtime später nicht
+            network_mode="default" # allow this for the build, but not for the containers later
         )
     return {
         "image_id": image.id,
