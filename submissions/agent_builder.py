@@ -1,8 +1,8 @@
 import io
-import os
 import zipfile
 import hashlib
 import tempfile
+import shutil
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -49,6 +49,11 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
         if not (ctx / "agent.py").exists():
             raise BuildError("agent.py fehlt in der ZIP.")
         
+        # agent_requirements ins build-directory kopieren
+        global_reqs = project_root / "agent_requirements.txt"
+        if global_reqs.exists():
+            shutil.copy(global_reqs, ctx / "agent_requirements.txt")
+
         # .dockerignore wird hinzugefügt, falls der User keins drin hat
         di = ctx / ".dockerignore"
         if not di.exists():
