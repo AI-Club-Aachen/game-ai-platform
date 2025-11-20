@@ -36,7 +36,9 @@ router = APIRouter(prefix="/users")
 
 
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("60/minute")
 async def get_current_user_profile(
+    request: Request,
     user: CurrentUser,
 ) -> UserResponse:
     """Get current authenticated user's profile."""
@@ -44,7 +46,9 @@ async def get_current_user_profile(
 
 
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("15/day")
 async def update_current_user_profile(
+    request: Request,
     user_update: UserUpdate,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
