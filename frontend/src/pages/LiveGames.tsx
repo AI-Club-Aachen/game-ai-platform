@@ -139,7 +139,7 @@ export function LiveGames() {
                 </Box>
                 <LinearProgress variant="determinate" value={(game.round / game.maxRounds) * 100} sx={{ height: 6, borderRadius: 0, backgroundColor: '#333', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #00D98B 0%, #00A6FF 100%)' } }} />
               </Box>
-              <Button variant="contained" fullWidth onClick={() => setSelectedGame(game.id)}>Watch Game</Button>
+              <Button variant="gradientBorder" fullWidth onClick={() => setSelectedGame(game.id)}>Watch Game</Button>
             </CardContent>
           </Card>
         ))}

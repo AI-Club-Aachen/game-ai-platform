@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Card, CardContent } from '@mui/material';
-import { SmartToy, EmojiEvents, Analytics, Visibility, SportsEsports } from '@mui/icons-material';
+import { SmartToy, EmojiEvents, Analytics, Visibility } from '@mui/icons-material';
 
 export function Home() {
   return (
@@ -38,7 +38,7 @@ export function Home() {
           <Button
             component={Link}
             to="/dashboard"
-            variant="contained"
+            variant="gradientBorder"
             size="large"
             sx={{
               px: 4,
@@ -55,18 +55,14 @@ export function Home() {
           <Button
             component={Link}
             to="/leaderboard"
-            variant="outlined"
+            variant="gradientBorder"
             size="large"
             sx={{
               px: 4,
               py: 1.5,
               fontSize: '1.1rem',
-              borderColor: '#00A6FF',
-              color: '#00A6FF',
               '&:hover': {
                 transform: 'translateY(-2px)',
-                borderColor: '#00D98B',
-                backgroundColor: 'rgba(0, 217, 139, 0.1)',
               },
               transition: 'transform 0.3s',
             }}

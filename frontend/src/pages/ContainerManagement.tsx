@@ -92,10 +92,10 @@ export function ContainerManagement() {
                     <TableCell><Typography color={container.memory > 500 ? 'error' : 'inherit'}>{container.memory}</Typography></TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Button variant="outlined" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
-                        {container.status === 'running' && <><Button variant="outlined" size="small"><Refresh fontSize="small" /></Button><Button variant="outlined" size="small" color="error"><Stop fontSize="small" /></Button></>}
-                        {container.status === 'stopped' && <Button variant="outlined" size="small" color="success"><PlayArrow fontSize="small" /></Button>}
-                        {container.status === 'error' && <Button variant="outlined" size="small" color="error"><Delete fontSize="small" /></Button>}
+                        <Button variant="gradientBorder" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
+                        {container.status === 'running' && <><Button variant="gradientBorder" size="small"><Refresh fontSize="small" /></Button><Button variant="gradientBorder" size="small" color="error"><Stop fontSize="small" /></Button></>}
+                        {container.status === 'stopped' && <Button variant="gradientBorder" size="small" color="success"><PlayArrow fontSize="small" /></Button>}
+                        {container.status === 'error' && <Button variant="gradientBorder" size="small" color="error"><Delete fontSize="small" /></Button>}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -120,9 +120,9 @@ export function ContainerManagement() {
               ))}
             </Box>
             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              <Button variant="outlined" size="small">Download Logs</Button>
-              <Button variant="outlined" size="small">Clear</Button>
-              <Button variant="outlined" size="small">Refresh</Button>
+              <Button variant="gradientBorder" size="small">Download Logs</Button>
+              <Button variant="gradientBorder" size="small">Clear</Button>
+              <Button variant="gradientBorder" size="small">Refresh</Button>
             </Box>
           </CardContent>
         </Card>

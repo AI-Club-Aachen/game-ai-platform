@@ -1,5 +1,12 @@
 import { createTheme } from '@mui/material/styles';
 
+// Extend MUI Button variants to include our custom variant
+declare module '@mui/material/Button' {
+    interface ButtonPropsVariantOverrides {
+        gradientBorder: true;
+    }
+}
+
 const theme = createTheme({
     palette: {
         primary: {
@@ -65,6 +72,32 @@ const theme = createTheme({
                     },
                 },
             },
+            variants: [
+                {
+                    props: { variant: 'gradientBorder' },
+                    style: {
+                        position: 'relative',
+                        background: 'transparent',
+                        color: '#fff',
+                        border: '2px solid transparent',
+                        backgroundImage: 'linear-gradient(#1a1a1a, #1a1a1a), linear-gradient(135deg, #00A6FF, #00D98B)',
+                        backgroundOrigin: 'border-box',
+                        backgroundClip: 'padding-box, border-box',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                            backgroundImage: 'linear-gradient(135deg, #00A6FF, #00D98B)',
+                            backgroundClip: 'padding-box',
+                            border: '2px solid transparent',
+                            color: '#fff',
+                        },
+                        '&.Mui-disabled': {
+                            opacity: 0.5,
+                            backgroundImage: 'linear-gradient(#1a1a1a, #1a1a1a), linear-gradient(135deg, #666, #888)',
+                            color: '#fff',
+                        },
+                    },
+                },
+            ],
         },
         MuiPaper: {
             styleOverrides: {

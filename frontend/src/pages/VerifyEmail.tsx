@@ -112,7 +112,7 @@ export function VerifyEmail() {
                 <Button
                   component={Link}
                   to="/register"
-                  variant="outlined"
+                  variant="gradientBorder"
                 >
                   Register Again
                 </Button>

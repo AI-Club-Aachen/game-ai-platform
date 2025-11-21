@@ -107,7 +107,7 @@ export function Games() {
                   <Button 
                     component={Link} 
                     to={`/leaderboard?game=${game.id}`} 
-                    variant="outlined"
+                    variant="gradientBorder"
                     size="small"
                     fullWidth
                   >
@@ -116,7 +116,7 @@ export function Games() {
                   <Button 
                     component={Link} 
                     to={`/games/live?game=${game.id}`} 
-                    variant="contained"
+                    variant="gradientBorder"
                     size="small"
                     fullWidth
                   >

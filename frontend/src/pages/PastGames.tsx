@@ -151,7 +151,7 @@ export function PastGames() {
                 <TableCell><Typography fontWeight="bold">{game.player2.name}</Typography><Typography variant="caption" color="text.secondary">{game.player2.agent}</Typography></TableCell>
                 <TableCell><Chip icon={game.winner === 'demo_user' ? <EmojiEvents /> : undefined} label={game.winner} color={game.winner === 'demo_user' ? 'success' : 'default'} size="small" sx={{ borderRadius: 0 }} /></TableCell>
                 <TableCell>{game.duration}</TableCell>
-                <TableCell><Button variant="outlined" size="small" onClick={() => setSelectedGame(game.id)}>Replay</Button></TableCell>
+                <TableCell><Button variant="gradientBorder" size="small" onClick={() => setSelectedGame(game.id)}>Replay</Button></TableCell>
               </TableRow>
             ))}
           </TableBody>

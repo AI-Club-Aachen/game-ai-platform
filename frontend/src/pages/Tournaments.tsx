@@ -242,13 +242,13 @@ export function Tournaments() {
 
                 <Box>
                   {tournament.status === 'upcoming' && (
-                    <Button variant="contained" fullWidth>Register</Button>
+                    <Button variant="gradientBorder" fullWidth>Register</Button>
                   )}
                   {tournament.status === 'active' && (
-                    <Button variant="outlined" fullWidth>View Bracket</Button>
+                    <Button variant="gradientBorder" fullWidth>View Bracket</Button>
                   )}
                   {tournament.status === 'completed' && (
-                    <Button variant="outlined" fullWidth>View Results</Button>
+                    <Button variant="gradientBorder" fullWidth>View Results</Button>
                   )}
                 </Box>
               </CardContent>

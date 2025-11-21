@@ -105,7 +105,7 @@ export function Dashboard() {
                       <TableCell>{sub.score || '-'}</TableCell>
                       {isAdmin && (
                         <TableCell>
-                          <Button variant="outlined" size="small">Review</Button>
+                          <Button variant="gradientBorder" size="small">Review</Button>
                         </TableCell>
                       )}
                     </TableRow>
@@ -150,7 +150,7 @@ export function Dashboard() {
                       </TableCell>
                       <TableCell>{agent.lastActive}</TableCell>
                       <TableCell>
-                        <Button variant="outlined" size="small">View</Button>
+                        <Button variant="gradientBorder" size="small">View</Button>
                       </TableCell>
                     </TableRow>
                   ))}
