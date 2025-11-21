@@ -14,7 +14,11 @@ This directory includes:
 * **base_requirements.txt** — global Python packages installed into the base image
 * **secure_default_settings.yaml** — runtime and sandbox restrictions
 * **default_dockerignore** — applied when the submission ZIP has no `.dockerignore`
-* **tests/** — pytest tests (planned)
+* **tests/** — pytest tests (currently only very basic). Have to be run from the project root with:
+
+    ```
+    python -m pytest submissions/tests -v
+    ```
 
 ### Base Image
 

@@ -90,7 +90,8 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
 
         # deterministic tag + label
         sha = _content_hash(ctx)
-        tag = f"{repo_prefix}-{sha[:8]}"
+        base_tag = f"{repo_prefix}-{sha[:8]}"
+        full_tag = f"{base_tag}:latest"
         labels = {
             f"{base_label_ns}.owner_id": str(owner_id),
             f"{base_label_ns}.content_sha256": sha,
@@ -101,7 +102,7 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
         image, _ = client.images.build(
             path=str(ctx),
             dockerfile=str(dockerfile_path),
-            tag=tag,
+            tag=full_tag,
             labels=labels,
             rm=True,
             pull=False,
@@ -109,7 +110,7 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
         )
     return {
         "image_id": image.id,
-        "tag": tag,
+        "tag":  full_tag,
         "labels": labels,
         "size": image.attrs.get("Size")
     }
