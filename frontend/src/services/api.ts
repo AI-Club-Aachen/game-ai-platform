@@ -4,7 +4,7 @@
  */
 
 // Base API URL - adjust based on environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 /**
  * Generic API error class
@@ -24,7 +24,7 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = localStorage.getItem('access_token');
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -48,14 +48,14 @@ async function apiRequest<T>(
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-      
+
       try {
         const errorData = await response.json();
         errorMessage = errorData.detail || errorData.message || errorMessage;
       } catch {
         // If error response is not JSON, use status text
       }
-      
+
       throw new ApiError(errorMessage, response.status);
     }
 
@@ -66,7 +66,7 @@ async function apiRequest<T>(
     if (error instanceof ApiError) {
       throw error;
     }
-    
+
     // Network error or other issue
     throw new ApiError(
       error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -87,7 +87,7 @@ export const authApi = {
       token_type: string;
       user_id: string;
       username: string;
-    }>('/api/auth/login', {
+    }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -104,7 +104,7 @@ export const authApi = {
     return apiRequest<{
       message: string;
       user_id: string;
-    }>('/api/auth/register', {
+    }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -116,7 +116,7 @@ export const authApi = {
   verifyEmail: async (token: string) => {
     return apiRequest<{
       message: string;
-    }>(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
+    }>(`/auth/verify-email?token=${encodeURIComponent(token)}`, {
       method: 'GET',
     });
   },
@@ -130,7 +130,7 @@ export const authApi = {
       username: string;
       email: string;
       is_verified: boolean;
-    }>('/api/auth/me', {
+    }>('/auth/me', {
       method: 'GET',
     });
   },
@@ -158,7 +158,7 @@ export const gamesApi = {
       description: string;
       rules: string;
       max_players: number;
-    }>>('/api/games', {
+    }>>('/games', {
       method: 'GET',
     });
   },
@@ -173,7 +173,7 @@ export const gamesApi = {
       description: string;
       rules: string;
       max_players: number;
-    }>(`/api/games/${gameId}`, {
+    }>(`/games/${gameId}`, {
       method: 'GET',
     });
   },
@@ -190,10 +190,10 @@ export const matchesApi = {
     const queryParams = new URLSearchParams();
     if (params?.game_id) queryParams.append('game_id', params.game_id);
     if (params?.user_id) queryParams.append('user_id', params.user_id);
-    
+
     const queryString = queryParams.toString();
-    const endpoint = queryString ? `/api/matches?${queryString}` : '/api/matches';
-    
+    const endpoint = queryString ? `/matches?${queryString}` : '/matches';
+
     return apiRequest<Array<{
       id: string;
       game_id: string;
@@ -222,7 +222,7 @@ export const matchesApi = {
         username: string;
         submission_id: string;
       }>;
-    }>(`/api/matches/${matchId}`, {
+    }>(`/matches/${matchId}`, {
       method: 'GET',
     });
   },
@@ -237,7 +237,7 @@ export const matchesApi = {
     return apiRequest<{
       match_id: string;
       message: string;
-    }>('/api/matches', {
+    }>('/matches', {
       method: 'POST',
       body: JSON.stringify(matchData),
     });
@@ -259,7 +259,7 @@ export const submissionsApi = {
       code: string;
       status: string;
       created_at: string;
-    }>>('/api/submissions', {
+    }>>('/submissions', {
       method: 'GET',
     });
   },
@@ -275,7 +275,7 @@ export const submissionsApi = {
     return apiRequest<{
       submission_id: string;
       message: string;
-    }>('/api/submissions', {
+    }>('/submissions', {
       method: 'POST',
       body: JSON.stringify(submissionData),
     });
@@ -292,7 +292,7 @@ export const submissionsApi = {
       code: string;
       status: string;
       created_at: string;
-    }>(`/api/submissions/${submissionId}`, {
+    }>(`/submissions/${submissionId}`, {
       method: 'GET',
     });
   },
@@ -315,7 +315,7 @@ export const leaderboardApi = {
       losses: number;
       draws: number;
       total_matches: number;
-    }>>(`/api/leaderboard/${gameId}`, {
+    }>>(`/leaderboard/${gameId}`, {
       method: 'GET',
     });
   },
@@ -336,7 +336,7 @@ export const tournamentsApi = {
       status: string;
       start_date: string;
       end_date: string;
-    }>>('/api/tournaments', {
+    }>>('/tournaments', {
       method: 'GET',
     });
   },
@@ -356,7 +356,7 @@ export const tournamentsApi = {
         user_id: string;
         username: string;
       }>;
-    }>(`/api/tournaments/${tournamentId}`, {
+    }>(`/tournaments/${tournamentId}`, {
       method: 'GET',
     });
   },
@@ -367,7 +367,7 @@ export const tournamentsApi = {
   registerForTournament: async (tournamentId: string, submissionId: string) => {
     return apiRequest<{
       message: string;
-    }>(`/api/tournaments/${tournamentId}/register`, {
+    }>(`/tournaments/${tournamentId}/register`, {
       method: 'POST',
       body: JSON.stringify({ submission_id: submissionId }),
     });

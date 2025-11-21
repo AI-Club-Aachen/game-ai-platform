@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getGameById, getActiveGames } from '../config/games';
+import { getActiveGames } from '../config/games';
+//import { getGameById } from '../config/games'; //TODO
 import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress } from '@mui/material';
 import { EmojiEvents } from '@mui/icons-material';
 
@@ -53,7 +54,7 @@ export function Leaderboard() {
     return `#${rank}`;
   };
 
-  const currentGame = getGameById(selectedGame);
+  //const currentGame = getGameById(selectedGame); //TODO
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -112,9 +113,9 @@ export function Leaderboard() {
           </TableHead>
           <TableBody>
             {entries.map((entry) => (
-              <TableRow 
+              <TableRow
                 key={entry.rank}
-                sx={{ 
+                sx={{
                   backgroundColor: entry.rank <= 3 ? 'rgba(0, 217, 139, 0.1)' : 'inherit'
                 }}
               >
@@ -144,10 +145,10 @@ export function Leaderboard() {
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
                     <Box sx={{ flexGrow: 1 }}>
-                      <LinearProgress 
-                        variant="determinate" 
-                        value={entry.winRate} 
-                        sx={{ 
+                      <LinearProgress
+                        variant="determinate"
+                        value={entry.winRate}
+                        sx={{
                           height: 8,
                           borderRadius: 0,
                           backgroundColor: '#333',

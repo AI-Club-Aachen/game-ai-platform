@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+//import { useAuth } from '../context/AuthContext'; //TODO
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, Checkbox, FormControlLabel } from '@mui/material';
 import { PersonAdd } from '@mui/icons-material';
 import { authApi } from '../services/api';
 
 export function Register() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  //const { login } = useAuth(); //TODO
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -60,9 +60,9 @@ export function Register() {
         email: formData.email,
         password: formData.password,
       });
-      
+
       setSuccess('Registration successful! Please check your email to verify your account before logging in.');
-      
+
       // Clear form
       setFormData({
         username: '',
@@ -71,7 +71,7 @@ export function Register() {
         confirmPassword: '',
       });
       setAgreedToTerms(false);
-      
+
       // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login');
