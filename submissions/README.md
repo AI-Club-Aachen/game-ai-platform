@@ -2,16 +2,24 @@
 
 User submissions must be a `.zip` containing:
 
-* **agent.py** — required entrypoint
+* **agent.py** or a file ending with `_agent.py` — this becomes the entrypoint
 
 This directory includes:
 
-* **agent_builder.py** — builds a Docker image from a submitted ZIP. Use `build_from_zip(data, owner_id)` to turn a ZIP's bytes into a tagged Docker image.
-* **agent_runner.py** — provides two run modes:
-
-  * `run_agent(image_ref)` for local or short test runs
-  * `start_agent_container(image_ref, match_id=..., agent_id=..., owner_id=...)` for long-running match containers
-* **Dockerfile** — base image used for all agents
-* **secure_default_settings.yaml** — resource and sandbox settings used when running containers
-* **default_dockerignore** — applied when the submission ZIP does not include a `.dockerignore`
+* **agent_builder.py** — turns a submission ZIP into an Agent Docker image using `Dockerfile.agent`
+* **agent_runner.py** — runs Agent containers with restricted settings
+* **agent_manager.py** — lists, stops, deletes and inspects built images and containers
+* **Dockerfile.base** — base image for all Agents (contains global Python environment)
+* **Dockerfile.agent** — lightweight Agent image using the base image
+* **base_requirements.txt** — global Python packages installed into the base image
+* **secure_default_settings.yaml** — runtime and sandbox restrictions
+* **default_dockerignore** — applied when the submission ZIP has no `.dockerignore`
 * **tests/** — pytest tests (planned)
+
+### Base Image
+
+If `Dockerfile.base` or `base_requirements.txt` changes, rebuild the base image manually:
+
+```
+docker build -f submissions/Dockerfile.base -t gameai-agent-base:latest submissions/
+```

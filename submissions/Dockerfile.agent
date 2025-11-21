@@ -1,0 +1,6 @@
+FROM gameai-agent-base:latest
+
+WORKDIR /home/runner/app
+COPY . .
+
+CMD ["python", "agent.py"]

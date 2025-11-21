@@ -66,7 +66,7 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
     """Uses submissions/Dockerfile to build a Docker image from the ZIP contents."""
     client = docker.from_env()
     project_root = Path(__file__).resolve().parent # submissions/
-    dockerfile_path = project_root / "Dockerfile"
+    dockerfile_path = project_root / "Dockerfile.agent"
 
     if not dockerfile_path.exists():
         raise BuildError("submissions/Dockerfile nicht gefunden.")
@@ -77,10 +77,10 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
 
         _find_and_normalize_agent_entry(ctx)
         
-        # copy agent_requirements into the build-directory 
-        global_reqs = project_root / "agent_requirements.txt"
+        # copy base_requirements into the build-directory 
+        global_reqs = project_root / "base_requirements.txt"
         if global_reqs.exists():
-            shutil.copy(global_reqs, ctx / "agent_requirements.txt")
+            shutil.copy(global_reqs, ctx / "base_requirements.txt")
 
         # add .dockerignore, if the user does not provide one
         di = ctx / ".dockerignore"
