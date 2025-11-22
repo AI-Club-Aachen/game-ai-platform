@@ -5,7 +5,7 @@ Tic-Tac-Toe game state representation.
 import json
 from typing import override
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from gamelib.gamestate_base import GameStateBase
 
@@ -24,6 +24,30 @@ class GameState(BaseModel, GameStateBase):
     board: list[int]
     turn: int
     status: int
+
+    @field_validator('board')
+    @classmethod
+    def validate_board(cls, v: list[int]) -> list[int]:
+        if len(v) != 9:
+            raise ValueError("Invalid game state format: board must have 9 cells.")
+        for cell in v:
+            if cell not in [-1, 0, 1]:
+                raise ValueError(f"Invalid game state format in board cell {cell}: must be -1, 0, or 1.")
+        return v
+
+    @field_validator('turn')
+    @classmethod
+    def validate_turn(cls, v: int) -> int:
+        if v not in [0, 1]:
+            raise ValueError("Invalid game state format: turn must be 0 or 1.")
+        return v
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: int) -> int:
+        if v not in [-2, -1, 0, 1]:
+            raise ValueError("Invalid game state format: status must be -2, -1, 0, or 1.")
+        return v
 
     @override
     @classmethod
@@ -57,36 +81,8 @@ class GameState(BaseModel, GameStateBase):
             json_data = json.loads(json_str)
         except json.JSONDecodeError as e:
             raise ValueError(f"Error decoding JSON string for game state: {json_str}.") from e
-        if not isinstance(json_data, dict):
-            raise TypeError("Invalid game state format: not a JSON object.")
-        if not "board" in json_data:
-            raise TypeError("Invalid game state format: missing board attribute.")
-        if not "turn" in json_data:
-            raise TypeError("Invalid game state format: missing turn attribute.")
-        if not isinstance(json_data["board"], list):
-            raise TypeError("Invalid game state format in board: not a list.")
-        if not len(json_data["board"]) == 9:
-            raise ValueError("Invalid game state format: board must have 9 cells.")
-        for cell in json_data["board"]:
-            if not isinstance(cell, int):
-                raise TypeError(f"Invalid game state format in board cell {cell}: not an integer.")
-            if cell not in [-1, 0, 1]:
-                raise ValueError(f"Invalid game state format in board cell {cell}: must be -1, 0, or 1.")
-        if not isinstance(json_data["turn"], int):
-            raise TypeError("Invalid game state format in turn: not an integer.")
-        if json_data["turn"] not in [0, 1]:
-            raise ValueError("Invalid game state format: turn must be 0 or 1.")
-        if not "status" in json_data:
-            raise TypeError("Invalid game state format: missing status attribute.")
-        if not isinstance(json_data["status"], int):
-            raise TypeError("Invalid game state format in status: not an integer.")
-        if json_data["status"] not in [-2, -1, 0, 1]:
-            raise ValueError("Invalid game state format: status must be -2, -1, 0, or 1.")
-        board = json_data["board"]
-        turn = json_data["turn"]
-        status = json_data["status"]
-        state = cls(board=board, turn=turn, status=status)
-        return state
+        
+        return cls.model_validate(json_data)
     
     @override
     def to_json(self) -> str:

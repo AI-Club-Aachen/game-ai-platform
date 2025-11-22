@@ -2,6 +2,9 @@
 Test suite for full game scenarios in gamelib.
 """
 
+from pydantic import ValidationError
+import pytest
+
 from gamelib.tictactoe.engine import Engine
 from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.move import Move
@@ -14,14 +17,13 @@ def test_validate_move():
     """
     engine = Engine()
     state = State.initial()
-    valid_move = Move(player=0, position=0)
-    invalid_move_out_of_bounds = Move(player=0, position=9)
-    invalid_move_occupied = Move(player=0, position=0)
+    move = Move(player=0, position=0)
+    with pytest.raises(ValidationError):
+        _ = Move(player=0, position=9)
 
-    assert engine.validate_move(state, valid_move) == True, "Move should be valid."
+    assert engine.validate_move(state, move) == True, "Move should be valid."
     state.board[0] = 0  # Occupy position 0
-    assert engine.validate_move(state, invalid_move_occupied) == False, "Move should be invalid (occupied)."
-    assert engine.validate_move(state, invalid_move_out_of_bounds) == False, "Move should be invalid (out of bounds)."
+    assert engine.validate_move(state, move) == False, "Move should be invalid (occupied)."
 
 
 def test_full_game():
