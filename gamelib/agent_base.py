@@ -49,7 +49,7 @@ class AgentBase(ABC):
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     @abstractmethod
-    def initialize(self, init_data: dict):
+    def initialize(self, agent_init_data: dict):
         """
         Initialize the agent before the game starts.
         """

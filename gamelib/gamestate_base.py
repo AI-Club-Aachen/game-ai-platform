@@ -13,7 +13,7 @@ class GameStateBase(ABC):
 
     @classmethod
     @abstractmethod
-    def initial(cls, init_data: dict = {}):
+    def initial(cls, state_init_data: dict = {}):
         """
         Initialize a game state from initialization data.
         This represents the starting state of the game.

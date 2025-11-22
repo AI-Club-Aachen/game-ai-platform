@@ -170,7 +170,6 @@ def test_agent_identifies_player():
     
     # Simulate the _read_init logic: agent determines player_id from init state's turn
     player_id_0 = init_state_0.turn
-    agent_0._first_state = init_state_0
     agent_0.initialize({"player_id": player_id_0})
     
     assert agent_0.player_id == 0, "Agent should identify as player 0 when turn=0 in initial state"
@@ -181,7 +180,6 @@ def test_agent_identifies_player():
     
     # Simulate the _read_init logic: agent determines player_id from init state's turn
     player_id_1 = init_state_1.turn
-    agent_1._first_state = init_state_1
     agent_1.initialize({"player_id": player_id_1})
     
     assert agent_1.player_id == 1, "Agent should identify as player 1 when turn=1 in initial state"

@@ -22,31 +22,30 @@ class Agent(AgentBase):
         Args:
             run_init (bool): Whether to run the init loop.
         """
-        self._first_state = None
         if run_init:
             super().__init__()
-    
+
     @override
     def _read_init(self) -> dict:
         """
-        Reads initialization input for the agent.
-        In this case, player id.
+        Reads initialization input for the agent which is a dictionary.
+        In this case, a "player_id" key indicates which player the agent is.
+        This data will be passed to the initialize() method of the subclass.
+        Returns:
+            dict: Initialization data for the agent.
         """
-        init_input = self._read_input()
-        init_state = State.from_json(init_input)
-        self._first_state = init_state
-        player_id = init_state.turn  # Assuming init input contains which player the agent is
-        return {"player_id": player_id}
+        agent_init_data = self._read_input()
+        assert isinstance(agent_init_data, dict), "Initialization input must be a dictionary."
+        assert "player_id" in agent_init_data, "Initialization input must contain 'player_id' key."
+        return agent_init_data
 
     @override
     def _read_state(self) -> State:
         """
         Reads the current Tic-Tac-Toe game state input for the agent.
+        Returns:
+            State: The current game state.
         """
-        if self._first_state is not None:
-            state = self._first_state
-            self._first_state = None
-            return state
         state_input = self._read_input()
         state = State.from_json(state_input)
         return state

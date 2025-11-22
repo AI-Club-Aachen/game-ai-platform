@@ -27,7 +27,7 @@ class Move(BaseModel, MoveBase):
     @field_validator('position')
     @classmethod
     def validate_position(cls, v: int) -> int:
-        if not (0 <= v < 9):
+        if not (0 <= v <= 8):
             raise ValueError("Invalid move format: position must be between 0 and 8.")
         return v
 
@@ -36,6 +36,10 @@ class Move(BaseModel, MoveBase):
     def from_json(cls, json_str: str):
         """
         Initialize the move from a JSON string.
+        Args:
+            json_str (str): JSON string representing the move.
+        Returns:
+            Move: The initialized move.
         """
         try:
             json_data = json.loads(json_str)
@@ -48,6 +52,8 @@ class Move(BaseModel, MoveBase):
     def to_json(self) -> str:
         """
         Convert the move to a JSON string.
+        Returns:
+            str: JSON string representing the move.
         """
         return json.dumps({
             "position": self.position,

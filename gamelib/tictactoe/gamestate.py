@@ -51,15 +51,19 @@ class GameState(BaseModel, GameStateBase):
 
     @override
     @classmethod
-    def initial(cls, init_data: dict = {}):
+    def initial(cls, state_init_data: dict = {}):
         """
         Create the initial game state using the provided initialization data.
-        In this case, the board is empty and the turn is set to player 0 unless specified in init_data.
+        In this case, the board is empty and the turn is set to player 0 unless specified in state_init_data.
+        Args:
+            state_init_data (dict): Initialization data for the game state (in this case "turn" and "status").
+        Returns:
+            GameState: The initial game state.
         """
         board = [-1] * 9  # Initialize an empty board
-        turn = init_data.get("turn", 0)  # Start with player 0 or provided turn
-        status = init_data.get("status", -1)  # Game ongoing by default
-        
+        turn = state_init_data.get("turn", 0)  # Start with player 0 or provided turn
+        status = state_init_data.get("status", -1)  # Game ongoing by default
+
         state = cls(board=board, turn=turn, status=status)
         return state
 
@@ -67,6 +71,8 @@ class GameState(BaseModel, GameStateBase):
     def clone(self):
         """
         Return a deep copy of the game state.
+        Returns:
+            GameState: A deep copy of the current game state.
         """
         new_state = GameState(board=self.board.copy(), turn=self.turn, status=self.status)
         return new_state
@@ -76,6 +82,10 @@ class GameState(BaseModel, GameStateBase):
     def from_json(cls, json_str: str):
         """
         Initialize the game state from a JSON string.
+        Args:
+            json_str (str): JSON string representing the game state.
+        Returns:
+            GameState: The initialized game state.
         """
         try:
             json_data = json.loads(json_str)
@@ -88,6 +98,8 @@ class GameState(BaseModel, GameStateBase):
     def to_json(self) -> str:
         """
         Convert the game state to a JSON string.
+        Returns:
+            str: JSON string representing the game state.
         """
         return json.dumps({
             "board": self.board,

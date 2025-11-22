@@ -25,7 +25,13 @@ class Engine(EngineBase):
     def validate_move(self, game_state: State, move: Move) -> bool:
         """
         Validate a move against the current game state.
-        A move is valid if the position is within bounds and the cell is empty.
+        A move is valid if the game has not ended,the cell is empty and it is the player's turn.
+        Move validation that does not depend on the specific game state should be handled in the Move class.
+        Args:
+            game_state (State): The current game state.
+            move (Move): The move to validate.
+        Returns:
+            bool: True if the move is valid, False otherwise.
         """
         if not isinstance(game_state, State):
             raise TypeError("Invalid game state type.")
@@ -33,12 +39,10 @@ class Engine(EngineBase):
             raise TypeError("Invalid move type.")
         if game_state.status != -1:
             return False  # Game is already over
-        if not (0 <= move.position < 9):
-            return False
         if game_state.board[move.position] != -1:
-            return False
+            return False  # Cell is not empty
         if move.player != game_state.turn:
-            return False
+            return False  # Not the player's turn
         return True
 
     @override
@@ -60,6 +64,8 @@ class Engine(EngineBase):
     def get_status(self, game_state: State) -> int:
         """
         Get the winner of the game.
+        Args:
+            game_state (State): The current game state.
         Returns:
             int: 0 if player 0 wins, 1 if player 1 wins, -2 for a draw, -1 if the game is ongoing.
         """
@@ -84,6 +90,8 @@ class Engine(EngineBase):
         Check if the game is over based on the current game state.
         The game is over if there is a winner or if the board is full.
         Warning: this method does not contain the actual logic, it relies on the status attribute of the game state.
+        Args:
+            game_state (State): The current game state.
         Returns:
             bool: True if the game is over, False otherwise.
         """
