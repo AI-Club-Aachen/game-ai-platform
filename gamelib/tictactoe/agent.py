@@ -22,6 +22,7 @@ class Agent(AgentBase):
         Args:
             run_init (bool): Whether to run the init loop.
         """
+        self._first_state = None
         if run_init:
             super().__init__()
     
@@ -33,6 +34,7 @@ class Agent(AgentBase):
         """
         init_input = self._read_input()
         init_state = State.from_json(init_input)
+        self._first_state = init_state
         player_id = init_state.turn  # Assuming init input contains which player the agent is
         return {"player_id": player_id}
 
@@ -41,6 +43,10 @@ class Agent(AgentBase):
         """
         Reads the current Tic-Tac-Toe game state input for the agent.
         """
+        if self._first_state is not None:
+            state = self._first_state
+            self._first_state = None
+            return state
         state_input = self._read_input()
         state = State.from_json(state_input)
         return state

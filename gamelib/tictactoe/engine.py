@@ -31,6 +31,8 @@ class Engine(EngineBase):
             raise TypeError("Invalid game state type.")
         if not isinstance(move, Move):
             raise TypeError("Invalid move type.")
+        if game_state.status != -1:
+            return False  # Game is already over
         if not (0 <= move.position < 9):
             return False
         if game_state.board[move.position] != -1:
@@ -61,8 +63,6 @@ class Engine(EngineBase):
         Returns:
             int: 0 if player 0 wins, 1 if player 1 wins, -2 for a draw, -1 if the game is ongoing.
         """
-        status = None
-
         winning_positions = [
             [0, 1, 2], [3, 4, 5], [6, 7, 8],  # rows
             [0, 3, 6], [1, 4, 7], [2, 5, 8],  # columns
@@ -71,15 +71,12 @@ class Engine(EngineBase):
         for positions in winning_positions:
             if (game_state.board[positions[0]] != -1 and
                 game_state.board[positions[0]] == game_state.board[positions[1]] == game_state.board[positions[2]]):
-                status = game_state.board[positions[0]]  # Return the winning player
+                return game_state.board[positions[0]]  # Return the winning player immediately
 
         if all(cell != -1 for cell in game_state.board):
-            status = -2  # Draw
+            return -2  # Draw
 
-        if status is None:
-            status = -1  # Game is ongoing
-
-        return status
+        return -1  # Game is ongoing
 
     @override
     def is_game_over(self, game_state: State) -> bool:
