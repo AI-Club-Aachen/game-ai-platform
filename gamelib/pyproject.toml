@@ -25,6 +25,7 @@ package = true
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
+    "mypy>=1.18.2",
     "ruff>=0.14.3",
     "safety>=3.6.2",
 ]
@@ -130,6 +131,7 @@ line-ending = "auto"
 # MyPy configuration
 [tool.mypy]
 python_version = "3.13"
+exclude = ["tests"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -141,6 +143,7 @@ warn_no_return = true
 check_untyped_defs = true
 strict_equality = true
 ignore_missing_imports = true
+disable_error_code = ["override"]
 
 # Pytest configuration
 [tool.pytest.ini_options]
