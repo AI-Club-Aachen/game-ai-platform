@@ -27,7 +27,6 @@ env:
 jobs:
   lint-and-format:
     name: Lint and Format Check
-    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - name: Checkout code
