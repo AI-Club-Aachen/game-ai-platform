@@ -16,7 +16,6 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "python-jose[cryptography]>=3.5.0",
     "bcrypt>=4.0.1",
-    "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.20",
     "alembic>=1.12,<2.0",
     "aiosmtplib>=5.0.0",
@@ -46,9 +45,6 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["app", "alembic"]
-
-[tool.uv]
-python-version = "3.12"
 
 # Ruff configuration
 [tool.ruff]

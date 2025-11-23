@@ -148,7 +148,8 @@ async def add_security_headers(request: Request, call_next: Callable) -> Respons
         "geolocation=(), microphone=(), camera=(), magnetometer=(), gyroscope=(), accelerometer=()"
     )
 
-    response.headers.pop("server", None)
+    if "server" in response.headers:
+        del response.headers["server"]
 
     return response
 

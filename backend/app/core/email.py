@@ -15,6 +15,12 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Constants
+MAX_EMAIL_LENGTH = 254
+DEFAULT_TIMEOUT = 10  # seconds
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_BACKOFF = 2  # exponential backoff multiplier
+
 
 class EmailClient:
     """
@@ -39,9 +45,11 @@ class EmailClient:
         self.from_address = settings.SMTP_FROM_ADDRESS or "dev-noreply@example.local"
         self.from_name = settings.SMTP_FROM_NAME
 
-        self.timeout = 10  # seconds
-        self.max_retries = 3
-        self.retry_backoff = 2  # exponential backoff multiplier
+        self.from_name = settings.SMTP_FROM_NAME
+
+        self.timeout = DEFAULT_TIMEOUT
+        self.max_retries = DEFAULT_MAX_RETRIES
+        self.retry_backoff = DEFAULT_RETRY_BACKOFF
 
         # Flags derived from settings / ENVIRONMENT
         self.smtp_configured = settings.smtp_configured
@@ -69,27 +77,12 @@ class EmailClient:
         Returns:
             bool: True if sent successfully, False otherwise
         """
-        # --- local development (SMTP not configured) ---
-        if self.is_development or not self.smtp_configured:
-            # Dev behavior: log instead of sending
-            logger.warning("SMTP not configured in development; email will NOT be sent, only logged.")
-            logger.info("Dev email to=%s subject=%s", to_email, subject)
-            logger.info("Dev email HTML content:\n%s", html_content)
-            return True  # Pretend success so flows continue
+        # 1. Check if we should send email in this environment
+        should_send, result = self._should_send_email(to_email, subject, html_content)
+        if not should_send:
+            return result
 
-        if self.smtp_required:
-            # In staging/production this should not happen because Settings
-            # already enforces SMTP, but fail safe if it does.
-            logger.critical("SMTP is required in this environment but not configured; cannot send email.")
-            return False
-
-        # Non-required, non-dev fallback (just in case)
-        logger.error("SMTP not configured; skipping email send.")
-        return False
-
-        # --- staging / prod (SMTP configured) ---
-
-        # Validate inputs
+        # 2. Validate and prepare content
         if not self._validate_email(to_email):
             logger.error("Invalid email address: %s", to_email)
             return False
@@ -98,15 +91,54 @@ class EmailClient:
             logger.error("Subject and html_content are required")
             return False
 
-        # Generate text content if not provided
-        if not text_content:
-            text_content = self._strip_html_to_text(html_content)
+        final_text_content = self._prepare_email_content(html_content, text_content)
 
-        # Use default retry count if not specified
-        if retry_count is None:
-            retry_count = self.max_retries
+        # 3. Send with retry logic
+        final_retry_count = retry_count if retry_count is not None else self.max_retries
+        return await self._send_with_retry(
+            to_email, subject, html_content, final_text_content, final_retry_count
+        )
 
-        # Attempt to send with exponential backoff
+    def _should_send_email(self, to_email: str, subject: str, html_content: str) -> tuple[bool, bool]:
+        """
+        Determine if email should be sent based on environment settings.
+
+        Returns:
+            tuple[bool, bool]: (should_send, return_value_if_not_sent)
+        """
+        # --- local development (SMTP not configured) ---
+        if self.is_development or not self.smtp_configured:
+            # Dev behavior: log instead of sending
+            logger.warning("SMTP not configured in development; email will NOT be sent, only logged.")
+            logger.info("Dev email to=%s subject=%s", to_email, subject)
+            logger.info("Dev email HTML content:\n%s", html_content)
+            return False, True  # Don't send, but pretend success
+
+        if self.smtp_required:
+            # In staging/production this should not happen because Settings
+            # already enforces SMTP, but fail safe if it does.
+            logger.critical("SMTP is required in this environment but not configured; cannot send email.")
+            return False, False
+
+        # Non-required, non-dev fallback (just in case)
+        logger.error("SMTP not configured; skipping email send.")
+        return False, False
+
+    def _prepare_email_content(self, html_content: str, text_content: str | None) -> str:
+        """Ensure text content exists."""
+        if text_content:
+            return text_content
+        return self._strip_html_to_text(html_content)
+
+    async def _send_with_retry(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        text_content: str,
+        retry_count: int,
+    ) -> bool:
+        """Execute the sending loop with retries."""
         for attempt in range(retry_count):
             try:
                 await asyncio.wait_for(
@@ -118,9 +150,6 @@ class EmailClient:
                     ),
                     timeout=self.timeout,
                 )
-                logger.info("Email sent successfully to %s", to_email)
-                return True
-
             except TimeoutError:
                 logger.warning(
                     "Email send timeout for %s (attempt %d/%d)",
@@ -134,7 +163,7 @@ class EmailClient:
                 return False  # Don't retry on auth failure
 
             except aiosmtplib.SMTPException as e:
-                logger.error(
+                logger.exception(
                     "SMTP error sending to %s (attempt %d/%d): %s",
                     to_email,
                     attempt + 1,
@@ -142,13 +171,12 @@ class EmailClient:
                     type(e).__name__,
                 )
 
-            except Exception as e:  # noqa: BLE001
-                logger.error(
-                    "Unexpected error sending email to %s: %s: %s",
-                    to_email,
-                    type(e).__name__,
-                    str(e),
-                )
+            except Exception:
+                logger.exception("Unexpected error sending email to %s", to_email)
+
+            else:
+                logger.info("Email sent successfully to %s", to_email)
+                return True
 
             # Exponential backoff between retries (except on last attempt)
             if attempt < retry_count - 1:
@@ -214,8 +242,8 @@ class EmailClient:
         except aiosmtplib.SMTPAuthenticationError:
             logger.critical("SMTP authentication failed - check credentials")
             raise
-        except Exception as e:
-            logger.error("SMTP connection error: %s: %s", type(e).__name__, e)
+        except Exception:
+            logger.exception("SMTP connection error")
             raise
 
     @staticmethod
@@ -229,7 +257,8 @@ class EmailClient:
         Returns:
             bool: True if valid email format
         """
-        if not email or len(email) > 254:  # RFC 5321
+
+        if not email or len(email) > MAX_EMAIL_LENGTH:  # RFC 5321
             return False
 
         # Simple regex for email validation
