@@ -70,27 +70,26 @@ class EmailClient:
             bool: True if sent successfully, False otherwise
         """
         # --- local development (SMTP not configured) ---
-        if not self.smtp_configured:
-            if self.is_development:
-                # Dev behavior: log instead of sending
-                logger.warning(
-                    "SMTP not configured in development; email will NOT be sent, only logged."
-                )
-                logger.info("Dev email to=%s subject=%s", to_email, subject)
-                logger.info("Dev email HTML content:\n%s", html_content)
-                return True  # Pretend success so flows continue
+        if self.is_development or not self.smtp_configured:
+            # Dev behavior: log instead of sending
+            logger.warning(
+                "SMTP not configured in development; email will NOT be sent, only logged."
+            )
+            logger.info("Dev email to=%s subject=%s", to_email, subject)
+            logger.info("Dev email HTML content:\n%s", html_content)
+            return True  # Pretend success so flows continue
 
-            if self.smtp_required:
-                # In staging/production this should not happen because Settings
-                # already enforces SMTP, but fail safe if it does.
-                logger.critical(
-                    "SMTP is required in this environment but not configured; cannot send email."
-                )
-                return False
-
-            # Non-required, non-dev fallback (just in case)
-            logger.error("SMTP not configured; skipping email send.")
+        if self.smtp_required:
+            # In staging/production this should not happen because Settings
+            # already enforces SMTP, but fail safe if it does.
+            logger.critical(
+                "SMTP is required in this environment but not configured; cannot send email."
+            )
             return False
+
+        # Non-required, non-dev fallback (just in case)
+        logger.error("SMTP not configured; skipping email send.")
+        return False
 
         # --- staging / prod (SMTP configured) ---
 
