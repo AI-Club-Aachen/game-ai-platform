@@ -87,11 +87,12 @@ class UserRepository:
             self._session.add(user)
             self._session.commit()
             self._session.refresh(user)
-            return user
         except Exception as e:
             self._session.rollback()
-            logger.error("Error saving user %s: %s", getattr(user, "id", None), e)
+            logger.exception("Error saving user %s", getattr(user, "id", None))
             raise UserRepositoryError("Failed to persist user") from e
+        else:
+            return user
 
     def delete(self, user: User) -> None:
         """Delete user, handling commit/rollback."""
@@ -100,5 +101,5 @@ class UserRepository:
             self._session.commit()
         except Exception as e:
             self._session.rollback()
-            logger.error("Error deleting user %s: %s", getattr(user, "id", None), e)
+            logger.exception("Error deleting user %s", getattr(user, "id", None))
             raise UserRepositoryError("Failed to delete user") from e
