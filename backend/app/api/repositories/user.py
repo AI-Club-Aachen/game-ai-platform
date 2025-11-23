@@ -27,12 +27,16 @@ class UserRepository:
 
     def get_by_username_ci(self, username: str) -> User | None:
         """Case-insensitive username lookup."""
-        statement = select(User).where(User.username.ilike(username))
+        statement = select(User).where(
+            User.username.ilike(username)  # type: ignore[attr-defined]
+        )
         return self._session.exec(statement).first()
 
     def get_by_email_ci(self, email: str) -> User | None:
         """Case-insensitive email lookup."""
-        statement = select(User).where(User.email.ilike(email))
+        statement = select(User).where(
+            User.email.ilike(email)  # type: ignore[attr-defined]
+        )
         return self._session.exec(statement).first()
 
     def list_users(
@@ -44,7 +48,7 @@ class UserRepository:
     ) -> tuple[list[User], int]:
         """List users with optional filters and pagination."""
         statement = select(User)
-        count_statement = select(func.count(User.id)).select_from(User)
+        count_statement = select(func.count()).select_from(User)
 
         if role is not None:
             statement = statement.where(User.role == role)
@@ -54,9 +58,15 @@ class UserRepository:
             statement = statement.where(User.email_verified == email_verified)
             count_statement = count_statement.where(User.email_verified == email_verified)
 
-        total = self._session.exec(count_statement).one()
-        statement = statement.offset(skip).limit(limit).order_by(User.created_at.desc())
-        users = self._session.exec(statement).all()
+        total: int = self._session.exec(count_statement).one()
+        statement = (
+            statement.offset(skip)
+            .limit(limit)
+            .order_by(
+                User.created_at.desc()  # type: ignore[attr-defined]
+            )
+        )
+        users: list[User] = list(self._session.exec(statement).all())
 
         return users, total
 
@@ -67,17 +77,19 @@ class UserRepository:
         """
         statement = select(User).where(
             User.email_verified == False,  # noqa: E712
-            User.email_verification_token_hash.isnot(None),
+            User.email_verification_token_hash != None,  # noqa: E711
         )
-        return self._session.exec(statement).all()
+        return list(self._session.exec(statement).all())
 
     def get_with_active_reset_tokens(self) -> list[User]:
         """
         Users that have a password reset token set.
         Used by password reset flows.
         """
-        statement = select(User).where(User.password_reset_token_hash.isnot(None))
-        return self._session.exec(statement).all()
+        statement = select(User).where(
+            User.password_reset_token_hash != None  # noqa: E711
+        )
+        return list(self._session.exec(statement).all())
 
     # --- Commands (transactions live here) ---
 

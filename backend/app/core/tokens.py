@@ -217,7 +217,7 @@ def create_password_reset_token() -> tuple[str, str, datetime]:
     """
     plain_token = generate_secure_token(32)
     token_hash = hash_token(plain_token)
-    expiry = get_token_expiry_time(settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES / 60)
+    expiry = get_token_expiry_time(int(settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES / 60))
 
     return plain_token, token_hash, expiry
 

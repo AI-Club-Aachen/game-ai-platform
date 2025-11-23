@@ -5,6 +5,7 @@ import hmac
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import bcrypt
 from jose import JWTError, jwt
@@ -103,7 +104,7 @@ def validate_password_strength(password: str) -> None:
         raise ValueError("Password contains weak patterns, please use a stronger password")
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """
     Create a signed JWT access token with expiration.
 
@@ -132,17 +133,19 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     )
 
     try:
-        return jwt.encode(
+        token = jwt.encode(
             to_encode,
             settings.JWT_SECRET_KEY,
             algorithm=settings.JWT_ALGORITHM,
         )
+        # python-jose stubs return Any; we know this is a JWT string. [web:80][web:88]
+        return cast("str", token)
     except Exception:
         logger.exception("Token encoding error")
         raise
 
 
-def decode_access_token(token: str) -> dict | None:
+def decode_access_token(token: str) -> dict[str, Any] | None:
     """
     Decode and validate JWT token with proper error handling.
 
@@ -153,7 +156,7 @@ def decode_access_token(token: str) -> dict | None:
         Optional[dict]: Decoded token payload if valid, None if invalid or expired
     """
     try:
-        return jwt.decode(
+        payload = jwt.decode(
             token,
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
@@ -162,6 +165,8 @@ def decode_access_token(token: str) -> dict | None:
                 "verify_signature": True,  # Verify signature
             },
         )
+        # python-jose returns the claims as a mapping of string keys. [web:80][web:87]
+        return cast("dict[str, Any]", payload)
     except JWTError as e:
         logger.debug(f"Token decode error: {type(e).__name__}")
         return None

@@ -1,7 +1,7 @@
 """FastAPI application with comprehensive security configuration and rate limiting"""
 
 import logging
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -21,12 +21,19 @@ from app.core.config import settings
 
 
 # Configure logging
-logging.basicConfig(level=settings.LOG_LEVEL.upper(), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=settings.LOG_LEVEL.upper(),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 logger = logging.getLogger(__name__)
 
 # Rate limiter with Redis backend
-limiter = Limiter(key_func=get_remote_address, storage_uri="redis://redis:6379", default_limits=["200/day", "50/hour"])
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri="redis://redis:6379",
+    default_limits=["200/day", "50/hour"],
+)
 
 
 @asynccontextmanager
@@ -40,15 +47,18 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception:
         logger.exception("Failed to connect to Redis")
         logger.warning("Rate limiting running with memory backend fallback")
+        redis = None
 
-    yield
-
-    # Shutdown
-    logger.info("Shutting down application")
     try:
-        await redis.close()
-    except Exception:
-        logger.exception("Failed to close Redis connection")
+        yield
+    finally:
+        # Shutdown
+        logger.info("Shutting down application")
+        if redis is not None:
+            try:
+                await redis.close()
+            except Exception:
+                logger.exception("Failed to close Redis connection")
 
 
 # Create FastAPI app
@@ -67,12 +77,6 @@ app.state.limiter = limiter
 
 # Add slowapi middleware
 app.add_middleware(SlowAPIMiddleware)
-
-# Middleware stack order is important:
-# 1. TrustedHost (must be first after main app)
-# 2. CORS
-# 3. GZIP
-# 4. Security headers (custom middleware)
 
 # Trusted Host Middleware
 allowed_hosts = [
@@ -106,7 +110,10 @@ app.add_middleware(
 
 # Custom middleware for security headers
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next: Callable) -> Response:
+async def add_security_headers(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     """Add security headers to all responses"""
     response = await call_next(request)
 
@@ -158,9 +165,11 @@ async def add_security_headers(request: Request, call_next: Callable) -> Respons
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """Handle rate limit exceeded errors"""
-    logger.warning(f"Rate limit exceeded for {request.client.host}: {exc.detail}")
+    client_host = request.client.host if request.client is not None else "unknown"  # [web:106][web:113]
+    logger.warning(f"Rate limit exceeded for {client_host}: {exc.detail}")
     return JSONResponse(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS, content={"detail": "Too many requests. Please try again later."}
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too many requests. Please try again later."},
     )
 
 
@@ -168,11 +177,16 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle validation errors"""
     if settings.is_production:
-        logger.warning(f"Validation error from {request.client.host}: {exc}")
+        client_host = request.client.host if request.client is not None else "unknown"  # [web:106][web:113]
+        logger.warning(f"Validation error from {client_host}: {exc}")
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": "Invalid request data"}
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "Invalid request data"},
         )
-    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": exc.errors()})
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": exc.errors()},
+    )
 
 
 @app.exception_handler(Exception)
@@ -181,9 +195,13 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
     logger.exception(f"Unhandled exception: {exc}")
     if settings.is_production:
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": "Internal server error"}
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"},
         )
-    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(exc)})
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": str(exc)},
+    )
 
 
 # Include routers

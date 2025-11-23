@@ -43,7 +43,7 @@ async def get_current_user_profile(
     user: CurrentUser,
 ) -> UserResponse:
     """Get current authenticated user's profile."""
-    return user
+    return UserResponse.model_validate(user)
 
 
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)

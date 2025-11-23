@@ -3,8 +3,7 @@
 import os
 from typing import ClassVar
 
-from pydantic import Field, field_validator, model_validator
-from pydantic.fields import FieldInfo
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -108,7 +107,7 @@ class Settings(BaseSettings):
 
     @field_validator("ALLOW_ORIGINS", mode="before")
     @classmethod
-    def parse_allow_origins(cls, v: str | list | None) -> list[str]:
+    def parse_allow_origins(cls, v: str | list[str] | None) -> list[str]:
         # unchanged...
         if isinstance(v, list):
             return v
@@ -131,7 +130,7 @@ class Settings(BaseSettings):
     def validate_email_token_expiry(cls, v: int) -> int:
         if not (cls.MIN_EMAIL_TOKEN_HOURS <= v <= cls.MAX_EMAIL_TOKEN_HOURS):
             raise ValueError(
-                f"EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between "
+                "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between "
                 f"{cls.MIN_EMAIL_TOKEN_HOURS} and {cls.MAX_EMAIL_TOKEN_HOURS}"
             )
         return v
@@ -141,14 +140,15 @@ class Settings(BaseSettings):
     def validate_password_reset_expiry(cls, v: int) -> int:
         if not (cls.MIN_PASSWORD_RESET_MINUTES <= v <= cls.MAX_PASSWORD_RESET_MINUTES):
             raise ValueError(
-                f"PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between "
+                "PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between "
                 f"{cls.MIN_PASSWORD_RESET_MINUTES} and {cls.MAX_PASSWORD_RESET_MINUTES}"
             )
         return v
 
     @field_validator("ALLOW_ORIGINS", mode="after")
     @classmethod
-    def validate_origins_production(cls, v: list[str], info: FieldInfo) -> list[str]:
+    def validate_origins_production(cls, v: list[str], info: ValidationInfo) -> list[str]:
+        # ValidationInfo.data is the already-validated field values. [web:33][web:34]
         if info.data.get("ENVIRONMENT", "").lower() == "production":
             invalid_origins = [o for o in v if not o.startswith("https://")]
             if invalid_origins:
@@ -172,7 +172,7 @@ class Settings(BaseSettings):
         in development they may be omitted.
         """
         if self.smtp_required and not self.smtp_configured:
-            missing = []
+            missing: list[str] = []
             if not self.SMTP_HOST:
                 missing.append("SMTP_HOST")
             if not self.SMTP_PORT:
@@ -198,7 +198,7 @@ class _SettingsHolder:
 def get_settings() -> Settings:
     """Get or create singleton settings instance"""
     if _SettingsHolder.instance is None:
-        _SettingsHolder.instance = Settings()
+        _SettingsHolder.instance = Settings()  # type: ignore[call-arg]
     return _SettingsHolder.instance
 
 
