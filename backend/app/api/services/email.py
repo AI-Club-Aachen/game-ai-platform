@@ -1,4 +1,5 @@
 """Application-level email notification service (verification, password reset)."""
+# ruff: noqa: E501, RUF001
 
 import logging
 
