@@ -39,18 +39,23 @@ jobs:
           python-version: '3.13'
           working-directory: 'backend'
 
-      - name: Run linting and formatting checks with ruff
+      - name: Run code quality checks
         working-directory: backend
         run: |
           # Run linting
-          echo "Running ruff linter..."
-          uv run ruff check .
+          echo "Running linter..."
+          uv run lint
           LINT_EXIT_CODE=$?
 
           # Run format check
           echo -e "\nChecking code formatting..."
-          uv run ruff format --check .
+          uv run format
           FORMAT_EXIT_CODE=$?
+
+          # Run type check
+          echo -e "\nRunning type checks..."
+          uv run type-check
+          TYPE_EXIT_CODE=$?
 
           # Add results to summary
           echo "## 🔍 Code Quality Results" >> $GITHUB_STEP_SUMMARY
@@ -59,26 +64,35 @@ jobs:
           if [ $LINT_EXIT_CODE -eq 0 ]; then
             echo "✅ **Linting**: All checks passed!" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Linting**: Failed. Run \`uv run ruff check --fix .\` to auto-fix." >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Linting**: Failed. Run \`uv run lint\` to check locally." >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ $FORMAT_EXIT_CODE -eq 0 ]; then
             echo "✅ **Formatting**: All files properly formatted!" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Formatting**: Failed. Run \`uv run ruff format .\` to auto-format." >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Formatting**: Failed. Run \`uv run format\` to auto-format." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ $TYPE_EXIT_CODE -eq 0 ]; then
+            echo "✅ **Type Check**: All checks passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Type Check**: Failed. Run \`uv run type-check\` to check locally." >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Commands" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# Auto-fix linting issues" >> $GITHUB_STEP_SUMMARY
-          echo "uv run ruff check --fix ." >> $GITHUB_STEP_SUMMARY
+          echo "# Run linting" >> $GITHUB_STEP_SUMMARY
+          echo "uv run lint" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Auto-format code" >> $GITHUB_STEP_SUMMARY
-          echo "uv run ruff format ." >> $GITHUB_STEP_SUMMARY
+          echo "uv run format" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Run type checks" >> $GITHUB_STEP_SUMMARY
+          echo "uv run type-check" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-          # Exit with error if either check failed
-          if [ $LINT_EXIT_CODE -ne 0 ] || [ $FORMAT_EXIT_CODE -ne 0 ]; then
+          # Exit with error if any check failed
+          if [ $LINT_EXIT_CODE -ne 0 ] || [ $FORMAT_EXIT_CODE -ne 0 ] || [ $TYPE_EXIT_CODE -ne 0 ]; then
             exit 1
           fi
