@@ -13,8 +13,11 @@ dependencies = [
 ]
 
 [project.scripts]
-lint = "backend.scripts:lint"
-format = "backend.scripts:format_code"
+lint = "scripts.commands:lint"
+format = "scripts.commands:format_code"
+
+[tool.uv]
+package = true
 
 [dependency-groups]
 dev = [
