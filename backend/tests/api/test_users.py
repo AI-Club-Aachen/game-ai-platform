@@ -229,51 +229,7 @@ async def test_admin_list_get_update_role_delete_user_success(api_client, fake_e
     assert deleted_user is None
 
 
-# ---------------------------------------------------------------------------
-# Success: admin resend verification email for unverified user
-# ---------------------------------------------------------------------------
 
-
-@pytest.mark.anyio
-async def test_admin_resend_verification_email_for_unverified_user_success(api_client, fake_email_client, db_session):
-    # Create unverified user (register but do not verify).
-    username = "unverified_for_admin"
-    email = "unverified_for_admin@example.com"
-    password = "Unver1fiedAcc0unt!2"
-
-    fake_email_client.sent.clear()
-    await _register_user(api_client, username, email, password)
-
-    # Fetch user from DB to confirm unverified.
-    user = db_session.exec(select(User).where(User.email == email)).first()
-    assert user is not None
-    assert user.email_verified is False
-    old_token_hash = user.email_verification_token_hash
-
-    # Admin.
-    admin_username = "admin_for_resend"
-    admin_email = "admin_for_resend@example.com"
-    admin_password = "ResendRootX!3"
-    _, admin_token = await _create_admin_and_token(
-        api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
-    )
-
-    # Admin triggers resend verification for that user.
-    response = await api_client.post(
-        f"{API_PREFIX}/users/{user.id}/send-verification-email",
-        headers={"Authorization": admin_token},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["user_id"] == str(user.id)
-    assert data["message"] == "Verification email sent"
-
-    # Token fields should be updated in DB.
-    db_session.refresh(user)
-    assert user.email_verified is False
-    assert user.email_verification_token_hash is not None
-    assert user.email_verification_token_hash != old_token_hash
-    assert user.email_verification_expires_at is not None
 
 
 # ---------------------------------------------------------------------------
@@ -343,12 +299,7 @@ async def test_non_admin_cannot_use_admin_endpoints(api_client, fake_email_clien
     )
     assert role_response.status_code == 403
 
-    # 4) Resend verification email (admin-only).
-    resend_response = await api_client.post(
-        f"{API_PREFIX}/users/{user_id}/send-verification-email",
-        headers={"Authorization": user_token},
-    )
-    assert resend_response.status_code == 403
+
 
     # 5) Delete user (admin-only).
     delete_response = await api_client.delete(

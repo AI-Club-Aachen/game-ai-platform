@@ -198,33 +198,4 @@ class UserService:
             logger.exception("Error deleting user %s", user_id)
             raise UserServiceError("Failed to delete user") from e
 
-    def admin_send_verification_email(self, admin: User, user_id: UUID) -> User:
-        """
-        Admin: (re)issue an email verification token for a user.
 
-        Note: this mirrors your current route behavior and only updates the token fields,
-        leaving the actual email sending to a higher layer or another service.
-        """
-        user = self._repo.get_by_id(user_id)
-        if not user:
-            logger.warning("Admin %s attempted to email non-existent user %s", admin.id, user_id)
-            raise UserNotFoundError("User not found")
-
-        if user.email_verified:
-            raise UserValidationError("User's email already verified")
-
-        # Generate new verification token and update user
-        _, token_hash, expiry = create_email_verification_token()
-
-        user.email_verification_token_hash = token_hash
-        user.email_verification_expires_at = expiry
-        user.updated_at = datetime.now(UTC)
-
-        try:
-            updated = self._repo.save(user)
-        except UserRepositoryError as e:
-            logger.exception("Error setting verification token for user %s", user_id)
-            raise UserServiceError("Failed to send verification email") from e
-        else:
-            logger.info("Admin %s set verification token for user %s", admin.id, user_id)
-            return updated

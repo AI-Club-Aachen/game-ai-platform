@@ -245,37 +245,4 @@ async def delete_user(
         ) from e
 
 
-@router.post("/{user_id}/send-verification-email", status_code=status.HTTP_200_OK)
-@limiter.limit("1000/hour")
-async def admin_send_verification_email(
-    request: Request,  # noqa: ARG001
-    user_id: UUID,
-    admin: CurrentAdmin,
-    user_service: Annotated[UserService, Depends(get_user_service)],
-) -> dict:
-    """Admin: Send verification email to user (resend)."""
-    try:
-        user = user_service.admin_send_verification_email(admin=admin, user_id=user_id)
-    except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        ) from e
-    except UserValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except UserServiceError as e:
-        logger.exception("Error sending verification email for user %s by admin %s", user_id, admin.id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification email",
-        ) from e
 
-    logger.info("Admin %s triggered verification email for user %s", admin.id, user_id)
-
-    return {
-        "message": "Verification email sent",
-        "user_id": str(user.id),
-    }

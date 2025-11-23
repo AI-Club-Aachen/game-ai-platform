@@ -1,5 +1,6 @@
-import logging
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
+import logging
 
 from fastapi import BackgroundTasks
 
@@ -269,6 +270,47 @@ class AuthService:
         except UserRepositoryError as e:
             logger.exception("Error resending verification email")
             raise AuthServiceError("Failed to resend verification email") from e
+
+    def admin_resend_verification_email(
+        self,
+        admin: User,
+        user_id: UUID,
+        background_tasks: BackgroundTasks,
+    ) -> User:
+        """
+        Admin: (re)issue an email verification token for a user and send the email.
+        """
+        user = self._users.get_by_id(user_id)
+        if not user:
+            logger.warning("Admin %s attempted to email non-existent user %s", admin.id, user_id)
+            raise AuthNotFoundError("User not found")
+
+        if user.email_verified:
+            raise AuthValidationError("User's email already verified")
+
+        # Generate new verification token and update user
+        plain_token, token_hash, expiry = create_email_verification_token()
+
+        user.email_verification_token_hash = token_hash
+        user.email_verification_expires_at = expiry
+        user.updated_at = datetime.now(UTC)
+
+        try:
+            updated = self._users.save(user)
+        except UserRepositoryError as e:
+            logger.exception("Error setting verification token for user %s", user_id)
+            raise AuthServiceError("Failed to send verification email") from e
+
+        # Send verification email in background
+        background_tasks.add_task(
+            self._emails.send_verification_email,
+            to_email=updated.email,
+            username=updated.username,
+            token=plain_token,
+        )
+
+        logger.info("Admin %s triggered verification email for user %s", admin.id, user_id)
+        return updated
 
     # --- Password reset request ---
 

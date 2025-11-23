@@ -2,16 +2,19 @@
 
 import logging
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.deps import (
+    CurrentAdmin,
     CurrentUser,
     get_auth_service,
 )
 from app.api.services.auth import (
+    AuthNotFoundError,
     AuthService,
     AuthServiceError,
     AuthValidationError,
@@ -61,6 +64,48 @@ async def resend_verification_email(
         ) from e
 
     return {"message": "Verification email sent. Check your inbox."}
+
+
+@router.post("/{user_id}/resend-verification", status_code=status.HTTP_200_OK)
+@limiter.limit("1000/hour")
+async def admin_resend_verification_email(
+    request: Request,  # noqa: ARG001
+    user_id: UUID,
+    admin: CurrentAdmin,
+    background_tasks: BackgroundTasks,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> dict:
+    """Admin: Resend verification email to user."""
+    try:
+        user = auth_service.admin_resend_verification_email(
+            admin=admin,
+            user_id=user_id,
+            background_tasks=background_tasks,
+        )
+    except AuthNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except AuthValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except AuthServiceError as e:
+        logger.exception("Error sending verification email for user %s by admin %s", user_id, admin.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email",
+        ) from e
+
+    logger.info("Admin %s triggered verification email for user %s", admin.id, user_id)
+
+    return {
+        "message": "Verification email sent",
+        "user_id": str(user.id),
+    }
+
 
 
 @router.post("/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)

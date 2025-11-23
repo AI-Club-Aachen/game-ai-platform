@@ -57,9 +57,10 @@ async def _verify_latest_email(api_client, fake_email_client) -> dict:
     return user
 
 
-async def _register_verify_login_bearer(api_client, fake_email_client, username, email, password) -> str:
+async def _register_verify_login_bearer(api_client, fake_email_client, username, email, password) -> tuple[str, str]:
     """
     Helper for failure tests: register, verify via email, then login to get bearer token.
+    Returns (user_id, bearer_token).
     """
     fake_email_client.sent.clear()
     await _register_user(api_client, username, email, password)
@@ -71,7 +72,7 @@ async def _register_verify_login_bearer(api_client, fake_email_client, username,
     )
     assert login_response.status_code == 200
     data = login_response.json()
-    return f"Bearer {data['access_token']}"
+    return str(data["user_id"]), f"Bearer {data['access_token']}"
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +212,7 @@ async def test_resend_verification_fails_for_already_verified_user(api_client, f
     email = "already_verified_user@example.com"
     password = "AlreadyVer1fiedPass!"
 
-    bearer = await _register_verify_login_bearer(api_client, fake_email_client, username, email, password)
+    _, bearer = await _register_verify_login_bearer(api_client, fake_email_client, username, email, password)
 
     # At this point the user is verified and logged in; resend should fail.
     response = await api_client.post(
@@ -233,3 +234,86 @@ async def test_verification_status_unauthenticated_fails(api_client):
     response = await api_client.get(f"{API_PREFIX}/email/verification-status")
     # HTTPBearer returns 403 when Authorization header is missing.
     assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Success: admin resend verification email for unverified user
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_admin_resend_verification_email_for_unverified_user_success(
+    api_client, fake_email_client, db_session
+):
+    from tests.api.test_users import _create_admin_and_token
+
+    # Create unverified user (register but do not verify).
+    username = "unverified_for_admin"
+    email = "unverified_for_admin@example.com"
+    password = "Unver1fiedAcc0unt!2"
+
+    fake_email_client.sent.clear()
+    await _register_user(api_client, username, email, password)
+
+    # Fetch user from DB to confirm unverified.
+    user = db_session.exec(select(User).where(User.email == email)).first()
+    assert user is not None
+    assert user.email_verified is False
+    old_token_hash = user.email_verification_token_hash
+
+    # Admin.
+    admin_username = "admin_for_resend"
+    admin_email = "admin_for_resend@example.com"
+    admin_password = "ResendRootX!3"
+    _, admin_token = await _create_admin_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        admin_username,
+        admin_email,
+        admin_password,
+    )
+
+    # Admin triggers resend verification for that user.
+    response = await api_client.post(
+        f"{API_PREFIX}/email/{user.id}/resend-verification",
+        headers={"Authorization": admin_token},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_id"] == str(user.id)
+    assert data["message"] == "Verification email sent"
+
+    # Token fields should be updated in DB.
+    db_session.refresh(user)
+    assert user.email_verified is False
+    assert user.email_verification_token_hash is not None
+    assert user.email_verification_token_hash != old_token_hash
+    assert user.email_verification_expires_at is not None
+
+    # Verify email was actually sent
+    assert len(fake_email_client.sent) >= 1
+    last_email = fake_email_client.sent[-1]
+    assert "Verify Your Email Address" in last_email["subject"]
+    assert last_email["to_email"] == email
+
+
+@pytest.mark.anyio
+async def test_non_admin_cannot_resend_verification(
+    api_client, fake_email_client, db_session
+):
+    # Create a normal verified user (role GUEST).
+    username = "non_admin_user_email"
+    email = "non_admin_user_email@example.com"
+    password = "NonPrivAcc0unt!1"
+    user_id, user_token = await _register_verify_login_bearer(
+        api_client, fake_email_client, username, email, password
+    )
+
+    # Try to resend verification for self (using admin endpoint)
+    response = await api_client.post(
+        f"{API_PREFIX}/email/{user_id}/resend-verification",
+        headers={"Authorization": user_token},
+    )
+    assert response.status_code == 403
+
