@@ -11,6 +11,13 @@ from app.core.security import secure_compare
 
 logger = logging.getLogger(__name__)
 
+# Token security constants
+MIN_TOKEN_LENGTH = 16
+MAX_TOKEN_LENGTH = 256
+MAX_TOKEN_LENGTH_BASE64 = 512
+TOKEN_HASH_LENGTH = 64
+MAX_EXPIRY_HOURS = 87660  # ~10 years
+
 
 def generate_secure_token(length: int = 32) -> str:
     """
@@ -30,16 +37,16 @@ def generate_secure_token(length: int = 32) -> str:
         >>> token = generate_secure_token(32)
         >>> len(token)  # Will be ~43 characters
     """
-    if length < 16:
-        raise ValueError("Token length must be at least 16 bytes for security")
+    if length < MIN_TOKEN_LENGTH:
+        raise ValueError(f"Token length must be at least {MIN_TOKEN_LENGTH} bytes for security")
 
-    if length > 256:
-        raise ValueError("Token length must not exceed 256 bytes")
+    if length > MAX_TOKEN_LENGTH:
+        raise ValueError(f"Token length must not exceed {MAX_TOKEN_LENGTH} bytes")
 
     try:
         return secrets.token_urlsafe(length)
-    except Exception as e:
-        logger.error(f"Token generation error: {e}")
+    except Exception:
+        logger.exception("Token generation error")
         raise
 
 
@@ -63,8 +70,8 @@ def hash_token(token: str) -> str:
     """
     try:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
-    except Exception as e:
-        logger.error(f"Token hashing error: {e}")
+    except Exception:
+        logger.exception("Token hashing error")
         raise
 
 
@@ -95,8 +102,8 @@ def verify_token_hash(token: str, token_hash: str) -> bool:
         computed_hash = hash_token(token)
         # Use secure_compare to prevent timing attacks
         return secure_compare(computed_hash, token_hash)
-    except Exception as e:
-        logger.error(f"Token verification error: {e}")
+    except Exception:
+        logger.exception("Token verification error")
         return False  # Fail secure
 
 
@@ -121,13 +128,13 @@ def get_token_expiry_time(hours: int) -> datetime:
     if hours <= 0:
         raise ValueError("Hours must be greater than 0")
 
-    if hours > 87660:  # ~10 years
+    if hours > MAX_EXPIRY_HOURS:
         raise ValueError("Hours value is unreasonably large")
 
     try:
         return datetime.now(UTC) + timedelta(hours=hours)
-    except Exception as e:
-        logger.error(f"Expiry time calculation error: {e}")
+    except Exception:
+        logger.exception("Expiry time calculation error")
         raise
 
 
@@ -163,19 +170,17 @@ def is_token_expired(expires_at: datetime | None) -> bool:
 
         # Add 1-second buffer to account for clock skew between services
         buffer = timedelta(seconds=1)
-        is_expired = now > (expires_at + buffer)
+        return now > (expires_at + buffer)
 
-        return is_expired
-
-    except TypeError as e:
+    except TypeError:
         # This handles "can't compare offset-naive and offset-aware" errors
-        logger.error(
-            f"Timezone comparison error in token expiry check: {e} | "
+        logger.exception(
+            f"Timezone comparison error in token expiry check | "
             f"expires_at={expires_at}, tzinfo={getattr(expires_at, 'tzinfo', 'N/A')}"
         )
         return True  # Fail secure - treat as expired
-    except Exception as e:
-        logger.error(f"Unexpected error in token expiry check: {e}")
+    except Exception:
+        logger.exception("Unexpected error in token expiry check")
         return True  # Fail secure - treat as expired
 
 
@@ -217,7 +222,7 @@ def create_password_reset_token() -> tuple[str, str, datetime]:
     return plain_token, token_hash, expiry
 
 
-def validate_token_format(token: str, min_length: int = 16) -> bool:
+def validate_token_format(token: str, min_length: int = MIN_TOKEN_LENGTH) -> bool:
     """
     Validate token format before verification.
 
@@ -242,8 +247,8 @@ def validate_token_format(token: str, min_length: int = 16) -> bool:
         logger.warning(f"Token too short: {len(token)} < {min_length}")
         return False
 
-    if len(token) > 512:  # Reasonable max for base64 tokens
-        logger.warning(f"Token too long: {len(token)} > 512")
+    if len(token) > MAX_TOKEN_LENGTH_BASE64:
+        logger.warning(f"Token too long: {len(token)} > {MAX_TOKEN_LENGTH_BASE64}")
         return False
 
     return True
@@ -277,7 +282,7 @@ def safe_verify_token_hash(token: str, token_hash: str | None) -> bool:
         logger.debug("Token hash is None or invalid")
         return False
 
-    if len(token_hash) != 64:  # SHA-256 in hex is 64 chars
+    if len(token_hash) != TOKEN_HASH_LENGTH:
         logger.warning(f"Invalid token hash length: {len(token_hash)}")
         return False
 
