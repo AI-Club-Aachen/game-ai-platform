@@ -1,0 +1,41 @@
+name: 'Setup Python and uv'
+description: 'Setup Python and install dependencies using uv'
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: true
+    default: '3.13'
+  working-directory:
+    description: 'Working directory for uv operations'
+    required: false
+    default: 'backend'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      shell: bash
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.working-directory }}/.venv
+          ~/.cache/uv
+        key: uv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory)) }}
+        restore-keys: |
+          uv-${{ runner.os }}-py${{ inputs.python-version }}-
+
+    - name: Install dependencies with uv
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        uv sync --all-groups
