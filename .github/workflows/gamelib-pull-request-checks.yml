@@ -38,8 +38,8 @@ jobs:
         with:
           working-directory: 'gamelib'
 
-      - name: Run lint and format
-        uses: ./.github/actions/lint-and-format
+      - name: Run lint, format and typecheck
+        uses: ./.github/actions/lint-format-typecheck
         with:
           working-directory: 'gamelib'
 
