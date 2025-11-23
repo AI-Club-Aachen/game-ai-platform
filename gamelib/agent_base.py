@@ -3,7 +3,6 @@ Base class for game agent implementations.
 Provides common functionality and interfaces for different game agents.
 """
 
-import sys
 from abc import ABC, abstractmethod
 
 from gamelib.gamestate_base import GameStateBase as State
