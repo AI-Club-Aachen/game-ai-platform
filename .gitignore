@@ -23,10 +23,6 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Package manager
-poetry.lock
-uv.lock
-
 # Environments
 .env
 .envrc
@@ -36,6 +32,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+
 
 # IDE
 .idea/

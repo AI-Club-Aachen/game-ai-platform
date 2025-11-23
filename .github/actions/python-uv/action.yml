@@ -3,8 +3,8 @@ description: 'Setup Python and install dependencies using uv'
 inputs:
   python-version:
     description: 'Python version to use'
-    required: true
-    default: '3.13'
+    required: false
+    default: ''
   working-directory:
     description: 'Working directory for uv operations'
     required: false
@@ -17,6 +17,7 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
+        python-version-file: ${{ inputs.working-directory }}/.python-version
 
     - name: Install uv
       shell: bash
@@ -30,8 +31,9 @@ runs:
         path: |
           ${{ inputs.working-directory }}/.venv
           ~/.cache/uv
-        key: uv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory)) }}
+        key: uv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles(format('{0}/.python-version', inputs.working-directory)) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory)) }}
         restore-keys: |
+          uv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles(format('{0}/.python-version', inputs.working-directory)) }}-
           uv-${{ runner.os }}-py${{ inputs.python-version }}-
 
     - name: Install dependencies with uv

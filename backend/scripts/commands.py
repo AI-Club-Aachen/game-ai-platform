@@ -50,5 +50,22 @@ def format_code() -> int:
     return 0
 
 
+def type_check() -> int:
+    """Run type checks with mypy."""
+    print("🧠 Running mypy type checks...")
+    result = subprocess.run(
+        ["mypy", "."],
+        check=False,
+        capture_output=False,
+    )
+
+    if result.returncode != 0:
+        print("\n❌ Type checking failed!")
+        return result.returncode
+
+    print("✅ All type checks passed!")
+    return 0
+
+
 if __name__ == "__main__":
     sys.exit(lint())
