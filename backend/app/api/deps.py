@@ -1,6 +1,7 @@
 """API dependencies for authentication and database access"""
 
 import logging
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
@@ -103,13 +104,13 @@ def get_current_user(
     # Parse UUID
     try:
         user_id = UUID(user_id_str)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
         logger.warning("Invalid UUID in token: %s", user_id_str)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token format",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
     # Fetch user via repository
     user = user_repository.get_by_id(user_id)
@@ -221,7 +222,7 @@ def verify_email_verified(
     return current_user
 
 
-def verify_user_role(required_role: UserRole):
+def verify_user_role(required_role: UserRole) -> Callable:
     """
     Factory function to create a dependency that verifies user has a specific role.
 
