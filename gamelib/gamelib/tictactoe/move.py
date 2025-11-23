@@ -14,17 +14,18 @@ class Move(BaseModel, MoveBase):
     """
     Tic-Tac-Toe move representation.
     """
+
     player: int
     position: int
 
-    @field_validator('player')
+    @field_validator("player")
     @classmethod
     def validate_player(cls, v: int) -> int:
         if v not in [0, 1]:
             raise ValueError("Invalid move format: player must be 0 or 1.")
         return v
 
-    @field_validator('position')
+    @field_validator("position")
     @classmethod
     def validate_position(cls, v: int) -> int:
         if not (0 <= v <= 8):
@@ -45,7 +46,7 @@ class Move(BaseModel, MoveBase):
             json_data = json.loads(json_str)
         except json.JSONDecodeError as e:
             raise ValueError(f"Error decoding JSON string for move: {json_str}.") from e
-        
+
         return cls.model_validate(json_data)
 
     @override
@@ -55,7 +56,4 @@ class Move(BaseModel, MoveBase):
         Returns:
             str: JSON string representing the move.
         """
-        return json.dumps({
-            "position": self.position,
-            "player": self.player
-        })
+        return json.dumps({"position": self.position, "player": self.player})

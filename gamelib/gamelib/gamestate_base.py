@@ -37,7 +37,7 @@ class GameStateBase(ABC):
         Subclasses must implement this.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def to_json(self) -> str:
         """

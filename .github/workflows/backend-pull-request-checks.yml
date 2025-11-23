@@ -1,0 +1,46 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  PYTHONPATH: backend
+
+jobs:
+  lint-and-format:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/python-uv
+        with:
+          working-directory: 'backend'
+
+      - name: Run lint and format
+        uses: ./.github/actions/lint-and-format
+        with:
+          working-directory: 'backend'
+
+

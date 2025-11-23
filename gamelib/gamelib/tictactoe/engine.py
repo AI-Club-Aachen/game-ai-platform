@@ -19,7 +19,6 @@ class Engine(EngineBase):
         """
         Initialize the game engine (no initialization needed).
         """
-        pass
 
     @override
     def validate_move(self, game_state: State, move: Move) -> bool:
@@ -70,13 +69,22 @@ class Engine(EngineBase):
             int: 0 if player 0 wins, 1 if player 1 wins, -2 for a draw, -1 if the game is ongoing.
         """
         winning_positions = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8],  # rows
-            [0, 3, 6], [1, 4, 7], [2, 5, 8],  # columns
-            [0, 4, 8], [2, 4, 6]              # diagonals
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],  # rows
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],  # columns
+            [0, 4, 8],
+            [2, 4, 6],  # diagonals
         ]
         for positions in winning_positions:
-            if (game_state.board[positions[0]] != -1 and
-                game_state.board[positions[0]] == game_state.board[positions[1]] == game_state.board[positions[2]]):
+            if (
+                game_state.board[positions[0]] != -1
+                and game_state.board[positions[0]]
+                == game_state.board[positions[1]]
+                == game_state.board[positions[2]]
+            ):
                 return game_state.board[positions[0]]  # Return the winning player immediately
 
         if all(cell != -1 for cell in game_state.board):

@@ -13,7 +13,7 @@ from gamelib.gamestate_base import GameStateBase
 class GameState(BaseModel, GameStateBase):
     """
     Tic-Tac-Toe game state representation.
-    
+
     A state is represented as a 3x3 grid where each cell can be:
         -1: empty
         0: player 0's mark
@@ -21,28 +21,31 @@ class GameState(BaseModel, GameStateBase):
 
     Additionally, an integer that indicates which player's turn it is.
     """
+
     board: list[int]
     turn: int
     status: int
 
-    @field_validator('board')
+    @field_validator("board")
     @classmethod
     def validate_board(cls, v: list[int]) -> list[int]:
         if len(v) != 9:
             raise ValueError("Invalid game state format: board must have 9 cells.")
         for cell in v:
             if cell not in [-1, 0, 1]:
-                raise ValueError(f"Invalid game state format in board cell {cell}: must be -1, 0, or 1.")
+                raise ValueError(
+                    f"Invalid game state format in board cell {cell}: must be -1, 0, or 1."
+                )
         return v
 
-    @field_validator('turn')
+    @field_validator("turn")
     @classmethod
     def validate_turn(cls, v: int) -> int:
         if v not in [0, 1]:
             raise ValueError("Invalid game state format: turn must be 0 or 1.")
         return v
 
-    @field_validator('status')
+    @field_validator("status")
     @classmethod
     def validate_status(cls, v: int) -> int:
         if v not in [-2, -1, 0, 1]:
@@ -91,9 +94,9 @@ class GameState(BaseModel, GameStateBase):
             json_data = json.loads(json_str)
         except json.JSONDecodeError as e:
             raise ValueError(f"Error decoding JSON string for game state: {json_str}.") from e
-        
+
         return cls.model_validate(json_data)
-    
+
     @override
     def to_json(self) -> str:
         """
@@ -101,8 +104,4 @@ class GameState(BaseModel, GameStateBase):
         Returns:
             str: JSON string representing the game state.
         """
-        return json.dumps({
-            "board": self.board,
-            "turn": self.turn,
-            "status": self.status
-        })
+        return json.dumps({"board": self.board, "turn": self.turn, "status": self.status})

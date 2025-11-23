@@ -4,8 +4,8 @@ Sample Tic-Tac-Toe Agent Implementation.
 
 from typing import override
 
-from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.agent import Agent
+from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.move import Move
 
 

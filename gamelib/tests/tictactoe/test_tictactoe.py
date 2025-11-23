@@ -2,13 +2,13 @@
 Test suite for full game scenarios in gamelib.
 """
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from gamelib.tictactoe.engine import Engine
+from gamelib.tictactoe.examples.simple_agent import TicTacToeAgent as Agent
 from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.move import Move
-from gamelib.tictactoe.examples.simple_agent import TicTacToeAgent as Agent
 
 
 def test_validate_move():
@@ -87,16 +87,12 @@ def test_win_on_last_move():
     # X O O
     # . X O
     # Player 0 (X) plays at position 6 (bottom-left) to win.
-    board = [
-        0, 1, 0,
-        0, 1, 1,
-        -1, 0, 1
-    ]
+    board = [0, 1, 0, 0, 1, 1, -1, 0, 1]
     state = State(board=board, turn=0, status=-1)
     move = Move(player=0, position=6)
-    
+
     new_state = engine.apply_move(state, move)
-    
+
     assert new_state.status == 0, "Player 0 should win on the last move."
     assert new_state.board[6] == 0, "Board should be updated."
     assert engine.is_game_over(new_state), "Game should be over."
@@ -117,16 +113,12 @@ def test_draw_on_last_move():
     # X O O
     # O X X
     # No winner, board full -> Draw.
-    board = [
-        0, 1, 0,
-        0, 1, 1,
-        -1, 0, 0
-    ]
+    board = [0, 1, 0, 0, 1, 1, -1, 0, 0]
     state = State(board=board, turn=1, status=-1)
     move = Move(player=1, position=6)
-    
+
     new_state = engine.apply_move(state, move)
-    
+
     assert new_state.status == -2, "Game should be a draw on the last move."
     assert new_state.board[6] == 1, "Board should be updated."
     assert engine.is_game_over(new_state), "Game should be over."
@@ -143,12 +135,12 @@ def test_no_moves_after_game_over():
     # . . .
     board = [0, 0, 0, 1, 1, -1, -1, -1, -1]
     state = State(board=board, turn=0, status=0)  # Player 0 won
-    
+
     move = Move(player=0, position=5)
-    
+
     # Move should be invalid because game is over
     assert not engine.validate_move(state, move), "Move should be invalid after game is over."
-    
+
     # Attempting to apply should raise an error
     try:
         engine.apply_move(state, move)
@@ -167,19 +159,19 @@ def test_agent_identifies_player():
     # Test for Player 0
     agent_0 = Agent(run_init=False)
     init_state_0 = State.initial({"turn": 0})  # Player 0's turn
-    
+
     # Simulate the _read_init logic: agent determines player_id from init state's turn
     player_id_0 = init_state_0.turn
     agent_0.initialize({"player_id": player_id_0})
-    
+
     assert agent_0.player_id == 0, "Agent should identify as player 0 when turn=0 in initial state"
-    
+
     # Test for Player 1
     agent_1 = Agent(run_init=False)
     init_state_1 = State.initial({"turn": 1})  # Player 1's turn
-    
+
     # Simulate the _read_init logic: agent determines player_id from init state's turn
     player_id_1 = init_state_1.turn
     agent_1.initialize({"player_id": player_id_1})
-    
+
     assert agent_1.player_id == 1, "Agent should identify as player 1 when turn=1 in initial state"
