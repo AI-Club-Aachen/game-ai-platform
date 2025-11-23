@@ -95,9 +95,7 @@ class EmailClient:
 
         # 3. Send with retry logic
         final_retry_count = retry_count if retry_count is not None else self.max_retries
-        return await self._send_with_retry(
-            to_email, subject, html_content, final_text_content, final_retry_count
-        )
+        return await self._send_with_retry(to_email, subject, html_content, final_text_content, final_retry_count)
 
     def _should_send_email(self, to_email: str, subject: str, html_content: str) -> tuple[bool, bool]:
         """
@@ -125,8 +123,7 @@ class EmailClient:
             return False, False
 
         # --- production/staging (SMTP configured) ---
-        else:
-            return True, True
+        return True, True
 
     def _prepare_email_content(self, html_content: str, text_content: str | None) -> str:
         """Ensure text content exists."""

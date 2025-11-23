@@ -191,6 +191,7 @@ class Settings(BaseSettings):
 # Singleton instance holder
 class _SettingsHolder:
     """Holder for singleton settings instance"""
+
     instance: Settings | None = None
 
 
