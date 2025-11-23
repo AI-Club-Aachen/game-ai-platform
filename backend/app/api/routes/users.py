@@ -39,7 +39,7 @@ router = APIRouter(prefix="/users")
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_current_user_profile(
-    request: Request,
+    _request: Request,
     user: CurrentUser,
 ) -> UserResponse:
     """Get current authenticated user's profile."""
@@ -49,7 +49,7 @@ async def get_current_user_profile(
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def update_current_user_profile(
-    request: Request,
+    _request: Request,
     user_update: UserUpdate,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -72,7 +72,7 @@ async def update_current_user_profile(
             detail=str(e),
         ) from e
     except UserServiceError as e:
-        logger.error("Error updating user profile %s: %s", user.id, e)
+        logger.exception("Error updating user profile %s", user.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update profile",
@@ -82,7 +82,7 @@ async def update_current_user_profile(
 @router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def change_password(
-    request: Request,
+    _request: Request,
     password_request: PasswordChangeRequest,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -94,7 +94,6 @@ async def change_password(
     """
     try:
         user_service.change_password(current_user=user, password_request=password_request)
-        return {"message": "Password changed successfully"}
     except UserValidationError as e:
         # Incorrect current password, weak password, or same as old
         raise HTTPException(
@@ -102,18 +101,20 @@ async def change_password(
             detail=str(e),
         ) from e
     except UserServiceError as e:
-        logger.error("Error changing password for user %s: %s", user.id, e)
+        logger.exception("Error changing password for user %s", user.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to change password",
         ) from e
+    else:
+        return {"message": "Password changed successfully"}
 
 
 # Admin endpoints with higher rate limits (1000/hour)
 @router.get("/", response_model=dict, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
-    request: Request,
+    _request: Request,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
     skip: Annotated[int, Query(ge=0)] = 0,
@@ -130,7 +131,7 @@ async def list_users(
             email_verified=email_verified,
         )
     except UserServiceError as e:
-        logger.error("Error listing users for admin %s: %s", admin.id, e)
+        logger.exception("Error listing users for admin %s", admin.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list users",
@@ -155,7 +156,7 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def get_user_by_id(
-    request: Request,
+    _request: Request,
     user_id: UUID,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -170,7 +171,7 @@ async def get_user_by_id(
             detail=str(e),
         ) from e
     except UserServiceError as e:
-        logger.error("Error fetching user %s for admin %s: %s", user_id, admin.id, e)
+        logger.exception("Error fetching user %s for admin %s", user_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch user",
@@ -183,7 +184,7 @@ async def get_user_by_id(
 @router.patch("/{user_id}/role", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def update_user_role(
-    request: Request,
+    _request: Request,
     user_id: UUID,
     role_update: UserRoleUpdate,
     admin: CurrentAdmin,
@@ -208,7 +209,7 @@ async def update_user_role(
             detail=str(e),
         ) from e
     except UserServiceError as e:
-        logger.error("Error updating role for user %s by admin %s: %s", user_id, admin.id, e)
+        logger.exception("Error updating role for user %s by admin %s", user_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update user role",
@@ -218,7 +219,7 @@ async def update_user_role(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("1000/hour")
 async def delete_user(
-    request: Request,
+    _request: Request,
     user_id: UUID,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -237,7 +238,7 @@ async def delete_user(
             detail=str(e),
         ) from e
     except UserServiceError as e:
-        logger.error("Error deleting user %s by admin %s: %s", user_id, admin.id, e)
+        logger.exception("Error deleting user %s by admin %s", user_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user",
@@ -247,7 +248,7 @@ async def delete_user(
 @router.post("/{user_id}/send-verification-email", status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def admin_send_verification_email(
-    request: Request,
+    _request: Request,
     user_id: UUID,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -266,7 +267,7 @@ async def admin_send_verification_email(
             detail=str(e),
         ) from e
     except UserServiceError as e:
-        logger.error("Error sending verification email for user %s by admin %s: %s", user_id, admin.id, e)
+        logger.exception("Error sending verification email for user %s by admin %s", user_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send verification email",

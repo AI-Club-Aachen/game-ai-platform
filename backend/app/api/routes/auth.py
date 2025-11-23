@@ -28,7 +28,7 @@ router = APIRouter(prefix="/auth")
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=dict)
 @limiter.limit("20/hour")
 async def register(
-    request: Request,
+    _request: Request,
     user_data: UserCreate,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -56,7 +56,7 @@ async def register(
             detail=str(e),
         ) from e
     except AuthServiceError as e:
-        logger.error("Database error during registration: %s", e)
+        logger.exception("Database error during registration")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user account",
@@ -72,7 +72,7 @@ async def register(
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute;200/day")
 async def login(
-    request: Request,
+    _request: Request,
     login_request: LoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
@@ -97,7 +97,7 @@ async def login(
             detail=str(e),
         ) from e
     except AuthServiceError as e:
-        logger.error("Error during login: %s", e)
+        logger.exception("Error during login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to login",
@@ -105,7 +105,7 @@ async def login(
 
     return LoginResponse(
         access_token=access_token,
-        token_type="bearer",
+        token_type="bearer",  # noqa: S106
         user_id=str(user.id),
         username=user.username,
     )
@@ -114,7 +114,7 @@ async def login(
 @router.post("/request-password-reset", status_code=status.HTTP_200_OK)
 @limiter.limit("10/hour")
 async def request_password_reset(
-    request: Request,
+    _request: Request,
     email: str,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -135,7 +135,7 @@ async def request_password_reset(
 @router.post("/reset-password", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def reset_password(
-    request: Request,
+    _request: Request,
     token: str,
     new_password: str,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -149,7 +149,7 @@ async def reset_password(
             detail=str(e),
         ) from e
     except AuthServiceError as e:
-        logger.error("Error resetting password: %s", e)
+        logger.exception("Error resetting password")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to reset password",

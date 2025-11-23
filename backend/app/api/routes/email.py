@@ -21,6 +21,9 @@ from app.schemas.user import UserResponse
 
 
 logger = logging.getLogger(__name__)
+
+# Minimum length for email verification tokens
+MIN_TOKEN_LENGTH = 16
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/email")
@@ -29,7 +32,7 @@ router = APIRouter(prefix="/email")
 @router.post("/resend-verification", status_code=status.HTTP_200_OK)
 @limiter.limit("10/day")
 async def resend_verification_email(
-    request: Request,
+    _request: Request,
     user: CurrentUser,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -51,7 +54,7 @@ async def resend_verification_email(
             detail=str(e),
         ) from e
     except AuthServiceError as e:
-        logger.error("Error resending verification email for %s: %s", user.email, e)
+        logger.exception("Error resending verification email for %s", user.email)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to resend verification email",
@@ -63,13 +66,13 @@ async def resend_verification_email(
 @router.post("/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def verify_email(
-    request: Request,
+    _request: Request,
     verification_request: EmailVerificationRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> UserResponse:
     """Verify email address with token sent via email."""
     # Optional extra format check, though the schema already enforces min_length
-    if not verification_request.token or len(verification_request.token) < 16:
+    if not verification_request.token or len(verification_request.token) < MIN_TOKEN_LENGTH:
         logger.warning("Invalid email verification token format")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -86,7 +89,7 @@ async def verify_email(
             detail=str(e),
         ) from e
     except AuthServiceError as e:
-        logger.error("Error verifying email: %s", e)
+        logger.exception("Error verifying email")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify email",
