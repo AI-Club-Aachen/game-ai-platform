@@ -287,6 +287,7 @@ class AuthService:
         user = self._users.get_by_email_ci(email_lower)
 
         if not user:
+            logger.info(f"User {email_lower} not found. Simply ignore request")
             return
 
         try:
