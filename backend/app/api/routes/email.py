@@ -32,7 +32,7 @@ router = APIRouter(prefix="/email")
 @router.post("/resend-verification", status_code=status.HTTP_200_OK)
 @limiter.limit("10/day")
 async def resend_verification_email(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user: CurrentUser,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -66,7 +66,7 @@ async def resend_verification_email(
 @router.post("/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def verify_email(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     verification_request: EmailVerificationRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> UserResponse:

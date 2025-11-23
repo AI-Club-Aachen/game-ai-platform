@@ -39,7 +39,7 @@ router = APIRouter(prefix="/users")
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_current_user_profile(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user: CurrentUser,
 ) -> UserResponse:
     """Get current authenticated user's profile."""
@@ -49,7 +49,7 @@ async def get_current_user_profile(
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def update_current_user_profile(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user_update: UserUpdate,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -82,7 +82,7 @@ async def update_current_user_profile(
 @router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def change_password(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     password_request: PasswordChangeRequest,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -114,7 +114,7 @@ async def change_password(
 @router.get("/", response_model=dict, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
     skip: Annotated[int, Query(ge=0)] = 0,
@@ -156,7 +156,7 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def get_user_by_id(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user_id: UUID,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -184,7 +184,7 @@ async def get_user_by_id(
 @router.patch("/{user_id}/role", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def update_user_role(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user_id: UUID,
     role_update: UserRoleUpdate,
     admin: CurrentAdmin,
@@ -219,7 +219,7 @@ async def update_user_role(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("1000/hour")
 async def delete_user(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user_id: UUID,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],
@@ -248,7 +248,7 @@ async def delete_user(
 @router.post("/{user_id}/send-verification-email", status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def admin_send_verification_email(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     user_id: UUID,
     admin: CurrentAdmin,
     user_service: Annotated[UserService, Depends(get_user_service)],

@@ -28,7 +28,7 @@ router = APIRouter(prefix="/auth")
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=dict)
 @limiter.limit("20/hour")
 async def register(
-    _request: Request,
+    request: Request, # noqa: ARG001
     user_data: UserCreate,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -72,7 +72,7 @@ async def register(
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute;200/day")
 async def login(
-    _request: Request,
+    request: Request,  # noqa: ARG001
     login_request: LoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
@@ -114,7 +114,7 @@ async def login(
 @router.post("/request-password-reset", status_code=status.HTTP_200_OK)
 @limiter.limit("10/hour")
 async def request_password_reset(
-    _request: Request,
+    request: Request, # noqa: ARG001
     email: str,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -135,7 +135,7 @@ async def request_password_reset(
 @router.post("/reset-password", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def reset_password(
-    _request: Request,
+    request: Request, # noqa: ARG001
     token: str,
     new_password: str,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],

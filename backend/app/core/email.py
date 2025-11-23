@@ -114,15 +114,19 @@ class EmailClient:
             logger.info("Dev email HTML content:\n%s", html_content)
             return False, True  # Don't send, but pretend success
 
-        if self.smtp_required:
-            # In staging/production this should not happen because Settings
-            # already enforces SMTP, but fail safe if it does.
-            logger.critical("SMTP is required in this environment but not configured; cannot send email.")
+            if self.smtp_required:
+                # In staging/production this should not happen because Settings
+                # already enforces SMTP, but fail safe if it does.
+                logger.critical("SMTP is required in this environment but not configured; cannot send email.")
+                return False, False
+
+            # Non-required, non-dev fallback (just in case)
+            logger.error("SMTP not configured; skipping email send.")
             return False, False
 
-        # Non-required, non-dev fallback (just in case)
-        logger.error("SMTP not configured; skipping email send.")
-        return False, False
+        # --- production/staging (SMTP configured) ---
+        else:
+            return True, True
 
     def _prepare_email_content(self, html_content: str, text_content: str | None) -> str:
         """Ensure text content exists."""
