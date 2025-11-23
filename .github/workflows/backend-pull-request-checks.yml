@@ -1,4 +1,4 @@
-name: Pull Request Checks
+name: Backend Pull Request Checks
 
 on:
   pull_request:
