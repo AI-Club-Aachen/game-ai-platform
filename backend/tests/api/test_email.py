@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import uuid
 
 import pytest
 from jose import jwt
@@ -6,6 +7,7 @@ from sqlmodel import select
 
 from app.core.config import settings
 from app.models.user import User
+from tests.api.test_users import _create_verified_user_and_token
 from tests.fakes import _extract_token_from_html
 
 
@@ -316,4 +318,128 @@ async def test_non_admin_cannot_resend_verification(
         headers={"Authorization": user_token},
     )
     assert response.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_admin_resend_verification_fails_for_nonexistent_user(
+    api_client, fake_email_client, db_session
+):
+    from tests.api.test_users import _create_admin_and_token
+
+    # Admin.
+    admin_username = "admin_resend_404"
+    admin_email = "admin_resend_404@example.com"
+    admin_password = "ResendRootX!4"
+    _, admin_token = await _create_admin_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        admin_username,
+        admin_email,
+        admin_password,
+    )
+
+    missing_id = str(uuid.uuid4())
+
+    response = await api_client.post(
+        f"{API_PREFIX}/email/{missing_id}/resend-verification",
+        headers={"Authorization": admin_token},
+    )
+    assert response.status_code == 404
+    assert "User not found" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_admin_resend_verification_fails_for_already_verified_user(
+    api_client, fake_email_client, db_session
+):
+    from tests.api.test_users import _create_admin_and_token
+
+    # Create verified user.
+    username = "verified_target"
+    email = "verified_target@example.com"
+    password = "VerifiedTarget!1"
+    user_id, _ = await _create_verified_user_and_token(
+        api_client, fake_email_client, username, email, password
+    )
+
+    # Admin.
+    admin_username = "admin_resend_400"
+    admin_email = "admin_resend_400@example.com"
+    admin_password = "ResendRootX!5"
+    _, admin_token = await _create_admin_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        admin_username,
+        admin_email,
+        admin_password,
+    )
+
+    response = await api_client.post(
+        f"{API_PREFIX}/email/{user_id}/resend-verification",
+        headers={"Authorization": admin_token},
+    )
+    assert response.status_code == 400
+    assert "User's email already verified" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_admin_resend_verification_token_actually_works(
+    api_client, fake_email_client, db_session
+):
+    """
+    E2E: Admin triggers resend -> User gets email -> User verifies with token.
+    """
+    from tests.api.test_users import _create_admin_and_token
+
+    # 1. Create unverified user.
+    username = "admin_flow_user"
+    email = "admin_flow_user@example.com"
+    password = f"R@nd0mP@ss{uuid.uuid4()}!"
+    fake_email_client.sent.clear()
+    await _register_user(api_client, username, email, password)
+
+    # 2. Admin triggers resend.
+    admin_username = "admin_flow_tester"
+    admin_email = "admin_flow_tester@example.com"
+    admin_password = f"Adm1nP@ss{uuid.uuid4()}!"
+    _, admin_token = await _create_admin_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        admin_username,
+        admin_email,
+        admin_password,
+    )
+    
+    # Get user ID
+    user = db_session.exec(select(User).where(User.email == email)).first()
+    
+    # Clear emails to ensure we catch the NEW one
+    fake_email_client.sent.clear()
+    
+    response = await api_client.post(
+        f"{API_PREFIX}/email/{user.id}/resend-verification",
+        headers={"Authorization": admin_token},
+    )
+    assert response.status_code == 200
+
+    # 3. Extract token from the email.
+    assert len(fake_email_client.sent) == 1
+    email_content = fake_email_client.sent[0]["html_content"]
+    token = _extract_token_from_html(email_content)
+    assert token is not None
+
+    # 4. Verify using that token.
+    verify_response = await api_client.post(
+        f"{API_PREFIX}/email/verify-email",
+        json={"token": token},
+    )
+    assert verify_response.status_code == 200
+    
+    # 5. Confirm verified.
+    db_session.refresh(user)
+    assert user.email_verified is True
+
 
