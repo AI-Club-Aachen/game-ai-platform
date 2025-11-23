@@ -99,10 +99,7 @@ class AuthService:
             try:
                 self._users.delete(existing_user)
             except UserRepositoryError as e:
-                logger.error(
-                    "Error deleting unverified user during re-registration: %s",
-                    e,
-                )
+                logger.exception("Error deleting unverified user during re-registration")
                 raise AuthServiceError(
                     "Failed to clean up previous registration",
                 ) from e
@@ -124,10 +121,7 @@ class AuthService:
             try:
                 self._users.delete(existing_user)
             except UserRepositoryError as e:
-                logger.error(
-                    "Error deleting unverified user by email: %s",
-                    e,
-                )
+                logger.exception("Error deleting unverified user by email")
                 raise AuthServiceError(
                     "Failed to clean up previous registration",
                 ) from e
@@ -152,7 +146,7 @@ class AuthService:
         try:
             user = self._users.save(user)
         except UserRepositoryError as e:
-            logger.error("Database error during registration: %s", e)
+            logger.exception("Database error during registration")
             raise AuthServiceError("Failed to create user account") from e
 
         # Send verification email in background
@@ -222,8 +216,8 @@ class AuthService:
             matched_user.updated_at = datetime.now(UTC)
             try:
                 self._users.save(matched_user)
-            except UserRepositoryError as e:
-                logger.error("Error clearing expired verification token: %s", e)
+            except UserRepositoryError:
+                logger.exception("Error clearing expired verification token")
             raise AuthValidationError(
                 "Verification token expired. Request a new one.",
             )
@@ -236,7 +230,7 @@ class AuthService:
         try:
             user = self._users.save(matched_user)
         except UserRepositoryError as e:
-            logger.error("Database error during email verification: %s", e)
+            logger.exception("Database error during email verification")
             raise AuthServiceError("Failed to verify email") from e
 
         logger.info("Email verified: %s (ID: %s)", user.email, user.id)
@@ -273,7 +267,7 @@ class AuthService:
 
             logger.info("Verification email resent to: %s", current_user.email)
         except UserRepositoryError as e:
-            logger.error("Error resending verification email: %s", e)
+            logger.exception("Error resending verification email")
             raise AuthServiceError("Failed to resend verification email") from e
 
     # --- Password reset request ---
@@ -311,10 +305,10 @@ class AuthService:
             )
 
             logger.info("Password reset requested for: %s", user.email)
-        except UserRepositoryError as e:
-            logger.error("Error processing password reset: %s", e)
-        except Exception as e:  # noqa: BLE001
-            logger.error("Unexpected error processing password reset: %s", e)
+        except UserRepositoryError:
+            logger.exception("Error processing password reset")
+        except Exception:
+            logger.exception("Unexpected error processing password reset")
 
     # --- Password reset confirm ---
 
@@ -347,8 +341,8 @@ class AuthService:
             matched_user.updated_at = datetime.now(UTC)
             try:
                 self._users.save(matched_user)
-            except UserRepositoryError as e:
-                logger.error("Error clearing expired reset token: %s", e)
+            except UserRepositoryError:
+                logger.exception("Error clearing expired reset token")
             raise AuthValidationError(
                 "Password reset token expired. Request a new one.",
             )
@@ -361,7 +355,7 @@ class AuthService:
         try:
             user = self._users.save(matched_user)
         except UserRepositoryError as e:
-            logger.error("Database error during password reset: %s", e)
+            logger.exception("Database error during password reset")
             raise AuthServiceError("Failed to reset password") from e
 
         logger.info("Password reset successful: %s (ID: %s)", user.email, user.id)
