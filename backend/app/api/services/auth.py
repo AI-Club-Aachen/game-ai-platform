@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Tuple
+from datetime import UTC, datetime, timedelta
 
 from fastapi import BackgroundTasks
 
@@ -8,20 +7,21 @@ from app.api.repositories.user import UserRepository, UserRepositoryError
 from app.api.services.email import EmailNotificationService
 from app.core.config import settings
 from app.core.security import (
-    hash_password,
-    verify_password,
     create_access_token,
+    hash_password,
     validate_password_strength,
+    verify_password,
 )
 from app.core.tokens import (
     create_email_verification_token,
     create_password_reset_token,
-    safe_verify_token_hash,
     is_token_expired,
+    safe_verify_token_hash,
 )
 from app.models.user import User, UserRole
 from app.schemas.auth import LoginRequest
 from app.schemas.user import UserCreate
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,27 +31,22 @@ logger = logging.getLogger(__name__)
 
 class AuthServiceError(Exception):
     """Base exception for auth service errors."""
-    pass
 
 
 class AuthValidationError(AuthServiceError):
     """Input or password/token validation issue."""
-    pass
 
 
 class AuthConflictError(AuthServiceError):
     """Uniqueness or state conflict (e.g. already registered)."""
-    pass
 
 
 class AuthNotFoundError(AuthServiceError):
     """User or token not found."""
-    pass
 
 
 class AuthForbiddenError(AuthServiceError):
     """Action not allowed due to user state (e.g. unverified)."""
-    pass
 
 
 class AuthService:
@@ -73,7 +68,7 @@ class AuthService:
         self,
         user_data: UserCreate,
         background_tasks: BackgroundTasks,
-    ) -> Tuple[User, str]:
+    ) -> tuple[User, str]:
         """
         Register a new user with email verification.
 
@@ -96,22 +91,21 @@ class AuthService:
                     user_data.username,
                 )
                 raise AuthConflictError("Username already registered")
-            else:
-                # Delete unverified account to allow re-registration
-                logger.info(
-                    "Deleting unverified account for re-registration: %s",
-                    existing_user.id,
+            # Delete unverified account to allow re-registration
+            logger.info(
+                "Deleting unverified account for re-registration: %s",
+                existing_user.id,
+            )
+            try:
+                self._users.delete(existing_user)
+            except UserRepositoryError as e:
+                logger.error(
+                    "Error deleting unverified user during re-registration: %s",
+                    e,
                 )
-                try:
-                    self._users.delete(existing_user)
-                except UserRepositoryError as e:
-                    logger.error(
-                        "Error deleting unverified user during re-registration: %s",
-                        e,
-                    )
-                    raise AuthServiceError(
-                        "Failed to clean up previous registration",
-                    ) from e
+                raise AuthServiceError(
+                    "Failed to clean up previous registration",
+                ) from e
 
         # Email uniqueness (case-insensitive)
         email_lower = str(user_data.email).lower()
@@ -123,27 +117,26 @@ class AuthService:
                     user_data.email,
                 )
                 raise AuthConflictError("Email already registered")
-            else:
-                logger.info(
-                    "Deleting unverified account for re-registration: %s",
-                    existing_user.id,
+            logger.info(
+                "Deleting unverified account for re-registration: %s",
+                existing_user.id,
+            )
+            try:
+                self._users.delete(existing_user)
+            except UserRepositoryError as e:
+                logger.error(
+                    "Error deleting unverified user by email: %s",
+                    e,
                 )
-                try:
-                    self._users.delete(existing_user)
-                except UserRepositoryError as e:
-                    logger.error(
-                        "Error deleting unverified user by email: %s",
-                        e,
-                    )
-                    raise AuthServiceError(
-                        "Failed to clean up previous registration",
-                    ) from e
+                raise AuthServiceError(
+                    "Failed to clean up previous registration",
+                ) from e
 
         # Generate verification token
         plain_token, token_hash, expiry = create_email_verification_token()
 
         # Create user
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         user = User(
             username=user_data.username,
             email=user_data.email,
@@ -175,7 +168,7 @@ class AuthService:
 
     # --- Login ---
 
-    def login(self, login_request: LoginRequest) -> Tuple[str, User]:
+    def login(self, login_request: LoginRequest) -> tuple[str, User]:
         """
         Login with email and password.
 
@@ -226,7 +219,7 @@ class AuthService:
             logger.warning("Expired verification token used: %s", matched_user.email)
             matched_user.email_verification_token_hash = None
             matched_user.email_verification_expires_at = None
-            matched_user.updated_at = datetime.now(timezone.utc)
+            matched_user.updated_at = datetime.now(UTC)
             try:
                 self._users.save(matched_user)
             except UserRepositoryError as e:
@@ -238,7 +231,7 @@ class AuthService:
         matched_user.email_verified = True
         matched_user.email_verification_token_hash = None
         matched_user.email_verification_expires_at = None
-        matched_user.updated_at = datetime.now(timezone.utc)
+        matched_user.updated_at = datetime.now(UTC)
 
         try:
             user = self._users.save(matched_user)
@@ -268,7 +261,7 @@ class AuthService:
             plain_token, token_hash, expiry = create_email_verification_token()
             current_user.email_verification_token_hash = token_hash
             current_user.email_verification_expires_at = expiry
-            current_user.updated_at = datetime.now(timezone.utc)
+            current_user.updated_at = datetime.now(UTC)
             self._users.save(current_user)
 
             background_tasks.add_task(
@@ -307,7 +300,7 @@ class AuthService:
 
             user.password_reset_token_hash = token_hash
             user.password_reset_expires_at = expiry
-            user.updated_at = datetime.now(timezone.utc)
+            user.updated_at = datetime.now(UTC)
             self._users.save(user)
 
             background_tasks.add_task(
@@ -351,7 +344,7 @@ class AuthService:
             logger.warning("Expired reset token used: %s", matched_user.email)
             matched_user.password_reset_token_hash = None
             matched_user.password_reset_expires_at = None
-            matched_user.updated_at = datetime.now(timezone.utc)
+            matched_user.updated_at = datetime.now(UTC)
             try:
                 self._users.save(matched_user)
             except UserRepositoryError as e:
@@ -363,7 +356,7 @@ class AuthService:
         matched_user.password_hash = password_hash
         matched_user.password_reset_token_hash = None
         matched_user.password_reset_expires_at = None
-        matched_user.updated_at = datetime.now(timezone.utc)
+        matched_user.updated_at = datetime.now(UTC)
 
         try:
             user = self._users.save(matched_user)

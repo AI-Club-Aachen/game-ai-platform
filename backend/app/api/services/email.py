@@ -1,10 +1,10 @@
 """Application-level email notification service (verification, password reset)."""
 
 import logging
-from typing import Optional
 
 from app.core.config import settings
 from app.core.email import EmailClient
+
 
 logger = logging.getLogger(__name__)
 
@@ -298,7 +298,7 @@ class EmailNotificationService:
         )
 
     @staticmethod
-    def _escape_html(text: Optional[str]) -> str:
+    def _escape_html(text: str | None) -> str:
         """
         Escape HTML special characters to prevent XSS in emails.
 
@@ -320,4 +320,3 @@ class EmailNotificationService:
             .replace('"', "&quot;")
             .replace("'", "&#39;")
         )
-

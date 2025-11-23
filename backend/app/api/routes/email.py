@@ -3,7 +3,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -16,10 +16,9 @@ from app.api.services.auth import (
     AuthServiceError,
     AuthValidationError,
 )
-from app.schemas.email import (
-    EmailVerificationRequest
-)
+from app.schemas.email import EmailVerificationRequest
 from app.schemas.user import UserResponse
+
 
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)

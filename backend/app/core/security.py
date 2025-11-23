@@ -3,13 +3,13 @@
 import hashlib
 import hmac
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
-from passlib.context import CryptContext
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
-    bcrypt__rounds=12  # Higher rounds = slower but more secure
+    bcrypt__rounds=12,  # Higher rounds = slower but more secure
 )
 
 
@@ -90,9 +90,7 @@ def validate_password_strength(password: str) -> None:
         raise ValueError("Password must contain at least one digit (0-9)")
 
     if not has_special:
-        raise ValueError(
-            "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/\\`~)"
-        )
+        raise ValueError("Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/\\`~)")
 
     # Check for common weak patterns
     weak_patterns = ["password", "123456", "qwerty", "admin", "user"]
@@ -100,10 +98,7 @@ def validate_password_strength(password: str) -> None:
         raise ValueError("Password contains weak patterns, please use a stronger password")
 
 
-def create_access_token(
-    data: dict,
-    expires_delta: Optional[timedelta] = None
-) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
     Create a signed JWT access token with expiration.
 
@@ -118,18 +113,18 @@ def create_access_token(
 
     # Set expiration time
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            hours=settings.JWT_ACCESS_TOKEN_EXPIRE_HOURS
-        )
+        expire = datetime.now(UTC) + timedelta(hours=settings.JWT_ACCESS_TOKEN_EXPIRE_HOURS)
 
     # Add standard claims
-    to_encode.update({
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),  # Issued at time
-        "nbf": datetime.now(timezone.utc),  # Not before time
-    })
+    to_encode.update(
+        {
+            "exp": expire,
+            "iat": datetime.now(UTC),  # Issued at time
+            "nbf": datetime.now(UTC),  # Not before time
+        }
+    )
 
     try:
         encoded_jwt = jwt.encode(
@@ -143,7 +138,7 @@ def create_access_token(
         raise
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     """
     Decode and validate JWT token with proper error handling.
 
@@ -159,9 +154,9 @@ def decode_access_token(token: str) -> Optional[dict]:
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
             options={
-                "verify_exp": True,        # Verify expiration time
+                "verify_exp": True,  # Verify expiration time
                 "verify_signature": True,  # Verify signature
-            }
+            },
         )
         return payload
     except JWTError as e:
@@ -253,7 +248,7 @@ def verify_token_against_hash(token: str, token_hash: str) -> bool:
         return False
 
 
-def is_token_expired(expires_at: Optional[datetime]) -> bool:
+def is_token_expired(expires_at: datetime | None) -> bool:
     """
     Check if token has expired.
 
@@ -267,7 +262,7 @@ def is_token_expired(expires_at: Optional[datetime]) -> bool:
         return True
 
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Add small buffer (1 second) to account for clock skew
         return now >= (expires_at - timedelta(seconds=1))
     except Exception as e:
@@ -285,4 +280,4 @@ def get_token_expiry_time(hours: int = 24) -> datetime:
     Returns:
         datetime: Expiry datetime in UTC
     """
-    return datetime.now(timezone.utc) + timedelta(hours=hours)
+    return datetime.now(UTC) + timedelta(hours=hours)

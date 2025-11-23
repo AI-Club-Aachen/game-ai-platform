@@ -1,22 +1,22 @@
 """API dependencies for authentication and database access"""
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
+from app.api.repositories.user import UserRepository
+from app.api.services.auth import AuthService
+from app.api.services.email import EmailNotificationService
+from app.api.services.user import UserService
+from app.core.email import EmailClient, email_client
 from app.core.security import decode_access_token
 from app.db.session import get_session
 from app.models.user import User, UserRole
 
-from app.api.repositories.user import UserRepository
-from app.api.services.user import UserService
-from app.api.services.auth import AuthService
-from app.core.email import EmailClient, email_client
-from app.api.services.email import EmailNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ def get_current_user(
         )
 
     # Extract user ID from token
-    user_id_str: Optional[str] = payload.get("sub")
+    user_id_str: str | None = payload.get("sub")
     if user_id_str is None:
         logger.warning("Token missing 'sub' claim")
         raise HTTPException(
@@ -151,8 +151,8 @@ def get_current_admin(
 
 def get_optional_current_user(
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)] = None,
-) -> Optional[User]:
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> User | None:
     """
     Optional dependency for endpoints that support both authenticated and anonymous access.
     Returns None if no valid token is provided, otherwise returns the user.
@@ -174,7 +174,7 @@ def get_optional_current_user(
         logger.debug("Invalid optional token")
         return None
 
-    user_id_str: Optional[str] = payload.get("sub")
+    user_id_str: str | None = payload.get("sub")
     if user_id_str is None:
         logger.debug("Optional token missing 'sub' claim")
         return None
@@ -265,4 +265,4 @@ def verify_user_role(required_role: UserRole):
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 VerifiedUser = Annotated[User, Depends(verify_email_verified)]
-OptionalUser = Annotated[Optional[User], Depends(get_optional_current_user)]
+OptionalUser = Annotated[User | None, Depends(get_optional_current_user)]

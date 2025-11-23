@@ -1,49 +1,44 @@
 """FastAPI application with comprehensive security configuration and rate limiting"""
 
 import logging
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 from redis import asyncio as aioredis
-
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+from starlette.responses import Response
 
+from app.api.routes import auth, email, users
 from app.core.config import settings
-from app.api.routes import auth, users, email
+
 
 # Configure logging
-logging.basicConfig(
-    level=settings.LOG_LEVEL.upper(),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=settings.LOG_LEVEL.upper(), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 
 # Rate limiter with Redis backend
-limiter = Limiter(
-    key_func=get_remote_address,
-    storage_uri="redis://redis:6379",
-    default_limits=["200/day", "50/hour"]
-)
+limiter = Limiter(key_func=get_remote_address, storage_uri="redis://redis:6379", default_limits=["200/day", "50/hour"])
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} in {settings.ENVIRONMENT} mode")
     try:
         redis = aioredis.from_url("redis://redis:6379", encoding="utf8")
         logger.info("Redis connected for rate limiting")
-    except Exception as e:
-        logger.error(f"Failed to connect to Redis: {e}")
+    except Exception:
+        logger.exception("Failed to connect to Redis")
         logger.warning("Rate limiting running with memory backend fallback")
 
     yield
@@ -52,8 +47,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down application")
     try:
         await redis.close()
-    except:
-        pass
+    except Exception:
+        logger.exception("Failed to close Redis connection")
 
 
 # Create FastAPI app
@@ -111,7 +106,7 @@ app.add_middleware(
 
 # Custom middleware for security headers
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def add_security_headers(request: Request, call_next: Callable) -> Response:
     """Add security headers to all responses"""
     response = await call_next(request)
 
@@ -150,62 +145,44 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = csp
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = (
-        "geolocation=(), "
-        "microphone=(), "
-        "camera=(), "
-        "magnetometer=(), "
-        "gyroscope=(), "
-        "accelerometer=()"
+        "geolocation=(), microphone=(), camera=(), magnetometer=(), gyroscope=(), accelerometer=()"
     )
 
-    try:
-        del response.headers["server"]
-    except KeyError:
-        pass
+    response.headers.pop("server", None)
 
     return response
 
+
 # Exception handlers
 @app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """Handle rate limit exceeded errors"""
     logger.warning(f"Rate limit exceeded for {request.client.host}: {exc.detail}")
     return JSONResponse(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        content={"detail": "Too many requests. Please try again later."}
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS, content={"detail": "Too many requests. Please try again later."}
     )
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle validation errors"""
     if settings.is_production:
         logger.warning(f"Validation error from {request.client.host}: {exc}")
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": "Invalid request data"}
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": "Invalid request data"}
         )
-    else:
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            content={"detail": exc.errors()}
-        )
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": exc.errors()})
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
+async def general_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors"""
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger.exception(f"Unhandled exception: {exc}")
     if settings.is_production:
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "Internal server error"}
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": "Internal server error"}
         )
-    else:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": str(exc)}
-        )
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(exc)})
 
 
 # Include routers
@@ -217,7 +194,7 @@ app.include_router(email.router, prefix=settings.API_V1_PREFIX, tags=["Email"])
 # Health check endpoint
 @app.get("/health", tags=["Health"])
 @limiter.exempt
-async def health_check():
+async def health_check() -> dict:
     """Health check endpoint for load balancers and monitoring"""
     return {
         "status": "healthy",
@@ -229,7 +206,7 @@ async def health_check():
 # Root endpoint
 @app.get("/", tags=["Root"])
 @limiter.exempt
-async def root():
+async def root() -> dict:
     """Root endpoint with API information"""
     return {
         "name": settings.PROJECT_NAME,

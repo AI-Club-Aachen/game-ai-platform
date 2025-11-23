@@ -1,5 +1,7 @@
-from typing import Generator
+from collections.abc import Generator
+
 from sqlmodel import Session
+
 from app.db.connection import engine
 
 

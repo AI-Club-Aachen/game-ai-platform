@@ -1,5 +1,4 @@
-import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
@@ -9,7 +8,9 @@ from app.core.config import settings
 from app.models.user import User
 from tests.fakes import _extract_token_from_html
 
+
 API_PREFIX = settings.API_V1_PREFIX
+
 
 def _make_bearer_for_user(user: User) -> str:
     """
@@ -18,7 +19,7 @@ def _make_bearer_for_user(user: User) -> str:
     This is used to call /email/verification-status and /email/resend-verification
     as an authenticated (but possibly unverified) user.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     exp = now + timedelta(hours=settings.JWT_ACCESS_TOKEN_EXPIRE_HOURS)
     payload = {
         "sub": str(user.id),
@@ -76,6 +77,7 @@ async def _register_verify_login_bearer(api_client, fake_email_client, username,
 # ---------------------------------------------------------------------------
 # Success: register -> verification sent -> status -> resend -> verify
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.anyio
 async def test_email_verification_full_flow_success(api_client, fake_email_client, db_session):
@@ -169,6 +171,7 @@ async def test_email_verification_full_flow_success(api_client, fake_email_clien
 # Fail: verify-email bad format / invalid token
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
 async def test_verify_email_fails_for_invalid_token_format(api_client):
     # Token too short to satisfy EmailVerificationRequest / route checks.
@@ -182,11 +185,7 @@ async def test_verify_email_fails_for_invalid_token_format(api_client):
     # Basic sanity check on the validation error structure
     assert "detail" in data
     # Optional: assert that the validation refers to 'token'
-    assert any(
-        err.get("loc", [None])[-1] == "token"
-        for err in data["detail"]
-    )
-
+    assert any(err.get("loc", [None])[-1] == "token" for err in data["detail"])
 
 
 @pytest.mark.anyio
@@ -204,6 +203,7 @@ async def test_verify_email_fails_for_unknown_token(api_client):
 # ---------------------------------------------------------------------------
 # Fail: resend-verification for already verified user
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.anyio
 async def test_resend_verification_fails_for_already_verified_user(api_client, fake_email_client):
@@ -226,6 +226,7 @@ async def test_resend_verification_fails_for_already_verified_user(api_client, f
 # ---------------------------------------------------------------------------
 # Fail: verification-status requires authentication
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.anyio
 async def test_verification_status_unauthenticated_fails(api_client):

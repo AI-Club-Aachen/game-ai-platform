@@ -1,7 +1,6 @@
 """Application settings with security validation and environment configuration"""
 
 import os
-from typing import Optional
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,11 +14,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        json_schema_extra={
-            "ALLOW_ORIGINS": {
-                "description": "Comma-separated list of allowed CORS origins"
-            }
-        },
+        json_schema_extra={"ALLOW_ORIGINS": {"description": "Comma-separated list of allowed CORS origins"}},
     )
 
     # Database
@@ -40,9 +35,7 @@ class Settings(BaseSettings):
         description="Comma-separated list of allowed CORS origins (NOT JSON!)",
     )
     LOG_LEVEL: str = "info"
-    ENVIRONMENT: str = Field(
-        default_factory=lambda: os.getenv("ENVIRONMENT", "development")
-    )
+    ENVIRONMENT: str = Field(default_factory=lambda: os.getenv("ENVIRONMENT", "development"))
 
     # Frontend Configuration
     FRONTEND_URL: str = Field(
@@ -51,11 +44,11 @@ class Settings(BaseSettings):
     )
 
     # SMTP Configuration (optional in dev)
-    SMTP_HOST: Optional[str] = None
-    SMTP_PORT: Optional[int] = 465
-    SMTP_USERNAME: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    SMTP_FROM_ADDRESS: Optional[str] = None
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int | None = 465
+    SMTP_USERNAME: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM_ADDRESS: str | None = None
     SMTP_FROM_NAME: str = "AI Game Platform"
     SMTP_USE_TLS: bool = True
 
@@ -104,7 +97,7 @@ class Settings(BaseSettings):
 
     @field_validator("ALLOW_ORIGINS", mode="before")
     @classmethod
-    def parse_allow_origins(cls, v: Optional[str | list]) -> list[str]:
+    def parse_allow_origins(cls, v: str | list | None) -> list[str]:
         # unchanged...
         if isinstance(v, list):
             return v
@@ -126,18 +119,14 @@ class Settings(BaseSettings):
     @classmethod
     def validate_email_token_expiry(cls, v: int) -> int:
         if not (1 <= v <= 168):
-            raise ValueError(
-                "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between 1 and 168"
-            )
+            raise ValueError("EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between 1 and 168")
         return v
 
     @field_validator("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES")
     @classmethod
     def validate_password_reset_expiry(cls, v: int) -> int:
         if not (5 <= v <= 1440):
-            raise ValueError(
-                "PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between 5 and 1440"
-            )
+            raise ValueError("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between 5 and 1440")
         return v
 
     @field_validator("ALLOW_ORIGINS", mode="after")
@@ -146,14 +135,12 @@ class Settings(BaseSettings):
         if info.data.get("ENVIRONMENT", "").lower() == "production":
             invalid_origins = [o for o in v if not o.startswith("https://")]
             if invalid_origins:
-                raise ValueError(
-                    f"In production, ALLOW_ORIGINS must use https://. Found: {invalid_origins}"
-                )
+                raise ValueError(f"In production, ALLOW_ORIGINS must use https://. Found: {invalid_origins}")
         return v
 
     @field_validator("SMTP_PORT")
     @classmethod
-    def validate_smtp_port(cls, v: Optional[int]) -> Optional[int]:
+    def validate_smtp_port(cls, v: int | None) -> int | None:
         """Validate SMTP port is valid when provided"""
         if v is None:
             return v
@@ -180,14 +167,12 @@ class Settings(BaseSettings):
             if not self.SMTP_FROM_ADDRESS:
                 missing.append("SMTP_FROM_ADDRESS")
             if missing:
-                raise ValueError(
-                    f"Missing SMTP configuration in {self.ENVIRONMENT}: {', '.join(missing)}"
-                )
+                raise ValueError(f"Missing SMTP configuration in {self.ENVIRONMENT}: {', '.join(missing)}")
         return self
 
 
 # Singleton instance
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:

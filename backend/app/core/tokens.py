@@ -3,11 +3,11 @@
 import hashlib
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from app.core.config import settings
 from app.core.security import secure_compare
+
 
 logger = logging.getLogger(__name__)
 
@@ -125,13 +125,13 @@ def get_token_expiry_time(hours: int) -> datetime:
         raise ValueError("Hours value is unreasonably large")
 
     try:
-        return datetime.now(timezone.utc) + timedelta(hours=hours)
+        return datetime.now(UTC) + timedelta(hours=hours)
     except Exception as e:
         logger.error(f"Expiry time calculation error: {e}")
         raise
 
 
-def is_token_expired(expires_at: Optional[datetime]) -> bool:
+def is_token_expired(expires_at: datetime | None) -> bool:
     """
     Check if token has expired, accounting for clock skew.
 
@@ -154,12 +154,12 @@ def is_token_expired(expires_at: Optional[datetime]) -> bool:
         return True
 
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Ensure expires_at is timezone-aware
         if expires_at.tzinfo is None:
             logger.debug(f"Converting naive datetime to UTC-aware: {expires_at}")
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
         # Add 1-second buffer to account for clock skew between services
         buffer = timedelta(seconds=1)
@@ -249,7 +249,7 @@ def validate_token_format(token: str, min_length: int = 16) -> bool:
     return True
 
 
-def safe_verify_token_hash(token: str, token_hash: Optional[str]) -> bool:
+def safe_verify_token_hash(token: str, token_hash: str | None) -> bool:
     """
     Safely verify token against hash with format validation.
 
@@ -285,7 +285,7 @@ def safe_verify_token_hash(token: str, token_hash: Optional[str]) -> bool:
     return verify_token_hash(token, token_hash)
 
 
-def cleanup_expired_tokens_info(expires_at: Optional[datetime]) -> dict:
+def cleanup_expired_tokens_info(expires_at: datetime | None) -> dict:
     """
     Get information about token cleanup for logging.
 
@@ -308,5 +308,5 @@ def cleanup_expired_tokens_info(expires_at: Optional[datetime]) -> dict:
     return {
         "is_expired": is_expired,
         "expires_at": expires_at.isoformat(),
-        "time_until_expiry": (expires_at - datetime.now(timezone.utc)).total_seconds(),
+        "time_until_expiry": (expires_at - datetime.now(UTC)).total_seconds(),
     }

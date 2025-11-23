@@ -3,15 +3,15 @@
 import asyncio
 import logging
 import re
-from datetime import datetime, timezone
-from email.mime.text import MIMEText
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import format_datetime, make_msgid
-from typing import Optional
 
 import aiosmtplib
 
 from app.core.config import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +53,8 @@ class EmailClient:
         to_email: str,
         subject: str,
         html_content: str,
-        text_content: Optional[str] = None,
-        retry_count: Optional[int] = None,
+        text_content: str | None = None,
+        retry_count: int | None = None,
     ) -> bool:
         """
         Send email with automatic retry and error handling.
@@ -72,9 +72,7 @@ class EmailClient:
         # --- local development (SMTP not configured) ---
         if self.is_development or not self.smtp_configured:
             # Dev behavior: log instead of sending
-            logger.warning(
-                "SMTP not configured in development; email will NOT be sent, only logged."
-            )
+            logger.warning("SMTP not configured in development; email will NOT be sent, only logged.")
             logger.info("Dev email to=%s subject=%s", to_email, subject)
             logger.info("Dev email HTML content:\n%s", html_content)
             return True  # Pretend success so flows continue
@@ -82,9 +80,7 @@ class EmailClient:
         if self.smtp_required:
             # In staging/production this should not happen because Settings
             # already enforces SMTP, but fail safe if it does.
-            logger.critical(
-                "SMTP is required in this environment but not configured; cannot send email."
-            )
+            logger.critical("SMTP is required in this environment but not configured; cannot send email.")
             return False
 
         # Non-required, non-dev fallback (just in case)
@@ -125,7 +121,7 @@ class EmailClient:
                 logger.info("Email sent successfully to %s", to_email)
                 return True
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "Email send timeout for %s (attempt %d/%d)",
                     to_email,
@@ -189,7 +185,7 @@ class EmailClient:
         message["From"] = f"{self.from_name} <{self.from_address}>"
         message["To"] = to_email
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         message["Date"] = format_datetime(now_utc)
         message["Message-ID"] = make_msgid(domain=self.smtp_host)
 
@@ -218,7 +214,7 @@ class EmailClient:
         except aiosmtplib.SMTPAuthenticationError:
             logger.critical("SMTP authentication failed - check credentials")
             raise
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error("SMTP connection error: %s: %s", type(e).__name__, e)
             raise
 

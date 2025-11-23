@@ -1,13 +1,12 @@
 # tests/conftest.py
 import os
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlmodel import SQLModel, Session, create_engine
-
+from httpx import ASGITransport, AsyncClient
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlmodel import Session, SQLModel, create_engine
 
 from app.api.deps import get_email_client, get_email_notification_service
 from app.api.services.email import EmailNotificationService
@@ -15,6 +14,7 @@ from app.core.config import settings
 from app.db.session import get_session
 from app.main import app
 from tests.fakes import FakeEmailClient
+
 
 # Prefer a dedicated test DB URL; fall back to the main DATABASE_URL if not set.
 # In CI/local you typically set both DATABASE_URL and TEST_DATABASE_URL to point
@@ -32,7 +32,7 @@ def test_engine():
     """
     engine = create_engine(
         TEST_DATABASE_URL,
-        echo=False,          # keep test/CI logs clean
+        echo=False,  # keep test/CI logs clean
         pool_pre_ping=True,  # safer for long-running sessions
     )
 
@@ -99,9 +99,7 @@ def override_email_dependencies(fake_email_client: FakeEmailClient):
         return EmailNotificationService(fake_email_client)
 
     app.dependency_overrides[get_email_client] = _get_email_client_override
-    app.dependency_overrides[get_email_notification_service] = (
-        _get_email_notification_service_override
-    )
+    app.dependency_overrides[get_email_notification_service] = _get_email_notification_service_override
 
     try:
         yield
@@ -123,11 +121,10 @@ def override_rate_limiter():
     """
     test_limiter = Limiter(
         key_func=get_remote_address,
-        default_limits=[],        # disable default global limits in tests
+        default_limits=[],  # disable default global limits in tests
         storage_uri="memory://",  # in-memory backend, no Redis
     )
     app.state.limiter = test_limiter
-    yield
 
 
 # Tell pytest-anyio to use only asyncio, so tests are not duplicated for trio.

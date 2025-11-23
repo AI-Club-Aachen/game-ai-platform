@@ -1,34 +1,28 @@
 """Schemas package - centralized imports for all request/response schemas"""
 
 # Authentication schemas
-from app.schemas.auth import (
-    LoginRequest,
-    LoginResponse
-)
+from app.schemas.auth import LoginRequest, LoginResponse
+
+# Email schemas
+from app.schemas.email import EmailVerificationRequest
 
 # User schemas
 from app.schemas.user import (
+    PasswordChangeRequest,
     UserCreate,
-    UserUpdate,
     UserResponse,
     UserRoleUpdate,
-    PasswordChangeRequest,
+    UserUpdate,
 )
 
-# Email schemas
-from app.schemas.email import (
-    EmailVerificationRequest
-)
 
 __all__ = [
-    # Auth
+    "EmailVerificationRequest",
     "LoginRequest",
-    # User
+    "LoginResponse",
+    "PasswordChangeRequest",
     "UserCreate",
-    "UserUpdate",
     "UserResponse",
     "UserRoleUpdate",
-    "PasswordChangeRequest",
-    # Email
-    "EmailVerificationRequest"
+    "UserUpdate",
 ]

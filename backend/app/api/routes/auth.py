@@ -3,20 +3,21 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.deps import get_auth_service
 from app.api.services.auth import (
+    AuthConflictError,
+    AuthForbiddenError,
     AuthService,
     AuthServiceError,
     AuthValidationError,
-    AuthConflictError,
-    AuthForbiddenError
 )
 from app.schemas.auth import LoginRequest, LoginResponse
 from app.schemas.user import UserCreate, UserResponse
+
 
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
@@ -108,6 +109,7 @@ async def login(
         user_id=str(user.id),
         username=user.username,
     )
+
 
 @router.post("/request-password-reset", status_code=status.HTTP_200_OK)
 @limiter.limit("10/hour")

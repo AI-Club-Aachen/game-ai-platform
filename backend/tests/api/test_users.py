@@ -7,6 +7,7 @@ from sqlmodel import select
 from app.core.config import settings
 from app.models.user import User, UserRole
 
+
 API_PREFIX = settings.API_V1_PREFIX
 
 
@@ -97,6 +98,7 @@ async def _create_admin_and_token(
 # Success: user self-service (profile + password)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
 async def test_user_profile_and_change_password_success(api_client, fake_email_client):
     username = "user_profile_change"
@@ -161,10 +163,9 @@ async def test_user_profile_and_change_password_success(api_client, fake_email_c
 # Success: admin operations on users (list, get, role, delete)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
-async def test_admin_list_get_update_role_delete_user_success(
-    api_client, fake_email_client, db_session
-):
+async def test_admin_list_get_update_role_delete_user_success(api_client, fake_email_client, db_session):
     # Target user the admin will manage.
     target_username = "managed_user"
     target_email = "managed_user@example.com"
@@ -232,10 +233,9 @@ async def test_admin_list_get_update_role_delete_user_success(
 # Success: admin resend verification email for unverified user
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
-async def test_admin_resend_verification_email_for_unverified_user_success(
-    api_client, fake_email_client, db_session
-):
+async def test_admin_resend_verification_email_for_unverified_user_success(api_client, fake_email_client, db_session):
     # Create unverified user (register but do not verify).
     username = "unverified_for_admin"
     email = "unverified_for_admin@example.com"
@@ -280,6 +280,7 @@ async def test_admin_resend_verification_email_for_unverified_user_success(
 # Fail: unauthenticated access to user self endpoints
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
 async def test_get_current_user_profile_unauthenticated_fails(api_client):
     response = await api_client.get(f"{API_PREFIX}/users/me")
@@ -309,10 +310,9 @@ async def test_change_password_unauthenticated_fails(api_client):
 # Fail: non-admin trying to use admin-only endpoints
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
-async def test_non_admin_cannot_use_admin_endpoints(
-    api_client, fake_email_client, db_session
-):
+async def test_non_admin_cannot_use_admin_endpoints(api_client, fake_email_client, db_session):
     # Create a normal verified user (role GUEST).
     username = "non_admin_user"
     email = "non_admin_user@example.com"
@@ -362,10 +362,9 @@ async def test_non_admin_cannot_use_admin_endpoints(
 # Fail: admin endpoints with non-existent user IDs
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
-async def test_admin_get_update_delete_nonexistent_user_fails(
-    api_client, fake_email_client, db_session
-):
+async def test_admin_get_update_delete_nonexistent_user_fails(api_client, fake_email_client, db_session):
     # Admin.
     admin_username = "admin_nonexistent"
     admin_email = "admin_nonexistent@example.com"

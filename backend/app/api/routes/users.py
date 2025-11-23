@@ -1,33 +1,34 @@
 """User management routes with security, role-based access, and rate limiting"""
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.deps import (
-    get_user_service,
-    CurrentUser,
     CurrentAdmin,
+    CurrentUser,
+    get_user_service,
 )
 from app.api.services.user import (
+    UserConflictError,
+    UserNotFoundError,
+    UserPermissionError,
     UserService,
     UserServiceError,
-    UserNotFoundError,
-    UserConflictError,
-    UserPermissionError,
     UserValidationError,
 )
 from app.models.user import UserRole
 from app.schemas.user import (
-    UserResponse,
-    UserUpdate,
-    UserRoleUpdate,
     PasswordChangeRequest,
+    UserResponse,
+    UserRoleUpdate,
+    UserUpdate,
 )
+
 
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
@@ -117,8 +118,8 @@ async def list_users(
     user_service: Annotated[UserService, Depends(get_user_service)],
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
-    role: Annotated[Optional[UserRole], Query()] = None,
-    email_verified: Annotated[Optional[bool], Query()] = None,
+    role: Annotated[UserRole | None, Query()] = None,
+    email_verified: Annotated[bool | None, Query()] = None,
 ) -> dict:
     """Admin: List all users with filtering and pagination."""
     try:

@@ -1,42 +1,38 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional, Tuple, List
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.api.repositories.user import UserRepository, UserRepositoryError
-from app.core.security import hash_password, verify_password, validate_password_strength
+from app.core.security import hash_password, validate_password_strength, verify_password
 from app.core.tokens import create_email_verification_token
 from app.models.user import User, UserRole
-from app.schemas.user import UserUpdate, UserRoleUpdate, PasswordChangeRequest
+from app.schemas.user import PasswordChangeRequest, UserRoleUpdate, UserUpdate
+
 
 logger = logging.getLogger(__name__)
 
 
 # --- Domain / application exceptions (non-HTTP) ---
 
+
 class UserServiceError(Exception):
     """Base exception for user service errors."""
-    pass
 
 
 class UserNotFoundError(UserServiceError):
     """Raised when a user cannot be found."""
-    pass
 
 
 class UserConflictError(UserServiceError):
     """Raised when a uniqueness or similar conflict occurs (username/email)."""
-    pass
 
 
 class UserPermissionError(UserServiceError):
     """Raised when the current user is not allowed to perform an action."""
-    pass
 
 
 class UserValidationError(UserServiceError):
     """Raised when provided data is invalid (e.g. password rules)."""
-    pass
 
 
 class UserService:
@@ -82,7 +78,7 @@ class UserService:
             # Nothing to change
             return current_user
 
-        current_user.updated_at = datetime.now(timezone.utc)
+        current_user.updated_at = datetime.now(UTC)
 
         try:
             return self._repo.save(current_user)
@@ -115,7 +111,7 @@ class UserService:
 
         try:
             current_user.password_hash = hash_password(password_request.new_password)
-            current_user.updated_at = datetime.now(timezone.utc)
+            current_user.updated_at = datetime.now(UTC)
             self._repo.save(current_user)
             logger.info("Password changed successfully for user %s", current_user.id)
         except UserRepositoryError as e:
@@ -128,9 +124,9 @@ class UserService:
         self,
         skip: int,
         limit: int,
-        role: Optional[UserRole] = None,
-        email_verified: Optional[bool] = None,
-    ) -> Tuple[List[User], int]:
+        role: UserRole | None = None,
+        email_verified: bool | None = None,
+    ) -> tuple[list[User], int]:
         """Admin: list users with filters and pagination."""
         try:
             return self._repo.list_users(skip=skip, limit=limit, role=role, email_verified=email_verified)
@@ -167,7 +163,7 @@ class UserService:
 
         old_role = user.role
         user.role = role_update.role
-        user.updated_at = datetime.now(timezone.utc)
+        user.updated_at = datetime.now(UTC)
 
         try:
             updated = self._repo.save(user)
@@ -222,7 +218,7 @@ class UserService:
 
         user.email_verification_token_hash = token_hash
         user.email_verification_expires_at = expiry
-        user.updated_at = datetime.now(timezone.utc)
+        user.updated_at = datetime.now(UTC)
 
         try:
             updated = self._repo.save(user)

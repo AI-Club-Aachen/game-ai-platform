@@ -4,6 +4,7 @@ import pytest
 
 from app.core.config import settings
 
+
 API_PREFIX = settings.API_V1_PREFIX
 
 
@@ -179,10 +180,7 @@ async def test_register_fails_if_user_already_exists(api_client, fake_email_clie
     )
     assert response.status_code == 409
     data = response.json()
-    assert any(
-        msg in data["detail"]
-        for msg in ("Username already registered", "Email already registered")
-    )
+    assert any(msg in data["detail"] for msg in ("Username already registered", "Email already registered"))
 
 
 @pytest.mark.anyio

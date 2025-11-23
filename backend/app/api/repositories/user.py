@@ -1,17 +1,16 @@
 import logging
-from typing import Optional, Tuple, List
 from uuid import UUID
 
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
 from app.models.user import User, UserRole
+
 
 logger = logging.getLogger(__name__)
 
 
 class UserRepositoryError(Exception):
     """Base exception for user repository errors."""
-    pass
 
 
 class UserRepository:
@@ -22,16 +21,16 @@ class UserRepository:
 
     # --- Queries ---
 
-    def get_by_id(self, user_id: UUID) -> Optional[User]:
+    def get_by_id(self, user_id: UUID) -> User | None:
         statement = select(User).where(User.id == user_id)
         return self._session.exec(statement).first()
 
-    def get_by_username_ci(self, username: str) -> Optional[User]:
+    def get_by_username_ci(self, username: str) -> User | None:
         """Case-insensitive username lookup."""
         statement = select(User).where(User.username.ilike(username))
         return self._session.exec(statement).first()
 
-    def get_by_email_ci(self, email: str) -> Optional[User]:
+    def get_by_email_ci(self, email: str) -> User | None:
         """Case-insensitive email lookup."""
         statement = select(User).where(User.email.ilike(email))
         return self._session.exec(statement).first()
@@ -40,9 +39,9 @@ class UserRepository:
         self,
         skip: int,
         limit: int,
-        role: Optional[UserRole] = None,
-        email_verified: Optional[bool] = None,
-    ) -> Tuple[List[User], int]:
+        role: UserRole | None = None,
+        email_verified: bool | None = None,
+    ) -> tuple[list[User], int]:
         """List users with optional filters and pagination."""
         statement = select(User)
         count_statement = select(func.count(User.id)).select_from(User)
@@ -61,7 +60,7 @@ class UserRepository:
 
         return users, total
 
-    def get_unverified_with_verification_tokens(self) -> List[User]:
+    def get_unverified_with_verification_tokens(self) -> list[User]:
         """
         Users that are not verified and have a verification token set.
         Used by email verification flows.
@@ -72,7 +71,7 @@ class UserRepository:
         )
         return self._session.exec(statement).all()
 
-    def get_with_active_reset_tokens(self) -> List[User]:
+    def get_with_active_reset_tokens(self) -> list[User]:
         """
         Users that have a password reset token set.
         Used by password reset flows.
@@ -89,7 +88,7 @@ class UserRepository:
             self._session.commit()
             self._session.refresh(user)
             return user
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             self._session.rollback()
             logger.error("Error saving user %s: %s", getattr(user, "id", None), e)
             raise UserRepositoryError("Failed to persist user") from e
@@ -99,7 +98,7 @@ class UserRepository:
         try:
             self._session.delete(user)
             self._session.commit()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             self._session.rollback()
             logger.error("Error deleting user %s: %s", getattr(user, "id", None), e)
             raise UserRepositoryError("Failed to delete user") from e
