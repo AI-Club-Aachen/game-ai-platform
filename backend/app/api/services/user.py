@@ -83,7 +83,7 @@ class UserService:
         try:
             return self._repo.save(current_user)
         except UserRepositoryError as e:
-            logger.error("Error updating user profile for %s: %s", current_user.id, e)
+            logger.exception("Error updating user profile for %s", current_user.id)
             raise UserServiceError("Failed to update profile") from e
 
     # --- Password change for current user ---
@@ -115,7 +115,7 @@ class UserService:
             self._repo.save(current_user)
             logger.info("Password changed successfully for user %s", current_user.id)
         except UserRepositoryError as e:
-            logger.error("Error changing password for %s: %s", current_user.id, e)
+            logger.exception("Error changing password for %s", current_user.id)
             raise UserServiceError("Failed to change password") from e
 
     # --- Admin operations: list, get, role update, delete, verification email ---
@@ -131,7 +131,7 @@ class UserService:
         try:
             return self._repo.list_users(skip=skip, limit=limit, role=role, email_verified=email_verified)
         except UserRepositoryError as e:
-            logger.error("Error listing users: %s", e)
+            logger.exception("Error listing users")
             raise UserServiceError("Failed to list users") from e
 
     def get_user_by_id(self, user_id: UUID) -> User:
@@ -167,6 +167,10 @@ class UserService:
 
         try:
             updated = self._repo.save(user)
+        except UserRepositoryError as e:
+            logger.exception("Error updating user role for %s", user_id)
+            raise UserServiceError("Failed to update user role") from e
+        else:
             logger.warning(
                 "Admin %s changed user %s role from %s to %s",
                 admin.id,
@@ -175,9 +179,6 @@ class UserService:
                 role_update.role,
             )
             return updated
-        except UserRepositoryError as e:
-            logger.error("Error updating user role for %s: %s", user_id, e)
-            raise UserServiceError("Failed to update user role") from e
 
     def delete_user(self, admin: User, user_id: UUID) -> None:
         """Admin: delete another user's account."""
@@ -194,7 +195,7 @@ class UserService:
             self._repo.delete(user)
             logger.warning("Admin %s deleted user %s (%s)", admin.id, user_id, user.email)
         except UserRepositoryError as e:
-            logger.error("Error deleting user %s: %s", user_id, e)
+            logger.exception("Error deleting user %s", user_id)
             raise UserServiceError("Failed to delete user") from e
 
     def admin_send_verification_email(self, admin: User, user_id: UUID) -> User:
@@ -213,8 +214,7 @@ class UserService:
             raise UserValidationError("User's email already verified")
 
         # Generate new verification token and update user
-        plain_token, token_hash, expiry = create_email_verification_token()
-        # Note: plain_token is not returned; email sending can use it if wired later.
+        _, token_hash, expiry = create_email_verification_token()
 
         user.email_verification_token_hash = token_hash
         user.email_verification_expires_at = expiry
@@ -222,8 +222,9 @@ class UserService:
 
         try:
             updated = self._repo.save(user)
+        except UserRepositoryError as e:
+            logger.exception("Error setting verification token for user %s", user_id)
+            raise UserServiceError("Failed to send verification email") from e
+        else:
             logger.info("Admin %s set verification token for user %s", admin.id, user_id)
             return updated
-        except UserRepositoryError as e:
-            logger.error("Error setting verification token for user %s: %s", user_id, e)
-            raise UserServiceError("Failed to send verification email") from e
