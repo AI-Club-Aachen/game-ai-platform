@@ -1,0 +1,84 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  PYTHONPATH: backend
+
+jobs:
+  lint-and-format:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/python-uv
+        with:
+          python-version: '3.13'
+          working-directory: 'backend'
+
+      - name: Run linting and formatting checks with ruff
+        working-directory: backend
+        run: |
+          # Run linting
+          echo "Running ruff linter..."
+          uv run ruff check .
+          LINT_EXIT_CODE=$?
+
+          # Run format check
+          echo -e "\nChecking code formatting..."
+          uv run ruff format --check .
+          FORMAT_EXIT_CODE=$?
+
+          # Add results to summary
+          echo "## 🔍 Code Quality Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ $LINT_EXIT_CODE -eq 0 ]; then
+            echo "✅ **Linting**: All checks passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Linting**: Failed. Run \`uv run ruff check --fix .\` to auto-fix." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ $FORMAT_EXIT_CODE -eq 0 ]; then
+            echo "✅ **Formatting**: All files properly formatted!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Formatting**: Failed. Run \`uv run ruff format .\` to auto-format." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Auto-fix linting issues" >> $GITHUB_STEP_SUMMARY
+          echo "uv run ruff check --fix ." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Auto-format code" >> $GITHUB_STEP_SUMMARY
+          echo "uv run ruff format ." >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+          # Exit with error if either check failed
+          if [ $LINT_EXIT_CODE -ne 0 ] || [ $FORMAT_EXIT_CODE -ne 0 ]; then
+            exit 1
+          fi
