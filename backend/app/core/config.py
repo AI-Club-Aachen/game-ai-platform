@@ -1,8 +1,10 @@
 """Application settings with security validation and environment configuration"""
 
 import os
+from typing import ClassVar
 
 from pydantic import Field, field_validator, model_validator
+from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +18,15 @@ class Settings(BaseSettings):
         extra="ignore",
         json_schema_extra={"ALLOW_ORIGINS": {"description": "Comma-separated list of allowed CORS origins"}},
     )
+
+    # Validation constants
+    MIN_JWT_SECRET_LENGTH: ClassVar[int] = 32
+    MIN_EMAIL_TOKEN_HOURS: ClassVar[int] = 1
+    MAX_EMAIL_TOKEN_HOURS: ClassVar[int] = 168
+    MIN_PASSWORD_RESET_MINUTES: ClassVar[int] = 5
+    MAX_PASSWORD_RESET_MINUTES: ClassVar[int] = 1440
+    MIN_PORT: ClassVar[int] = 1
+    MAX_PORT: ClassVar[int] = 65535
 
     # Database
     DATABASE_URL: str
@@ -111,27 +122,33 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret(cls, v: str) -> str:
-        if len(v) < 32:
-            raise ValueError("JWT_SECRET_KEY must be at least 32 characters long")
+        if len(v) < cls.MIN_JWT_SECRET_LENGTH:
+            raise ValueError(f"JWT_SECRET_KEY must be at least {cls.MIN_JWT_SECRET_LENGTH} characters long")
         return v
 
     @field_validator("EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS")
     @classmethod
     def validate_email_token_expiry(cls, v: int) -> int:
-        if not (1 <= v <= 168):
-            raise ValueError("EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between 1 and 168")
+        if not (cls.MIN_EMAIL_TOKEN_HOURS <= v <= cls.MAX_EMAIL_TOKEN_HOURS):
+            raise ValueError(
+                f"EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between "
+                f"{cls.MIN_EMAIL_TOKEN_HOURS} and {cls.MAX_EMAIL_TOKEN_HOURS}"
+            )
         return v
 
     @field_validator("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES")
     @classmethod
     def validate_password_reset_expiry(cls, v: int) -> int:
-        if not (5 <= v <= 1440):
-            raise ValueError("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between 5 and 1440")
+        if not (cls.MIN_PASSWORD_RESET_MINUTES <= v <= cls.MAX_PASSWORD_RESET_MINUTES):
+            raise ValueError(
+                f"PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between "
+                f"{cls.MIN_PASSWORD_RESET_MINUTES} and {cls.MAX_PASSWORD_RESET_MINUTES}"
+            )
         return v
 
     @field_validator("ALLOW_ORIGINS", mode="after")
     @classmethod
-    def validate_origins_production(cls, v: list[str], info) -> list[str]:
+    def validate_origins_production(cls, v: list[str], info: FieldInfo) -> list[str]:
         if info.data.get("ENVIRONMENT", "").lower() == "production":
             invalid_origins = [o for o in v if not o.startswith("https://")]
             if invalid_origins:
@@ -144,8 +161,8 @@ class Settings(BaseSettings):
         """Validate SMTP port is valid when provided"""
         if v is None:
             return v
-        if not (1 <= v <= 65535):
-            raise ValueError("SMTP_PORT must be between 1 and 65535")
+        if not (cls.MIN_PORT <= v <= cls.MAX_PORT):
+            raise ValueError(f"SMTP_PORT must be between {cls.MIN_PORT} and {cls.MAX_PORT}")
         return v
 
     @model_validator(mode="after")
@@ -171,16 +188,17 @@ class Settings(BaseSettings):
         return self
 
 
-# Singleton instance
-_settings: Settings | None = None
+# Singleton instance holder
+class _SettingsHolder:
+    """Holder for singleton settings instance"""
+    instance: Settings | None = None
 
 
 def get_settings() -> Settings:
     """Get or create singleton settings instance"""
-    global _settings
-    if _settings is None:
-        _settings = Settings()
-    return _settings
+    if _SettingsHolder.instance is None:
+        _SettingsHolder.instance = Settings()
+    return _SettingsHolder.instance
 
 
 # Global settings instance for direct import

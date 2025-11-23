@@ -9,6 +9,7 @@ from slowapi.util import get_remote_address
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.api.deps import get_email_client, get_email_notification_service
+from app.api.routes import auth, email, users
 from app.api.services.email import EmailNotificationService
 from app.core.config import settings
 from app.db.session import get_session
@@ -111,19 +112,24 @@ def override_email_dependencies(fake_email_client: FakeEmailClient):
 @pytest.fixture(scope="session", autouse=True)
 def override_rate_limiter():
     """
-    Override SlowAPI limiter to use an in-memory backend during tests.
+    Completely disable rate limiting during tests.
 
-    The app's main module configures a Redis-backed limiter with
-    storage_uri="redis://redis:6379", which fails when tests run on
-    the host and Redis is not reachable at that hostname.
-    Using an in-memory limiter avoids network calls and makes rate
-    limiting effectively a no-op for these E2E tests.
+    The app's main module and route modules each create their own limiter instances.
+    We need to disable rate limiting by setting enabled=False on the limiter
+    instances used in the routes.
     """
+
     test_limiter = Limiter(
         key_func=get_remote_address,
-        default_limits=[],  # disable default global limits in tests
+        default_limits=[],
         storage_uri="memory://",  # in-memory backend, no Redis
     )
+    test_limiter.enabled = False  # Completely disable rate limiting
+
+    # Override all the limiter instances used in routes
+    auth.limiter.enabled = False
+    email.limiter.enabled = False
+    users.limiter.enabled = False
     app.state.limiter = test_limiter
 
 
