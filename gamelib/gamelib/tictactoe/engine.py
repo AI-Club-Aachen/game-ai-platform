@@ -15,7 +15,7 @@ class Engine(EngineBase):
     """
 
     @override
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the game engine (no initialization needed).
         """
@@ -40,7 +40,7 @@ class Engine(EngineBase):
             return False  # Game is already over
         if game_state.board[move.position] != -1:
             return False  # Cell is not empty
-        if move.player != game_state.turn:
+        if move.player != game_state.turn:  # noqa: SIM103
             return False  # Not the player's turn
         return True
 
@@ -81,9 +81,7 @@ class Engine(EngineBase):
         for positions in winning_positions:
             if (
                 game_state.board[positions[0]] != -1
-                and game_state.board[positions[0]]
-                == game_state.board[positions[1]]
-                == game_state.board[positions[2]]
+                and game_state.board[positions[0]] == game_state.board[positions[1]] == game_state.board[positions[2]]
             ):
                 return game_state.board[positions[0]]  # Return the winning player immediately
 

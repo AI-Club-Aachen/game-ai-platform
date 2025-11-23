@@ -20,7 +20,7 @@ class EngineBase(ABC):
     """
 
     @abstractmethod
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the game engine.
         """
@@ -58,7 +58,8 @@ class EngineBase(ABC):
         """
         Determine the status of the game based on the current game state.
         Returns:
-            int: integer representing the game state (integers >= 0 represent player ids while -1 represents ongoing and < -1 represent other states such as draw).
+            int: integer representing the game state
+                (integers >= 0 represent player ids while -1 represents ongoing and < -1 represent other states such as draw).
         Subclasses must implement this.
         """
         raise NotImplementedError

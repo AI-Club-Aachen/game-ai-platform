@@ -18,12 +18,12 @@ def test_validate_move():
     engine = Engine()
     state = State.initial()
     move = Move(player=0, position=0)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="1 validation error"):
         _ = Move(player=0, position=9)
 
-    assert engine.validate_move(state, move) == True, "Move should be valid."
+    assert engine.validate_move(state, move), "Move should be valid."
     state.board[0] = 0  # Occupy position 0
-    assert engine.validate_move(state, move) == False, "Move should be invalid (occupied)."
+    assert not engine.validate_move(state, move), "Move should be invalid (occupied)."
 
 
 def test_full_game():
@@ -142,11 +142,8 @@ def test_no_moves_after_game_over():
     assert not engine.validate_move(state, move), "Move should be invalid after game is over."
 
     # Attempting to apply should raise an error
-    try:
+    with pytest.raises(ValueError, match="Invalid move"):
         engine.apply_move(state, move)
-        assert False, "apply_move should have raised ValueError"
-    except ValueError as e:
-        assert "Invalid move" in str(e), "Error message should indicate invalid move"
 
 
 def test_agent_identifies_player():

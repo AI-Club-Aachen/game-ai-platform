@@ -15,7 +15,7 @@ class TicTacToeAgent(Agent):
     """
 
     @override
-    def initialize(self, agent_init_data: dict):
+    def initialize(self, agent_init_data: dict) -> None:
         """
         Initialize the Tic-Tac-Toe agent before the game starts.
         This is used instead of __init__.
@@ -38,4 +38,4 @@ class TicTacToeAgent(Agent):
         for position in range(9):
             if game_state.board[position] == -1:  # Check for empty cell
                 return Move(player=self.player_id, position=position)
-        raise Exception("No valid moves available.")
+        raise ValueError("No valid moves available.")

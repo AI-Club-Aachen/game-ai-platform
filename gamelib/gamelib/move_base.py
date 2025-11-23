@@ -13,7 +13,7 @@ class MoveBase(ABC):
 
     @classmethod
     @abstractmethod
-    def from_json(cls, json_str: str):
+    def from_json(cls, json_str: str) -> "MoveBase":
         """
         Initialize from a JSON string.
         Subclasses must implement this.

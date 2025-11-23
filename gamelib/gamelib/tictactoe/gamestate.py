@@ -3,7 +3,7 @@ Tic-Tac-Toe game state representation.
 """
 
 import json
-from typing import override
+from typing import ClassVar, override
 
 from pydantic import BaseModel, field_validator
 
@@ -22,6 +22,8 @@ class GameState(BaseModel, GameStateBase):
     Additionally, an integer that indicates which player's turn it is.
     """
 
+    BOARD_SIZE: ClassVar[int] = 9
+
     board: list[int]
     turn: int
     status: int
@@ -29,13 +31,11 @@ class GameState(BaseModel, GameStateBase):
     @field_validator("board")
     @classmethod
     def validate_board(cls, v: list[int]) -> list[int]:
-        if len(v) != 9:
-            raise ValueError("Invalid game state format: board must have 9 cells.")
+        if len(v) != cls.BOARD_SIZE:
+            raise ValueError(f"Invalid game state format: board must have {cls.BOARD_SIZE} cells.")
         for cell in v:
             if cell not in [-1, 0, 1]:
-                raise ValueError(
-                    f"Invalid game state format in board cell {cell}: must be -1, 0, or 1."
-                )
+                raise ValueError(f"Invalid game state format in board cell {cell}: must be -1, 0, or 1.")
         return v
 
     @field_validator("turn")
@@ -54,7 +54,7 @@ class GameState(BaseModel, GameStateBase):
 
     @override
     @classmethod
-    def initial(cls, state_init_data: dict = {}):
+    def initial(cls, state_init_data: dict | None = None) -> "GameState":
         """
         Create the initial game state using the provided initialization data.
         In this case, the board is empty and the turn is set to player 0 unless specified in state_init_data.
@@ -63,26 +63,26 @@ class GameState(BaseModel, GameStateBase):
         Returns:
             GameState: The initial game state.
         """
-        board = [-1] * 9  # Initialize an empty board
+        if state_init_data is None:
+            state_init_data = {}
+        board = [-1] * cls.BOARD_SIZE  # Initialize an empty board
         turn = state_init_data.get("turn", 0)  # Start with player 0 or provided turn
         status = state_init_data.get("status", -1)  # Game ongoing by default
 
-        state = cls(board=board, turn=turn, status=status)
-        return state
+        return cls(board=board, turn=turn, status=status)
 
     @override
-    def clone(self):
+    def clone(self) -> "GameState":
         """
         Return a deep copy of the game state.
         Returns:
             GameState: A deep copy of the current game state.
         """
-        new_state = GameState(board=self.board.copy(), turn=self.turn, status=self.status)
-        return new_state
+        return GameState(board=self.board.copy(), turn=self.turn, status=self.status)
 
     @override
     @classmethod
-    def from_json(cls, json_str: str):
+    def from_json(cls, json_str: str) -> "GameState":
         """
         Initialize the game state from a JSON string.
         Args:

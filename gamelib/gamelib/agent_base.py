@@ -14,7 +14,7 @@ class AgentBase(ABC):
     Base class for game agent implementations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the agent and game loop.
         """
@@ -25,30 +25,30 @@ class AgentBase(ABC):
             move: Move = self.get_move(state)
             self._write_output(move.to_json())
 
-    def _read_input(self):
+    def _read_input(self) -> str:
         """
         Reads input from stdin
         """
         try:
             return input()
         except EOFError as eof:
-            raise SystemExit(eof)
+            raise SystemExit(eof) from None
 
-    def _write_output(self, output: str):
+    def _write_output(self, output: str) -> None:
         """
         Writes output to stdout
         """
         print(output, flush=True)
 
     @abstractmethod
-    def _read_init(self):
+    def _read_init(self) -> dict:
         """
         Reads initialization input for the agent and returns it as a dictionary.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     @abstractmethod
-    def initialize(self, agent_init_data: dict):
+    def initialize(self, agent_init_data: dict) -> None:
         """
         Initialize the agent before the game starts.
         """

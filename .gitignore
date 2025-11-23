@@ -33,5 +33,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Testing
+# Caches
 .pytest_cache/
+.ruff_cache/

@@ -13,7 +13,7 @@ class GameStateBase(ABC):
 
     @classmethod
     @abstractmethod
-    def initial(cls, state_init_data: dict = {}):
+    def initial(cls, state_init_data: dict | None = None) -> "GameStateBase":
         """
         Initialize a game state from initialization data.
         This represents the starting state of the game.
@@ -22,7 +22,7 @@ class GameStateBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def clone(self):
+    def clone(self) -> "GameStateBase":
         """
         Return a deep copy of the game state.
         Subclasses must implement this.
@@ -31,7 +31,7 @@ class GameStateBase(ABC):
 
     @classmethod
     @abstractmethod
-    def from_json(cls, json_str: str):
+    def from_json(cls, json_str: str) -> "GameStateBase":
         """
         Initialize from JSON string.
         Subclasses must implement this.

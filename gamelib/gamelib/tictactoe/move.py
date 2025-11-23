@@ -8,6 +8,7 @@ from typing import override
 from pydantic import BaseModel, field_validator
 
 from gamelib.move_base import MoveBase
+from gamelib.tictactoe.gamestate import GameState as State
 
 
 class Move(BaseModel, MoveBase):
@@ -28,13 +29,13 @@ class Move(BaseModel, MoveBase):
     @field_validator("position")
     @classmethod
     def validate_position(cls, v: int) -> int:
-        if not (0 <= v <= 8):
-            raise ValueError("Invalid move format: position must be between 0 and 8.")
+        if not (0 <= v <= State.BOARD_SIZE - 1):
+            raise ValueError(f"Invalid move format: position must be between 0 and {State.BOARD_SIZE - 1}.")
         return v
 
     @classmethod
     @override
-    def from_json(cls, json_str: str):
+    def from_json(cls, json_str: str) -> "Move":
         """
         Initialize the move from a JSON string.
         Args:

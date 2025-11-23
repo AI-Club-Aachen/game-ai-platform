@@ -16,7 +16,7 @@ class Agent(AgentBase):
     Do not override __init__; use initialize() instead.
     """
 
-    def __init__(self, run_init: bool = True):
+    def __init__(self, run_init: bool = True) -> None:
         """
         Initialize the Tic-Tac-Toe agent.
         Args:
@@ -47,5 +47,4 @@ class Agent(AgentBase):
             State: The current game state.
         """
         state_input = self._read_input()
-        state = State.from_json(state_input)
-        return state
+        return State.from_json(state_input)
