@@ -36,3 +36,4 @@ venv.bak/
 # Caches
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/

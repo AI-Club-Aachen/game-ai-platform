@@ -47,3 +47,17 @@ or if multiple Python versions are installed:
 ```bash
 py -3.12 -m pytest gamelib/tests
 ```
+
+## Run linter, formatter and typecheck
+After `uv sync`, you can run either:
+```
+uv run python -m scripts.commands lint
+uv run python -m scripts.commands format
+uv run python -m scripts.commands type-check
+```
+or with the venv activated:
+```
+python -m scripts.commands lint
+python -m scripts.commands format
+python -m scripts.commands type-check
+```
