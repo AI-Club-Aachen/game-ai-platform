@@ -69,16 +69,19 @@ class EmailClient:
 
     def _should_send_email(self, to_email: str, subject: str, html_content: str) -> tuple[bool, bool]:
         """Determine if email should be sent based on environment settings."""
-        if self.is_development or not self.smtp_configured:
-            logger.warning("SMTP not configured in development; email will NOT be sent, only logged.")
+        # In development, always just log and skip sending
+        if self.is_development:
+            logger.warning("Development mode; email will NOT be sent, only logged.")
             logger.info("Dev email to=%s subject=%s", to_email, subject)
             logger.info("Dev email HTML content:\n%s", html_content)
             return False, True
 
+        # If SMTP is not configured, check if it's required
+        if not self.smtp_configured:
             if self.smtp_required:
                 logger.critical("SMTP is required in this environment but not configured; cannot send email.")
                 return False, False
-
+            
             logger.error("SMTP not configured; skipping email send.")
             return False, False
 
