@@ -31,14 +31,14 @@ def _content_hash(root: Path) -> str:
                 h.update(b)
     return h.hexdigest()
 
-def _find_and_normalize_agent_entry(ctx: Path) -> None:
+def _find_agent_entry(ctx: Path) -> str:
     """
     Find the agent entry file in the build directory.
     Accepted patterns:
       - agent.py
       - *_agent.py
 
-    Ensures exactly one match and renames it to agent.py if needed.
+    Returns the filename of the entry point.
     """
     candidates = [
         p for p in ctx.iterdir() if p.is_file() and (p.name == "agent.py" or p.name.endswith("_agent.py"))
@@ -56,9 +56,7 @@ def _find_and_normalize_agent_entry(ctx: Path) -> None:
             "Provide exactly one file."
         )
 
-    entry = candidates[0]
-    if entry.name != "agent.py":
-        entry.rename(ctx / "agent.py")
+    return candidates[0].name
 
 
 def build_from_zip(zip_bytes: bytes, owner_id: str,
@@ -75,7 +73,7 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
         ctx = Path(td)
         _safe_extract_zip(zip_bytes, ctx)
 
-        _find_and_normalize_agent_entry(ctx)
+        entry_file = _find_agent_entry(ctx)
         
         # copy base_requirements into the build-directory 
         global_reqs = project_root / "base_requirements.txt"
@@ -106,6 +104,7 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
             labels=labels,
             rm=True,
             pull=False,
+            buildargs={"AGENT_FILE": entry_file},
             network_mode="default" # allow this for the build, but not for the containers later
         )
     return {

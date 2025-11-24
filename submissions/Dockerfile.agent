@@ -3,4 +3,7 @@ FROM gameai-agent-base:latest
 WORKDIR /home/runner/app
 COPY . .
 
-CMD ["python", "agent.py"]
+ARG AGENT_FILE=agent.py
+ENV AGENT_FILE=${AGENT_FILE}
+
+CMD python $AGENT_FILE
