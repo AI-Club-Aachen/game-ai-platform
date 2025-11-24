@@ -69,6 +69,15 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
     if not dockerfile_path.exists():
         raise BuildError("submissions/Dockerfile nicht gefunden.")
     
+    # Pull the latest base image to ensure we are up to date
+    try:
+        base_image = "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
+        print(f"Pulling base image: {base_image}...")
+        client.images.pull(base_image)
+    except docker.errors.APIError as e:
+        print(f"Warning: Failed to pull base image {base_image}: {e}")
+        print("Proceeding with local image if available...")
+    
     with tempfile.TemporaryDirectory(prefix="agent-build-") as td:
         ctx = Path(td)
         _safe_extract_zip(zip_bytes, ctx)

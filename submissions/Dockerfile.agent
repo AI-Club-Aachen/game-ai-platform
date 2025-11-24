@@ -1,4 +1,4 @@
-FROM gameai-agent-base:latest
+FROM ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest
 
 WORKDIR /home/runner/app
 COPY . .
