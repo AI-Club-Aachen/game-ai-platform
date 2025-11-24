@@ -122,6 +122,7 @@ ignore = [
     "PLR0913", # Too many arguments
     "TRY003",  # Avoid specifying long messages outside exception class
     "G004",    # Logging statement uses f-string
+    "RUF022",  # __all__ is not sorted
 ]
 
 fixable = ["ALL"]

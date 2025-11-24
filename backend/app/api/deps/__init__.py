@@ -11,14 +11,6 @@ This package provides dependency injection for FastAPI routes, organized by conc
 # This allows existing imports like `from app.api.deps import CurrentUser` to continue working
 
 # Service factories
-from app.api.deps.services import (
-    get_auth_service,
-    get_email_client,
-    get_email_notification_service,
-    get_user_repository,
-    get_user_service,
-)
-
 # Authentication
 from app.api.deps.auth import (
     CurrentUser,
@@ -35,6 +27,14 @@ from app.api.deps.permissions import (
     verify_email_verified,
     verify_user_role,
 )
+from app.api.deps.services import (
+    get_auth_service,
+    get_email_client,
+    get_email_notification_service,
+    get_user_repository,
+    get_user_service,
+)
+
 
 __all__ = [
     # Service factories

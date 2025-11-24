@@ -81,7 +81,7 @@ class EmailClient:
             if self.smtp_required:
                 logger.critical("SMTP is required in this environment but not configured; cannot send email.")
                 return False, False
-            
+
             logger.error("SMTP not configured; skipping email send.")
             return False, False
 
