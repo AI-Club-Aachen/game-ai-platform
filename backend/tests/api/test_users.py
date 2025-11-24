@@ -229,9 +229,6 @@ async def test_admin_list_get_update_role_delete_user_success(api_client, fake_e
     assert deleted_user is None
 
 
-
-
-
 # ---------------------------------------------------------------------------
 # Fail: unauthenticated access to user self endpoints
 # ---------------------------------------------------------------------------
@@ -298,8 +295,6 @@ async def test_non_admin_cannot_use_admin_endpoints(api_client, fake_email_clien
         json={"role": "user"},
     )
     assert role_response.status_code == 403
-
-
 
     # 5) Delete user (admin-only).
     delete_response = await api_client.delete(

@@ -1,11 +1,19 @@
-import pytest
-import uuid
-import string
 import random
+import string
+import uuid
+
+import pytest
+from sqlmodel import select
+
 from app.core.config import settings
-from tests.api.test_users import _create_verified_user_and_token, _create_admin_and_token
+from app.models.user import User, UserRole
+from tests.api.test_users import _create_admin_and_token, _create_verified_user_and_token
+
+
+# ruff: noqa: S311
 
 API_PREFIX = settings.API_V1_PREFIX
+
 
 def _generate_strong_password() -> str:
     """Generate a password that satisfies strict complexity requirements."""
@@ -21,6 +29,7 @@ def _generate_strong_password() -> str:
     password.extend(random.choice(chars) for _ in range(12))
     random.shuffle(password)
     return "".join(password)
+
 
 @pytest.mark.anyio
 async def test_role_enforcement_flow(api_client, fake_email_client, db_session):
@@ -77,9 +86,6 @@ async def test_role_enforcement_flow(api_client, fake_email_client, db_session):
     assert response.status_code == 403
 
     # 7. Manually demote user in DB to verify access is revoked when role changes
-    from app.models.user import User, UserRole
-    from sqlmodel import select
-    
     user_uuid = uuid.UUID(user_id)
     user_db = db_session.exec(select(User).where(User.id == user_uuid)).first()
     user_db.role = UserRole.USER
@@ -106,9 +112,7 @@ async def test_user_deletion_flow(api_client, fake_email_client, db_session):
     username = f"delete_test_user_{uuid.uuid4().hex[:8]}"
     email = f"{username}@example.com"
     password = _generate_strong_password()
-    user_id, _ = await _create_verified_user_and_token(
-        api_client, fake_email_client, username, email, password
-    )
+    user_id, _ = await _create_verified_user_and_token(api_client, fake_email_client, username, email, password)
 
     # 2. Login check (should work)
     response = await api_client.post(
@@ -155,7 +159,7 @@ async def test_password_change_security_flow(api_client, fake_email_client):
     old_password = _generate_strong_password()
     new_password = _generate_strong_password()
 
-    user_id, bearer_token = await _create_verified_user_and_token(
+    _, bearer_token = await _create_verified_user_and_token(
         api_client, fake_email_client, username, email, old_password
     )
 

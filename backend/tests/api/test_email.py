@@ -1,5 +1,5 @@
-from datetime import UTC, datetime, timedelta
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
@@ -7,7 +7,7 @@ from sqlmodel import select
 
 from app.core.config import settings
 from app.models.user import User
-from tests.api.test_users import _create_verified_user_and_token
+from tests.api.test_users import _create_admin_and_token, _create_verified_user_and_token
 from tests.fakes import _extract_token_from_html
 
 
@@ -244,11 +244,7 @@ async def test_verification_status_unauthenticated_fails(api_client):
 
 
 @pytest.mark.anyio
-async def test_admin_resend_verification_email_for_unverified_user_success(
-    api_client, fake_email_client, db_session
-):
-    from tests.api.test_users import _create_admin_and_token
-
+async def test_admin_resend_verification_email_for_unverified_user_success(api_client, fake_email_client, db_session):
     # Create unverified user (register but do not verify).
     username = "unverified_for_admin"
     email = "unverified_for_admin@example.com"
@@ -301,16 +297,12 @@ async def test_admin_resend_verification_email_for_unverified_user_success(
 
 
 @pytest.mark.anyio
-async def test_non_admin_cannot_resend_verification(
-    api_client, fake_email_client, db_session
-):
+async def test_non_admin_cannot_resend_verification(api_client, fake_email_client, db_session):
     # Create a normal verified user (role GUEST).
     username = "non_admin_user_email"
     email = "non_admin_user_email@example.com"
     password = "NonPrivAcc0unt!1"
-    user_id, user_token = await _register_verify_login_bearer(
-        api_client, fake_email_client, username, email, password
-    )
+    user_id, user_token = await _register_verify_login_bearer(api_client, fake_email_client, username, email, password)
 
     # Try to resend verification for self (using admin endpoint)
     response = await api_client.post(
@@ -321,11 +313,7 @@ async def test_non_admin_cannot_resend_verification(
 
 
 @pytest.mark.anyio
-async def test_admin_resend_verification_fails_for_nonexistent_user(
-    api_client, fake_email_client, db_session
-):
-    from tests.api.test_users import _create_admin_and_token
-
+async def test_admin_resend_verification_fails_for_nonexistent_user(api_client, fake_email_client, db_session):
     # Admin.
     admin_username = "admin_resend_404"
     admin_email = "admin_resend_404@example.com"
@@ -350,18 +338,12 @@ async def test_admin_resend_verification_fails_for_nonexistent_user(
 
 
 @pytest.mark.anyio
-async def test_admin_resend_verification_fails_for_already_verified_user(
-    api_client, fake_email_client, db_session
-):
-    from tests.api.test_users import _create_admin_and_token
-
+async def test_admin_resend_verification_fails_for_already_verified_user(api_client, fake_email_client, db_session):
     # Create verified user.
     username = "verified_target"
     email = "verified_target@example.com"
     password = "VerifiedTarget!1"
-    user_id, _ = await _create_verified_user_and_token(
-        api_client, fake_email_client, username, email, password
-    )
+    user_id, _ = await _create_verified_user_and_token(api_client, fake_email_client, username, email, password)
 
     # Admin.
     admin_username = "admin_resend_400"
@@ -385,14 +367,10 @@ async def test_admin_resend_verification_fails_for_already_verified_user(
 
 
 @pytest.mark.anyio
-async def test_admin_resend_verification_token_actually_works(
-    api_client, fake_email_client, db_session
-):
+async def test_admin_resend_verification_token_actually_works(api_client, fake_email_client, db_session):
     """
     E2E: Admin triggers resend -> User gets email -> User verifies with token.
     """
-    from tests.api.test_users import _create_admin_and_token
-
     # 1. Create unverified user.
     username = "admin_flow_user"
     email = "admin_flow_user@example.com"
@@ -412,13 +390,13 @@ async def test_admin_resend_verification_token_actually_works(
         admin_email,
         admin_password,
     )
-    
+
     # Get user ID
     user = db_session.exec(select(User).where(User.email == email)).first()
-    
+
     # Clear emails to ensure we catch the NEW one
     fake_email_client.sent.clear()
-    
+
     response = await api_client.post(
         f"{API_PREFIX}/email/{user.id}/resend-verification",
         headers={"Authorization": admin_token},
@@ -437,9 +415,7 @@ async def test_admin_resend_verification_token_actually_works(
         json={"token": token},
     )
     assert verify_response.status_code == 200
-    
+
     # 5. Confirm verified.
     db_session.refresh(user)
     assert user.email_verified is True
-
-

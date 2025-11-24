@@ -4,7 +4,6 @@ from uuid import UUID
 
 from app.api.repositories.user import UserRepository, UserRepositoryError
 from app.core.security import hash_password, validate_password_strength, verify_password
-from app.core.tokens import create_email_verification_token
 from app.models.user import User, UserRole
 from app.schemas.user import PasswordChangeRequest, UserRoleUpdate, UserUpdate
 
@@ -197,5 +196,3 @@ class UserService:
         except UserRepositoryError as e:
             logger.exception("Error deleting user %s", user_id)
             raise UserServiceError("Failed to delete user") from e
-
-

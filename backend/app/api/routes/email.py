@@ -107,7 +107,6 @@ async def admin_resend_verification_email(
     }
 
 
-
 @router.post("/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def verify_email(
