@@ -5,6 +5,7 @@ services:
       - "6379:6379"
     networks:
       - app-network
+
   db:
     image: postgres:16-alpine
     environment:
@@ -22,32 +23,7 @@ services:
       retries: 5
     networks:
       - app-network
-  test-db:
-    image: postgres:16-alpine
-    container_name: gameai-test-db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: gameai_test
-    ports:
-      # Expose on 5433 so it doesn't clash with your dev db on 5432
-      - "5433:5432"
-    volumes:
-      - postgres-test-data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-  test-redis:
-    image: redis:7-alpine
-    container_name: gameai-test-redis
-    ports:
-      - "6380:6379"
-    networks:
-      - app-network
+
   backend:
     build: .
     ports:
@@ -73,7 +49,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       db:
-        condition: service_healthy
+          condition: service_healthy
     volumes:
       - ./app:/app/app
       - ./alembic:/app/alembic
@@ -87,4 +63,3 @@ networks:
 
 volumes:
   postgres_data:
-  postgres-test-data:

@@ -42,13 +42,13 @@ Secure backend for an AI game competition platform, built with FastAPI, PostgreS
    # Access at http://localhost:3000
    ```
 
-2. **Backend**:
+2. **Backend (Development)**:
    ```bash
    cd backend
    cp .env.example .env
    # Edit .env: set ENVIRONMENT=development, JWT_SECRET_KEY, etc.
    
-   docker-compose down -v  # Clear old volumes if needed
+   # Start development services (PostgreSQL on :5432, Redis on :6379, Backend on :8000)
    docker-compose up --build
    # API at http://localhost:8000
    ```
@@ -82,9 +82,17 @@ docker-compose exec db psql -U postgres -d gameai -c "UPDATE users SET role = 'A
 
 **Run Tests**:
 ```bash
+# First, start test database and Redis (on ports 5433 and 6380)
+docker-compose -f docker-compose.test.yml up -d
+
+# Run tests
 pytest
-# or with coverage
+
+# With coverage
 pytest --cov=app --cov-report=term-missing
+
+# Stop test services when done
+docker-compose -f docker-compose.test.yml down
 ```
 
 **Code Quality** (required to pass CI/CD pipeline):
@@ -218,13 +226,32 @@ Deployments in staging/production enforce full SMTP configuration at startup, so
 
 The backend ships with async end‑to‑end tests for auth, email verification, and user/role management, built with `pytest` and `pytest-anyio`. 
 
+#### Docker Compose Files
+
+The project uses separate Docker Compose files for different purposes:
+
+- **`docker-compose.yml`** - **Development only**
+  - Services: `db` (PostgreSQL on port 5432), `redis` (port 6379), `backend` (port 8000)
+  - Use for: Local development and running the application
+  - Start with: `docker-compose up --build`
+
+- **`docker-compose.test.yml`** - **Testing only**
+  - Services: `test-db` (PostgreSQL on port 5433), `test-redis` (port 6380)
+  - Use for: Running the test suite with isolated test databases
+  - Start with: `docker-compose -f docker-compose.test.yml up -d`
+  - Stop with: `docker-compose -f docker-compose.test.yml down`
+
+> **Note**: Test services run on different ports (5433, 6380) to avoid conflicts with development services.
+
+#### Test Suite Architecture
+
 The test suite:
 
 - Spins up the FastAPI app in‑process and talks to it via an async HTTP client. 
 - Uses a dedicated Postgres test database and overrides the app's DB session via `tests/conftest.py`.
 - Injects a fake email client so verification and reset emails are captured in memory instead of hitting SMTP.
 
-Test environment variables (DB URLs, JWT secret, `ENVIRONMENT=test`) are configured in `tests/pytest.ini` using `pytest-env`, so no extra shell setup is needed beyond starting the test Postgres/Redis containers (for example with `docker compose -f docker-compose.test.yml up -d`).
+Test environment variables (DB URLs, JWT secret, `ENVIRONMENT=test`) are configured in `pytest.ini` using `pytest-env`.
 
 ### Security Notes
 
