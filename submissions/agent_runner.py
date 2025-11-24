@@ -167,12 +167,10 @@ def start_agent_container(
         raise RunError(f"Failed to start container: {e}")
     
     return {
-        "conatiner_id": container.id,
+        "container_id": container.id,
         "name": container.name,
         "image": image_ref
     }
-
-
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ def _find_agent_entry(ctx: Path) -> str:
 
 
 def build_from_zip(zip_bytes: bytes, owner_id: str,
-                   repo_prefix: str="agent", base_label_ns: str="org.aiclub") -> dict:
+                   repo_prefix: str="agent", base_label_ns: str="org.gameai") -> dict:
     """Uses submissions/Dockerfile to build a Docker image from the ZIP contents."""
     client = docker.from_env()
     project_root = Path(__file__).resolve().parent # submissions/

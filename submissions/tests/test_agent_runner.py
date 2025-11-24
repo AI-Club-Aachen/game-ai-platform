@@ -1,13 +1,103 @@
-from submissions.agent_runner import run_agent
+import pytest
+import docker
+import time
+from submissions.agent_runner import run_agent, start_agent_container, RunError
+from submissions.agent_builder import build_from_zip
+from submissions.agent_manager import delete_agent_container
 
 
-def test_run_agent_simple(docker_client, load_zip):
-    from submissions.agent_builder import build_from_zip
+@pytest.fixture
+def sleeper_agent(create_zip, track_images):
+    """Creates an agent that sleeps for 2 seconds then exits."""
+    zip_bytes = create_zip({"agent.py": "import time; time.sleep(2); print('Awake')"})
+    res = build_from_zip(zip_bytes, owner_id="runner_test")
+    track_images(res["image_id"])
+    return res["tag"]
 
-    data = load_zip("valid_agent.zip")
-    result = build_from_zip(data, owner_id="runner-test")
 
-    out = run_agent(result["tag"])
+@pytest.fixture
+def error_agent(create_zip, track_images):
+    """Creates an agent that exits with code 1."""
+    zip_bytes = create_zip({"agent.py": "exit(1)"})
+    res = build_from_zip(zip_bytes, owner_id="runner_test")
+    track_images(res["image_id"])
+    return res["tag"]
 
-    assert out["exit_code"] == 0
-    assert "Agent" in out["logs"]
+
+@pytest.fixture
+def echo_agent(create_zip, track_images):
+    """Creates an agent that prints env vars."""
+    zip_bytes = create_zip({"agent.py": "import os; print(os.environ.get('MY_VAR'))"})
+    res = build_from_zip(zip_bytes, owner_id="runner_test")
+    track_images(res["image_id"])
+    return res["tag"]
+
+
+def test_run_agent_success(sleeper_agent):
+    """Test successful agent execution."""
+    result = run_agent(sleeper_agent)
+    assert result["exit_code"] == 0
+    assert not result["timeout"]
+    assert "Awake" in result["logs"]
+
+
+def test_run_agent_timeout(create_zip, track_images):
+    """Test agent execution timeout."""
+    import submissions.agent_runner
+    
+    original_loader = submissions.agent_runner._load_secure_defaults
+    
+    def mocked_loader():
+        s = original_loader()
+        s["time_limit_seconds"] = 1
+        return s
+        
+    submissions.agent_runner._load_secure_defaults = mocked_loader
+    
+    try:
+        zip_bytes = create_zip({"agent.py": "import time; time.sleep(5)"})
+        res = build_from_zip(zip_bytes, owner_id="timeout_test")
+        tag = res["tag"]
+        track_images(res["image_id"])
+        
+        result = run_agent(tag)
+        assert result["timeout"] is True
+        assert result["exit_code"] == 124
+    finally:
+        submissions.agent_runner._load_secure_defaults = original_loader
+
+
+def test_run_agent_error(error_agent):
+    """Test agent execution with non-zero exit code."""
+    result = run_agent(error_agent)
+    assert result["exit_code"] == 1
+
+
+def test_start_agent_container(echo_agent):
+    """Test starting an agent container with environment variables."""
+    res = start_agent_container(
+        echo_agent,
+        match_id="m_run",
+        agent_id="a_run",
+        owner_id="runner_test",
+        extra_env={"MY_VAR": "HelloRunner"}
+    )
+    cid = res["container_id"]
+    
+    try:
+        client = docker.from_env()
+        container = client.containers.get(cid)
+        container.wait()
+        
+        logs = container.logs().decode()
+        assert "HelloRunner" in logs
+        assert container.labels["org.gameai.match_id"] == "m_run"
+        
+    finally:
+        delete_agent_container(cid, force=True)
+
+
+def test_run_agent_image_not_found():
+    """Test error handling when image doesn't exist."""
+    with pytest.raises(RunError, match="Image not found"):
+        run_agent("non_existent_image:tag")
