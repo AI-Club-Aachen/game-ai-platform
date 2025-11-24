@@ -1,0 +1,46 @@
+name: Gamelib Pull Request Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'gamelib/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'gamelib/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  PYTHONPATH: backend
+
+jobs:
+  lint-and-format:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/python-uv
+        with:
+          working-directory: 'gamelib'
+
+      - name: Run lint, format and typecheck
+        uses: ./.github/actions/lint-format-typecheck
+        with:
+          working-directory: 'gamelib'
+
+
