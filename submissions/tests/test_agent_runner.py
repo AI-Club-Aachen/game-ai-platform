@@ -101,3 +101,33 @@ def test_run_agent_image_not_found():
     """Test error handling when image doesn't exist."""
     with pytest.raises(RunError, match="Image not found"):
         run_agent("non_existent_image:tag")
+
+
+def test_run_agent_log_truncation(create_zip, track_images):
+    """Test that logs are truncated when exceeding 5MB."""
+    # Create an agent that produces ~6MB of output (exceeds the 5MB limit)
+    # Each line is ~1000 bytes, so 6000 lines = ~6MB
+    agent_code = """
+for i in range(6000):
+    print('X' * 1000)
+"""
+    zip_bytes = create_zip({"agent.py": agent_code})
+    res = build_from_zip(zip_bytes, owner_id="truncation_test")
+    track_images(res["image_id"])
+    
+    result = run_agent(res["tag"])
+    
+    # Verify the agent ran successfully
+    assert result["exit_code"] == 0
+    assert not result["timeout"]
+    
+    # Verify logs were truncated
+    logs = result["logs"]
+    log_size = len(logs.encode('utf-8'))
+    
+    # Should be around 5MB + truncation message, definitely less than 6MB
+    assert log_size < 6 * 1024 * 1024, f"Logs were not truncated: {log_size} bytes"
+    assert "Logs truncated due to size limit" in logs, "Truncation message not found"
+    
+    # Should have some content (at least some of the X's)
+    assert 'X' in logs

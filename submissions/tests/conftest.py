@@ -84,7 +84,7 @@ def cleanup_test_resources():
     try:
         client = docker.from_env()
         
-        print("\n🧹 Cleaning up test images...")
+        print("\nCleaning up test images...")
         
         # Only remove tracked images that didn't exist before tests
         removed_count = 0
@@ -100,14 +100,14 @@ def cleanup_test_resources():
                 pass
         
         # Remove dangling images (safe - these are always orphaned)
-        print("🧹 Removing dangling images...")
+        print("Removing dangling images...")
         prune_result = client.images.prune(filters={"dangling": True})
         dangling_count = len(prune_result.get("ImagesDeleted", []))
         
         skipped = len(_test_images & _pre_existing_images)
         if skipped > 0:
-            print(f"🛡️  Protected {skipped} pre-existing image(s) from deletion")
-        print(f"✅ Cleaned up {removed_count} new test images and {dangling_count} dangling images")
+            print(f"Protected {skipped} pre-existing image(s) from deletion")
+        print(f"Cleaned up {removed_count} new test images and {dangling_count} dangling images")
         
     except Exception as e:
-        print(f"⚠️  Cleanup warning: {e}")
+        print(f"Cleanup warning: {e}")

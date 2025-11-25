@@ -89,8 +89,26 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
             pass
         exit_code = 124 # standard timeout code
 
+    # Limit log size to prevent DoS (5MB)
+    MAX_LOG_BYTES = 5 * 1024 * 1024
+    
     try:
-        raw_logs = container.logs(stdout=True, stderr=True, tail=log_tail)
+        # Use stream=True to avoid loading everything into memory at once
+        log_stream = container.logs(stdout=True, stderr=True, tail=log_tail, stream=True)
+        raw_logs_list = []
+        total_bytes = 0
+        
+        for chunk in log_stream:
+            if total_bytes + len(chunk) > MAX_LOG_BYTES:
+                remaining = MAX_LOG_BYTES - total_bytes
+                if remaining > 0:
+                    raw_logs_list.append(chunk[:remaining])
+                raw_logs_list.append(b"\n... [Logs truncated due to size limit] ...\n")
+                break
+            raw_logs_list.append(chunk)
+            total_bytes += len(chunk)
+        
+        raw_logs = b"".join(raw_logs_list)
     except Exception:
         raw_logs = b""
 
