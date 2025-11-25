@@ -14,17 +14,17 @@ runs:
       run: |
         # Run linting
         echo "Running linter..."
-        uv run lint
+        uv run python -m scripts.commands lint
         LINT_EXIT_CODE=$?
 
         # Run format check
         echo -e "\nChecking code formatting..."
-        uv run format
+        uv run python -m scripts.commands format
         FORMAT_EXIT_CODE=$?
 
         # Run type check
         echo -e "\nRunning type checks..."
-        uv run type-check
+        uv run python -m scripts.commands type-check
         TYPE_EXIT_CODE=$?
 
         # Add results to summary
