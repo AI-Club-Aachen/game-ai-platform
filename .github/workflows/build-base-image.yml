@@ -59,10 +59,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Lowercase image name for Trivy
+        id: lowercase
+        run: echo "image_name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ steps.lowercase.outputs.image_name }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
