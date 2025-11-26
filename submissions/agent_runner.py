@@ -1,7 +1,6 @@
 """
 Agent runner for managing and executing game agents in a safe dockerized environment.
 """
-
 import docker
 import yaml
 import time
@@ -10,6 +9,7 @@ from pathlib import Path
 class RunError(Exception):
     pass
 
+MAX_LOG_BYTES = 5 * 1024 * 1024
 
 def _load_secure_defaults() -> dict:
     settings_path = Path(__file__).parent / "secure_default_settings.yaml"
@@ -88,9 +88,6 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
         except Exception:
             pass
         exit_code = 124 # standard timeout code
-
-    # Limit log size to prevent DoS (5MB)
-    MAX_LOG_BYTES = 5 * 1024 * 1024
     
     try:
         # Use stream=True to avoid loading everything into memory at once

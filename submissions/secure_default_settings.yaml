@@ -1,5 +1,5 @@
 # runtime security
-cap_drop: ["ALL"]   # sobald deswegen was kaputtgeht, die entsprechende Berechtigung geben
+cap_drop: ["ALL"]   # if something breaks because of this, grant the corresponding permission
 security_opt: ["no-new-privileges"]
 read_only: true
 

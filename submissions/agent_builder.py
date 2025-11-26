@@ -7,6 +7,9 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 import docker
+import logging
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DOCKERIGNORE_PATH = Path(__file__).parent / "default_dockerignore"
 
@@ -67,16 +70,16 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
     dockerfile_path = project_root / "Dockerfile.agent"
 
     if not dockerfile_path.exists():
-        raise BuildError("submissions/Dockerfile nicht gefunden.")
+        raise BuildError("submissions/Dockerfile not found.")
     
     # Pull the latest base image to ensure we are up to date
     try:
         base_image = "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
-        print(f"Pulling base image: {base_image}...")
+        logger.info(f"Pulling base image: {base_image}...")
         client.images.pull(base_image)
     except docker.errors.APIError as e:
-        print(f"Warning: Failed to pull base image {base_image}: {e}")
-        print("Proceeding with local image if available...")
+        logger.warning(f"Failed to pull base image {base_image}: {e}")
+        logger.info("Proceeding with local image if available...")
     
     with tempfile.TemporaryDirectory(prefix="agent-build-") as td:
         ctx = Path(td)
