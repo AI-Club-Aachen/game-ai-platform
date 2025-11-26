@@ -95,9 +95,9 @@ def build_from_zip(zip_bytes: bytes, owner_id: str,
             if DEFAULT_DOCKERIGNORE_PATH.exists():
                 di.write_text(DEFAULT_DOCKERIGNORE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
-        # deterministic tag + label
         sha = _content_hash(ctx)
-        base_tag = f"{repo_prefix}-{sha[:8]}"
+        ts_str = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        base_tag = f"{repo_prefix}-{sha[:8]}-{ts_str}"
         full_tag = f"{base_tag}:latest"
         labels = {
             f"{base_label_ns}.owner_id": str(owner_id),

@@ -78,3 +78,32 @@ def test_builder_fails_nested_agent_not_found(load_zip):
     zip_bytes = load_zip("nested_agent.zip")
     with pytest.raises(BuildError, match="No agent entry file found"):
         build_from_zip(zip_bytes, owner_id="fail_test")
+
+
+def test_builder_prevents_tag_collision(docker_client, load_zip, track_images):
+    """
+    Test that building the same zip twice (even with different owners)
+    results in two DIFFERENT tags and NO dangling images.
+    """
+    zip_bytes = load_zip("valid_agent.zip")
+    
+    # Build 1
+    res1 = build_from_zip(zip_bytes, owner_id="owner_A")
+    track_images(res1["image_id"])
+    
+    # Build 2
+    res2 = build_from_zip(zip_bytes, owner_id="owner_B")
+    track_images(res2["image_id"])
+    
+    # Check that we have 2 different images
+    assert res1["image_id"] != res2["image_id"]
+    
+    # Check that we have 2 different tags
+    assert res1["tag"] != res2["tag"]
+    
+    # Verify both tags still exist (neither was stolen)
+    img1 = docker_client.images.get(res1["tag"])
+    img2 = docker_client.images.get(res2["tag"])
+    
+    assert img1.id == res1["image_id"]
+    assert img2.id == res2["image_id"]
