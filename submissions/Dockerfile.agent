@@ -1,0 +1,9 @@
+FROM ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest
+
+WORKDIR /home/runner/app
+COPY . .
+
+ARG AGENT_FILE=agent.py
+ENV AGENT_FILE=${AGENT_FILE}
+
+CMD python $AGENT_FILE

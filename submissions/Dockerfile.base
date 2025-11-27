@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+RUN useradd -m runner
+WORKDIR /home/runner/app
+
+COPY base_requirements.txt /tmp/base_requirements.txt
+RUN python -m pip install --no-cache-dir -r /tmp/base_requirements.txt && rm /tmp/base_requirements.txt
+
+USER runner
+ENV PYTHONUNBUFFERED=1
