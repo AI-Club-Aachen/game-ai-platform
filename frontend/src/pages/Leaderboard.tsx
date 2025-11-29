@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { getActiveGames } from '../config/games';
+import { useState } from 'react';
 //import { getGameById } from '../config/games'; //TODO
-import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress } from '@mui/material';
+import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress } from '@mui/material';
 import { EmojiEvents } from '@mui/icons-material';
 
 interface LeaderboardEntry {
@@ -18,21 +16,7 @@ interface LeaderboardEntry {
 }
 
 export function Leaderboard() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedGame, setSelectedGame] = useState<string>(searchParams.get('game') || 'chess');
-  const activeGames = getActiveGames();
-
-  useEffect(() => {
-    const gameParam = searchParams.get('game');
-    if (gameParam) {
-      setSelectedGame(gameParam);
-    }
-  }, [searchParams]);
-
-  const handleGameChange = (gameId: string) => {
-    setSelectedGame(gameId);
-    setSearchParams({ game: gameId });
-  };
+  const [selectedGame] = useState<string>('chess');
 
   const entries: LeaderboardEntry[] = [
     { rank: 1, username: 'AImaster', agentName: 'GammaNet', score: 2450, wins: 52, losses: 8, winRate: 86.7, language: 'Python', gameId: selectedGame },
@@ -65,36 +49,6 @@ export function Leaderboard() {
         <Typography color="text.secondary">
           Top performing AI agents across all games
         </Typography>
-      </Box>
-
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Select Game:
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {activeGames.map((game) => (
-            <Button
-              key={game.id}
-              onClick={() => handleGameChange(game.id)}
-              size="small"
-              sx={{
-                borderRadius: 0,
-                border: selectedGame === game.id ? 'none' : '1px solid #333',
-                backgroundColor: selectedGame === game.id ? '#2a2a2a !important' : 'transparent',
-                backgroundImage: 'none !important',
-                color: selectedGame === game.id ? '#00A6FF !important' : '#ddd',
-                '&:hover': {
-                  border: '1px solid #00A6FF',
-                  backgroundColor: '#2a2a2a !important',
-                  backgroundImage: 'none !important',
-                  color: '#00A6FF !important',
-                },
-              }}
-            >
-              {game.name}
-            </Button>
-          ))}
-        </Box>
       </Box>
 
       <TableContainer>

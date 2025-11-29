@@ -229,6 +229,7 @@
   text-decoration: none;
   font-weight: 600;
   transition: all 0.3s;
+  outline: none;
 }
 
 .sidebar-btn-primary {
@@ -238,7 +239,13 @@
 
 .sidebar-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 166, 255, 0.3);
+  color: #ffffff;
+}
+
+.sidebar-btn-primary:focus,
+.sidebar-btn-primary:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .sidebar-btn-secondary {
