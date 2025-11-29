@@ -50,7 +50,9 @@ def test_list_agent_images(test_image):
     found = False
     for img in images:
         if img["owner_id"] == "manager_test":
-            found = True
+            # Check if our specific test image tag is present in this image's tags
+            if test_image in img["tags"]:
+                found = True
             assert "image_id" in img
             assert "created_at" in img
     assert found
@@ -70,12 +72,7 @@ def test_delete_agent_image(load_zip, track_images):
         client.images.get(tag)
 
 
-def test_delete_images_for_owner(load_zip):
-    """Placeholder for bulk delete test."""
-    pass 
-
-
-def test_delete_images_for_owner_impl(create_zip, track_images):
+def test_delete_images_for_owner(create_zip, track_images):
     """Test deleting all images for a given owner."""
     zip1 = create_zip({"agent.py": "print(1)"})
     zip2 = create_zip({"agent.py": "print(2)"})
@@ -128,8 +125,11 @@ def test_stop_agent_container(create_zip, track_images):
 
 
 def test_get_container_stats(test_container):
-    """Placeholder for container stats test."""
-    pass
+    """Test retrieving container stats."""
+    stats = get_container_stats(test_container)
+    assert "memory_usage" in stats
+    assert "memory_limit" in stats
+    assert "cpu_percent" in stats
 
 
 def test_stats_on_running_container(create_zip, track_images):
