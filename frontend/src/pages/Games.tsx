@@ -38,7 +38,9 @@ export function Games() {
         <Typography color="text.secondary">
           Choose a game to view details and start competing
         </Typography>
-      </Box>      <Box sx={{ mb: 6 }}>
+      </Box>
+      
+      <Box sx={{ mb: 6 }}>
         <Typography variant="h5" gutterBottom>
           Active Games
         </Typography>
