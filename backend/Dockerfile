@@ -15,8 +15,13 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 
 COPY --chown=appuser:appuser . .
 
-# Use uv to install - much faster than pip
-RUN uv pip install --system --no-cache-dir .
+# Increase timeout for slow connections
+ENV UV_HTTP_TIMEOUT=500
+# Sync dependencies from lockfile
+RUN uv sync --frozen
+
+# Add virtual environment to PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser
 
