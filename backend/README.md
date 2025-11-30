@@ -108,6 +108,9 @@ uv run format
 
 # Type check with mypy
 uv run type-check
+
+# Run all checks
+uv run checks-all
 ```
 
 **Database Migrations**:
