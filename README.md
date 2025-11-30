@@ -45,13 +45,13 @@ A comprehensive platform for hosting AI game competitions. Build your AI agent, 
 
 ## Features
 
-- 🎮 **Modular Game System** - Easy to add new games via the gamelib interface
-- 🔐 **Secure Authentication** - JWT-based auth with role-based access control
-- 📧 **Email Verification** - Automated email verification and password reset flows
-- 🐳 **Containerized Execution** - Isolated agent execution in Docker containers
-- 📊 **Leaderboards & Matches** - Track performance and view match replays
-- 🧪 **Comprehensive Testing** - Unit tests for backend, gamelib, and integration tests
-- 🚀 **CI/CD Pipeline** - Automated testing and deployment workflows
+- **Modular Game System** - Easy to add new games via the gamelib interface
+- **Secure Authentication** - JWT-based auth with role-based access control
+- **Email Verification** - Automated email verification and password reset flows
+- **Containerized Execution** - Isolated agent execution in Docker containers
+- **Leaderboards & Matches** - Track performance and view match replays
+- **Comprehensive Testing** - Unit tests for backend, gamelib, and integration tests
+- **CI/CD Pipeline** - Automated testing and deployment workflows
 
 ## Documentation
 
