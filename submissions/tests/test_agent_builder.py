@@ -3,9 +3,12 @@ import docker
 from submissions.agent_builder import build_from_zip, BuildError
 
 
-def test_builder_success_valid_zip(docker_client, load_zip, track_images):
+def test_builder_success_valid_zip(docker_client, create_zip, track_images):
     """Test building from a standard valid zip file."""
-    zip_bytes = load_zip("valid_agent.zip")
+    zip_bytes = create_zip({
+        "agent.py": "print('hello')",
+        "requirements.txt": ""
+    })
     result = build_from_zip(zip_bytes, owner_id="test_owner")
     track_images(result["image_id"])
 
@@ -17,17 +20,24 @@ def test_builder_success_valid_zip(docker_client, load_zip, track_images):
     assert img
 
 
-def test_builder_success_different_name(docker_client, load_zip, track_images):
+def test_builder_success_different_name(docker_client, create_zip, track_images):
     """Test building where agent file has a different name ending in _agent.py."""
-    zip_bytes = load_zip("different_agent_name.zip")
+    zip_bytes = create_zip({
+        "my_agent.py": "print('hello')",
+        "requirements.txt": ""
+    })
     result = build_from_zip(zip_bytes, owner_id="test_owner")
     track_images(result["image_id"])
     assert result["image_id"]
 
 
-def test_builder_success_with_dockerignore(docker_client, load_zip, track_images):
+def test_builder_success_with_dockerignore(docker_client, create_zip, track_images):
     """Test building a zip that includes a .dockerignore file."""
-    zip_bytes = load_zip("dockerignore_agent.zip")
+    zip_bytes = create_zip({
+        "agent.py": "print('test')",
+        ".dockerignore": "ignored_file.txt",
+        "ignored_file.txt": "should be ignored"
+    })
     result = build_from_zip(zip_bytes, owner_id="test_owner")
     track_images(result["image_id"])
     
@@ -73,19 +83,25 @@ def test_builder_fails_illegal_path(create_zip):
         build_from_zip(bio.getvalue(), owner_id="fail_test")
 
 
-def test_builder_fails_nested_agent_not_found(load_zip):
+def test_builder_fails_nested_agent_not_found(create_zip):
     """Test that an agent in a subdirectory is NOT found."""
-    zip_bytes = load_zip("nested_agent.zip")
+    zip_bytes = create_zip({
+        "subfolder/": "",
+        "subfolder/agent.py": "print('nested')"
+    })
     with pytest.raises(BuildError, match="No agent entry file found"):
         build_from_zip(zip_bytes, owner_id="fail_test")
 
 
-def test_builder_prevents_tag_collision(docker_client, load_zip, track_images):
+def test_builder_prevents_tag_collision(docker_client, create_zip, track_images):
     """
     Test that building the same zip twice (even with different owners)
     results in two DIFFERENT tags and NO dangling images.
     """
-    zip_bytes = load_zip("valid_agent.zip")
+    zip_bytes = create_zip({
+        "agent.py": "print('hello')",
+        "requirements.txt": ""
+    })
     
     # Build 1
     res1 = build_from_zip(zip_bytes, owner_id="owner_A")

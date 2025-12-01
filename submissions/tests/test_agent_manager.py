@@ -11,9 +11,12 @@ from submissions.agent_runner import start_agent_container
 
 
 @pytest.fixture
-def test_image(load_zip, track_images):
+def test_image(create_zip, track_images):
     """Creates a test image and returns its tag. Cleans up after."""
-    zip_bytes = load_zip("valid_agent.zip")
+    zip_bytes = create_zip({
+        "agent.py": "print('hello')",
+        "requirements.txt": ""
+    })
     result = build_from_zip(zip_bytes, owner_id="manager_test")
     tag = result["tag"]
     track_images(result["image_id"])
@@ -58,9 +61,12 @@ def test_list_agent_images(test_image):
     assert found
 
 
-def test_delete_agent_image(load_zip, track_images):
+def test_delete_agent_image(create_zip, track_images):
     """Test deleting a specific agent image."""
-    zip_bytes = load_zip("valid_agent.zip")
+    zip_bytes = create_zip({
+        "agent.py": "print('hello')",
+        "requirements.txt": ""
+    })
     result = build_from_zip(zip_bytes, owner_id="delete_test")
     tag = result["tag"]
     track_images(result["image_id"])

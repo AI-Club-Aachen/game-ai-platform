@@ -15,17 +15,6 @@ def docker_client():
     return client
 
 @pytest.fixture
-def load_zip():
-    """Load static ZIP test files from submissions/tests/resources."""
-    resources_dir = Path(__file__).parent / "resources"
-
-    def _loader(name: str) -> bytes:
-        path = resources_dir / name
-        return path.read_bytes()
-    
-    return _loader
-    
-@pytest.fixture
 def create_zip(tmp_path):
     """
     Factory fixture to create a zip file with given content.
