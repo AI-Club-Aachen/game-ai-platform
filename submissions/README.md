@@ -2,7 +2,7 @@
 
 User submissions must be a `.zip` containing:
 
-* **agent.py** or a file ending with `_agent.py` — this becomes the entrypoint
+* **agent.py** or a file ending with `_agent.py` (must be in the root directory of the zip) — this becomes the entrypoint
 
 This directory includes:
 
@@ -22,7 +22,9 @@ This directory includes:
 
 ### Base Image
 
-If `Dockerfile.base` or `base_requirements.txt` changes, rebuild the base image manually:
+The base image is automatically built and pushed to GHCR by a GitHub Action whenever `Dockerfile.base` or `base_requirements.txt` changes on the main branch. This workflow also handles multi-platform builds (amd64/arm64) and scans for vulnerabilities.
+
+For local development or if you need to rebuild manually:
 
 ```
 docker build -f submissions/Dockerfile.base -t gameai-agent-base:latest submissions/
