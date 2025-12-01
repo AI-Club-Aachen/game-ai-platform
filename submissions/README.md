@@ -22,7 +22,7 @@ This directory includes:
 
 ### Base Image
 
-The base image is automatically built and pushed to GHCR by a GitHub Action whenever `Dockerfile.base` or `base_requirements.txt` changes on the main branch. This workflow also handles multi-platform builds (amd64/arm64) and scans for vulnerabilities.
+The base image is a slim Python 3.11 image that runs as a non-root user. It includes basic packages for ML and scientific computing (numpy, scipy, scikit-learn, networkx, numba). A GitHub Action rebuilds and pushes this to GHCR when you change `Dockerfile.base` or `base_requirements.txt` on main. The workflow builds for both amd64 and arm64, and runs a Trivy security scan.
 
 For local development or if you need to rebuild manually:
 
