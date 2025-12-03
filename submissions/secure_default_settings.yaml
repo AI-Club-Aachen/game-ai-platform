@@ -1,0 +1,27 @@
+# runtime security
+cap_drop: ["ALL"]   # if something breaks because of this, grant the corresponding permission
+security_opt: ["no-new-privileges"]
+read_only: true
+
+# tmpfs mounts with secure options
+tmpfs:
+  "/tmp": "rw,noexec,nosuid,nodev"
+  "/run": "rw,noexec,nosuid,nodev"
+
+# limits
+pids_limit: 256
+ulimits:
+  - name: "nofile"
+    soft: 1024
+    hard: 1024
+
+# resources
+mem_limit: "512m"
+nano_cpus: 1000000000   # = 1 CPU
+
+# network
+network_mode: "none"
+
+# runtime
+time_limit_seconds: 30
+log_tail: 10000

@@ -1,0 +1,9 @@
+# numeric/ arrays
+numpy==1.26.4
+scipy==1.13.1
+
+numba==0.59.1 # for performance tuning
+
+networkx==3.3   # algos/ graphs
+
+scikit-learn==1.5.0
