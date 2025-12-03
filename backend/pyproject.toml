@@ -1,15 +1,23 @@
 [project]
-name = "backend"
+name = "game-ai-platform-backend"
 version = "0.1.0"
 description = "Backend for Game AI Platform"
 requires-python = ">=3.12"
 dependencies = [
-    "asyncpg>=0.30.0",
     "fastapi>=0.120.4",
+    "uvicorn[standard]>=0.38.0",
+    "sqlmodel>=0.0.27",
+    "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.3",
     "pydantic-settings>=2.11.0",
-    "sqlalchemy[asyncio]>=2.0.44",
-    "uvicorn[standard]>=0.38.0",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt>=4.0.1",
+    "python-multipart>=0.0.20",
+    "alembic>=1.12,<2.0",
+    "aiosmtplib>=5.0.0",
+    "email-validator>=2.3.0",
+    "slowapi>=0.1.9",
+    "redis>=7.0.1",
 ]
 
 [build-system]
@@ -23,6 +31,7 @@ packages = ["app", "scripts"]
 lint = "scripts.commands:lint"
 format = "scripts.commands:format_code"
 type-check = "scripts.commands:type_check"
+checks-all = "scripts.commands:checks_all"
 
 [tool.uv]
 package = true
@@ -35,14 +44,19 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
+    "httpx>=0.28.1",
+    "black>=25.11.0",
     "ruff>=0.14.3",
+    "mypy>=1.18.2",
+    "psycopg[binary]>=3.2.12",
+    "pytest-env>=1.2.0",
     "safety>=3.6.2",
 ]
 
 # Ruff configuration
 [tool.ruff]
-target-version = "py313"
-line-length = 100
+target-version = "py312"
+line-length = 120
 indent-width = 4
 
 exclude = [
@@ -108,6 +122,8 @@ ignore = [
     "S607",    # Starting a process with a partial executable path (OK for tools in PATH)
     "PLR0913", # Too many arguments
     "TRY003",  # Avoid specifying long messages outside exception class
+    "G004",    # Logging statement uses f-string
+    "RUF022",  # __all__ is not sorted
 ]
 
 fixable = ["ALL"]
@@ -116,8 +132,8 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004", "S101", "TID252", "ANN", "ARG"]
-"**/tests/**/*.py" = ["PLR2004", "S101", "TID252", "ANN", "ARG"]
+"tests/**/*.py" = ["PLR2004", "S101", "S105", "TID252", "ANN", "ARG"]
+"**/tests/**/*.py" = ["PLR2004", "S101", "S105", "TID252", "ANN", "ARG"]
 "scripts.py" = ["T201"]  # Allow print statements in scripts
 "main.py" = ["T201"]  # Allow print statements in entry point
 
@@ -125,7 +141,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["backend"]
+known-first-party = ["backend", "app"]
 force-single-line = false
 lines-after-imports = 2
 
@@ -135,9 +151,15 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
+# Black configuration
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+
 # MyPy configuration
 [tool.mypy]
-python_version = "3.13"
+exclude = ["^tests/"]
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

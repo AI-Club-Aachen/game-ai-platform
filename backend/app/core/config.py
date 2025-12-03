@@ -1,0 +1,206 @@
+"""Application settings with security validation and environment configuration"""
+
+import os
+from typing import ClassVar
+
+from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables with validation"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        json_schema_extra={"ALLOW_ORIGINS": {"description": "Comma-separated list of allowed CORS origins"}},
+    )
+
+    # Validation constants
+    MIN_JWT_SECRET_LENGTH: ClassVar[int] = 32
+    MIN_EMAIL_TOKEN_HOURS: ClassVar[int] = 1
+    MAX_EMAIL_TOKEN_HOURS: ClassVar[int] = 168
+    MIN_PASSWORD_RESET_MINUTES: ClassVar[int] = 5
+    MAX_PASSWORD_RESET_MINUTES: ClassVar[int] = 1440
+    MIN_PORT: ClassVar[int] = 1
+    MAX_PORT: ClassVar[int] = 65535
+
+    # Database
+    DATABASE_URL: str
+
+    # JWT Configuration
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_HOURS: int = 24
+
+    # API Configuration
+    API_V1_PREFIX: str = "/api/v1"
+    PROJECT_NAME: str = "AI Game Competition Platform"
+
+    # CORS/Security
+    ALLOW_ORIGINS: list[str] = Field(
+        default=["http://localhost:3000"],
+        description="Comma-separated list of allowed CORS origins (NOT JSON!)",
+    )
+    LOG_LEVEL: str = "info"
+    ENVIRONMENT: str = Field(default_factory=lambda: os.getenv("ENVIRONMENT", "development"))
+
+    # Frontend Configuration
+    FRONTEND_URL: str = Field(
+        default="http://localhost:3000",
+        description="Frontend base URL for email verification links",
+    )
+
+    # SMTP Configuration (optional in dev)
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int | None = 465
+    SMTP_USERNAME: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM_ADDRESS: str | None = None
+    SMTP_FROM_NAME: str = "AI Game Platform"
+    SMTP_USE_TLS: bool = True
+
+    # Email Verification
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment"""
+        return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def is_staging(self) -> bool:
+        return self.ENVIRONMENT.lower() == "staging"
+
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development environment"""
+        return self.ENVIRONMENT.lower() == "development"
+
+    @property
+    def docs_enabled(self) -> bool:
+        return self.is_development or self.is_staging
+
+    @property
+    def smtp_required(self) -> bool:
+        # Only require SMTP in staging and production
+        return self.is_staging or self.is_production
+
+    @property
+    def smtp_configured(self) -> bool:
+        """
+        True if all required SMTP fields are set.
+        Used by EmailService to decide whether to actually send.
+        """
+        return all(
+            [
+                self.SMTP_HOST,
+                self.SMTP_PORT,
+                self.SMTP_USERNAME,
+                self.SMTP_PASSWORD,
+                self.SMTP_FROM_ADDRESS,
+            ]
+        )
+
+    @field_validator("ALLOW_ORIGINS", mode="before")
+    @classmethod
+    def parse_allow_origins(cls, v: str | list[str] | None) -> list[str]:
+        # unchanged...
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip().strip("[]").strip()
+            if not v:
+                return ["http://localhost:3000"]
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return ["http://localhost:3000"]
+
+    @field_validator("JWT_SECRET_KEY")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        if len(v) < cls.MIN_JWT_SECRET_LENGTH:
+            raise ValueError(f"JWT_SECRET_KEY must be at least {cls.MIN_JWT_SECRET_LENGTH} characters long")
+        return v
+
+    @field_validator("EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS")
+    @classmethod
+    def validate_email_token_expiry(cls, v: int) -> int:
+        if not (cls.MIN_EMAIL_TOKEN_HOURS <= v <= cls.MAX_EMAIL_TOKEN_HOURS):
+            raise ValueError(
+                "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS must be between "
+                f"{cls.MIN_EMAIL_TOKEN_HOURS} and {cls.MAX_EMAIL_TOKEN_HOURS}"
+            )
+        return v
+
+    @field_validator("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES")
+    @classmethod
+    def validate_password_reset_expiry(cls, v: int) -> int:
+        if not (cls.MIN_PASSWORD_RESET_MINUTES <= v <= cls.MAX_PASSWORD_RESET_MINUTES):
+            raise ValueError(
+                "PASSWORD_RESET_TOKEN_EXPIRE_MINUTES must be between "
+                f"{cls.MIN_PASSWORD_RESET_MINUTES} and {cls.MAX_PASSWORD_RESET_MINUTES}"
+            )
+        return v
+
+    @field_validator("ALLOW_ORIGINS", mode="after")
+    @classmethod
+    def validate_origins_production(cls, v: list[str], info: ValidationInfo) -> list[str]:
+        # ValidationInfo.data is the already-validated field values. [web:33][web:34]
+        if info.data.get("ENVIRONMENT", "").lower() == "production":
+            invalid_origins = [o for o in v if not o.startswith("https://")]
+            if invalid_origins:
+                raise ValueError(f"In production, ALLOW_ORIGINS must use https://. Found: {invalid_origins}")
+        return v
+
+    @field_validator("SMTP_PORT")
+    @classmethod
+    def validate_smtp_port(cls, v: int | None) -> int | None:
+        """Validate SMTP port is valid when provided"""
+        if v is None:
+            return v
+        if not (cls.MIN_PORT <= v <= cls.MAX_PORT):
+            raise ValueError(f"SMTP_PORT must be between {cls.MIN_PORT} and {cls.MAX_PORT}")
+        return v
+
+    @model_validator(mode="after")
+    def validate_smtp_required_in_production(self) -> "Settings":
+        """
+        In staging/production, all SMTP fields must be set;
+        in development they may be omitted.
+        """
+        if self.smtp_required and not self.smtp_configured:
+            missing: list[str] = []
+            if not self.SMTP_HOST:
+                missing.append("SMTP_HOST")
+            if not self.SMTP_PORT:
+                missing.append("SMTP_PORT")
+            if not self.SMTP_USERNAME:
+                missing.append("SMTP_USERNAME")
+            if not self.SMTP_PASSWORD:
+                missing.append("SMTP_PASSWORD")
+            if not self.SMTP_FROM_ADDRESS:
+                missing.append("SMTP_FROM_ADDRESS")
+            if missing:
+                raise ValueError(f"Missing SMTP configuration in {self.ENVIRONMENT}: {', '.join(missing)}")
+        return self
+
+
+# Singleton instance holder
+class _SettingsHolder:
+    """Holder for singleton settings instance"""
+
+    instance: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Get or create singleton settings instance"""
+    if _SettingsHolder.instance is None:
+        _SettingsHolder.instance = Settings()  # type: ignore[call-arg]
+    return _SettingsHolder.instance
+
+
+# Global settings instance for direct import
+settings = get_settings()
