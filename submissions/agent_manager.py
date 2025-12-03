@@ -9,15 +9,19 @@ LABEL_MATCH_ID = f"{LABEL_NS}.match_id"
 KIND_IMAGE_AGENT = "agent"
 KIND_CONTAINER_AGENT = "agent-container"
 
+
 class ManagementError(Exception):
     pass
+
 
 def _client() -> docker.DockerClient:
     return docker.from_env()
 
+
 # ---------------------------------------------------------------------------
 # Image management
 # ---------------------------------------------------------------------------
+
 
 def list_agent_images(owner_id: str | None = None) -> list[dict]:
     """Return metadata for all agent images. Can filter by owner_id."""
@@ -36,16 +40,19 @@ def list_agent_images(owner_id: str | None = None) -> list[dict]:
         if owner_id is not None and labels.get(LABEL_OWNER_ID) != owner_id:
             continue
 
-        result.append({
-            "image_id": img.id,
-            "tags": img.tags or [],
-            "owner_id": labels.get(LABEL_OWNER_ID),
-            "created_at": labels.get(f"{LABEL_NS}.created_at"),
-            "content_sha256": labels.get(f"{LABEL_NS}.content_sha256"),
-            "size": attrs.get("Size"),
-        })
+        result.append(
+            {
+                "image_id": img.id,
+                "tags": img.tags or [],
+                "owner_id": labels.get(LABEL_OWNER_ID),
+                "created_at": labels.get(f"{LABEL_NS}.created_at"),
+                "content_sha256": labels.get(f"{LABEL_NS}.content_sha256"),
+                "size": attrs.get("Size"),
+            }
+        )
 
     return result
+
 
 def delete_agent_image(image_ref: str, force: bool = False) -> None:
     """Delete a single agent image."""
@@ -56,7 +63,8 @@ def delete_agent_image(image_ref: str, force: bool = False) -> None:
         raise ManagementError(f"Image not found: {image_ref}")
     except Exception as e:
         raise ManagementError(f"Failed to delete image {image_ref}: {e}")
-    
+
+
 def delete_images_for_owner(owner_id: str, force: bool = False) -> int:
     """Delete all agent images for a given owner. Returns count."""
     client = _client()
@@ -75,9 +83,11 @@ def delete_images_for_owner(owner_id: str, force: bool = False) -> int:
 
     return count
 
+
 # ---------------------------------------------------------------------------
 # Container management (for matches)
 # ---------------------------------------------------------------------------
+
 
 def list_agent_containers(
     match_id: str | None = None,
@@ -112,15 +122,17 @@ def list_agent_containers(
         labels = cfg.get("Labels") or {}
         state = attrs.get("State") or {}
 
-        result.append({
-            "container_id": c.id,
-            "name": c.name,
-            "image": cfg.get("Image"),
-            "status": c.status,
-            "state": state,
-            "labels": labels,
-            "created": attrs.get("Created"),
-        })
+        result.append(
+            {
+                "container_id": c.id,
+                "name": c.name,
+                "image": cfg.get("Image"),
+                "status": c.status,
+                "state": state,
+                "labels": labels,
+                "created": attrs.get("Created"),
+            }
+        )
 
     return result
 
@@ -184,14 +196,10 @@ def get_container_stats(container_id: str) -> dict:
     cpu_stats = stats.get("cpu_stats", {})
     precpu_stats = stats.get("precpu_stats", {})
 
-    cpu_delta = (
-        cpu_stats.get("cpu_usage", {}).get("total_usage", 0)
-        - precpu_stats.get("cpu_usage", {}).get("total_usage", 0)
-    )
-    system_delta = (
-        cpu_stats.get("system_cpu_usage", 0)
-        - precpu_stats.get("system_cpu_usage", 0)
-    )
+    cpu_delta = cpu_stats.get("cpu_usage", {}).get("total_usage", 0) - precpu_stats.get(
+        "cpu_usage", {}
+    ).get("total_usage", 0)
+    system_delta = cpu_stats.get("system_cpu_usage", 0) - precpu_stats.get("system_cpu_usage", 0)
 
     cpus = cpu_stats.get("online_cpus")
     if isinstance(cpus, list):

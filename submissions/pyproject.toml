@@ -17,12 +17,30 @@ dependencies = [
     "urllib3==2.5.0",
 ]
 
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+
 [project.optional-dependencies]
 dev = ["pytest==9.0.1"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.7",
+]
 
 [tool.setuptools]
 py-modules = ["agent_runner", "agent_manager", "agent_builder"]
