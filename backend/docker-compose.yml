@@ -15,7 +15,8 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+          - ./app:/app/app:z
+          - ./alembic:/app/alembic:z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -26,6 +27,7 @@ services:
 
   backend:
     build: .
+    user: root
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
