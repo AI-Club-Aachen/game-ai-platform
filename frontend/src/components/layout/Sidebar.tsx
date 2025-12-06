@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   SportsEsports, 
@@ -7,7 +7,8 @@ import {
   SportsEsportsOutlined,
   EmojiEvents,
   ManageAccounts,
-  ExitToApp,
+  People,
+  Person,
   ChevronLeft,
   Menu as MenuIcon
 } from '@mui/icons-material';
@@ -18,14 +19,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onToggle }: SidebarProps) {
-  const { user, isAdmin, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   const toggleSidebar = () => {
     const newCollapsedState = !isCollapsed;
@@ -73,6 +68,10 @@ export function Sidebar({ onToggle }: SidebarProps) {
           <>
             <div className="sidebar-divider"></div>
             {!isCollapsed && <div className="sidebar-section-title">Administration</div>}
+            <Link to="/users" className="sidebar-link">
+              <People />
+              {!isCollapsed && <span>User Management</span>}
+            </Link>
             <Link to="/containers" className="sidebar-link">
               <ManageAccounts />
               {!isCollapsed && <span>Container Management</span>}
@@ -91,10 +90,10 @@ export function Sidebar({ onToggle }: SidebarProps) {
                 </div>
               </div>
             )}
-            <button onClick={handleLogout} className="sidebar-logout">
-              <ExitToApp />
-              {!isCollapsed && <span>Logout</span>}
-            </button>
+            <Link to="/profile" className="sidebar-logout">
+              <Person />
+              {!isCollapsed && <span>Profile</span>}
+            </Link>
           </>
         ) : (
           <div className="sidebar-auth">
