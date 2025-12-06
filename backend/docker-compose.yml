@@ -18,7 +18,7 @@ services:
           - ./app:/app/app:z
           - ./alembic:/app/alembic:z
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,10 +51,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       db:
-          condition: service_healthy
+        condition: service_healthy
     volumes:
-      - ./app:/app/app
-      - ./alembic:/app/alembic
+      - ./app:/app/app:z
+      - ./alembic:/app/alembic:z
     networks:
       - app-network
     restart: unless-stopped

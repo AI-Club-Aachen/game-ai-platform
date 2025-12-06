@@ -98,16 +98,19 @@ docker-compose -f docker-compose.test.yml down
 **Code Quality** (required to pass CI/CD pipeline):
 ```bash
 # Lint with ruff
-ruff check .
+uv run lint
 
 # Auto-fix linting issues
-ruff check . --fix
+uv run lint --fix
 
 # Format code with ruff
-ruff format .
+uv run format
 
 # Type check with mypy
-mypy .
+uv run type-check
+
+# Run all checks
+uv run checks-all
 ```
 
 **Database Migrations**:

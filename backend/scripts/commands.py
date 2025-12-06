@@ -67,5 +67,35 @@ def type_check() -> int:
     return 0
 
 
+def checks_all() -> int:
+    """Run all checks: format, lint, and type-check."""
+    print("🚀 Running all checks...\n")
+
+    # Run format first
+    format_result = format_code()
+    if format_result != 0:
+        print("\n❌ All checks failed at formatting stage!")
+        return format_result
+
+    print()  # Add spacing
+
+    # Run lint
+    lint_result = lint()
+    if lint_result != 0:
+        print("\n❌ All checks failed at linting stage!")
+        return lint_result
+
+    print()  # Add spacing
+
+    # Run type check
+    type_result = type_check()
+    if type_result != 0:
+        print("\n❌ All checks failed at type checking stage!")
+        return type_result
+
+    print("\n✅ All checks passed successfully!")
+    return 0
+
+
 if __name__ == "__main__":
     sys.exit(lint())

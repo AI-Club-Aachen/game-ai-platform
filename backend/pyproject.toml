@@ -31,6 +31,7 @@ packages = ["app", "scripts"]
 lint = "scripts.commands:lint"
 format = "scripts.commands:format_code"
 type-check = "scripts.commands:type_check"
+checks-all = "scripts.commands:checks_all"
 
 [tool.uv]
 package = true
