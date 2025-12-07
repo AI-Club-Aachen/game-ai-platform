@@ -108,6 +108,7 @@ async def login(
         token_type="bearer",  # noqa: S106
         user_id=str(user.id),
         username=user.username,
+        role=user.role.value,
     )
 
 

@@ -196,3 +196,27 @@ class UserService:
         except UserRepositoryError as e:
             logger.exception("Error deleting user %s", user_id)
             raise UserServiceError("Failed to delete user") from e
+
+    def verify_user_email(self, admin: User, user_id: UUID) -> User:
+        """Admin: manually verify a user's email."""
+        user = self._repo.get_by_id(user_id)
+        if not user:
+            logger.warning("Admin %s attempted to verify non-existent user %s", admin.id, user_id)
+            raise UserNotFoundError("User not found")
+
+        if user.email_verified:
+            logger.info("Admin %s attempted to verify already verified user %s", admin.id, user_id)
+            return user
+
+        user.email_verified = True
+        user.email_verification_token_hash = None
+        user.email_verification_expires_at = None
+        user.updated_at = datetime.now(UTC)
+
+        try:
+            updated = self._repo.save(user)
+            logger.warning("Admin %s manually verified email for user %s (%s)", admin.id, user_id, user.email)
+            return updated
+        except UserRepositoryError as e:
+            logger.exception("Error verifying email for user %s", user_id)
+            raise UserServiceError("Failed to verify user email") from e

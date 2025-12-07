@@ -25,10 +25,8 @@ export function Login() {
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('user_id', response.user_id);
       
-      // Determine role based on email or username (you can adjust this logic)
-      const role = email.includes('admin') ? 'admin' : 'user';
-      
-      login(response.username, role);
+      // Use the role from the backend response
+      login(response.username, response.role);
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');

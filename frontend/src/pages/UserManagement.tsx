@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -21,6 +21,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -28,46 +30,48 @@ import {
   CheckCircle as VerifiedIcon,
   Cancel as UnverifiedIcon,
 } from '@mui/icons-material';
+import { usersApi } from '../services/api';
 
 interface User {
   id: string;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: string;
   email_verified: boolean;
   created_at: string;
 }
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      username: 'admin',
-      email: 'admin@example.com',
-      role: 'admin',
-      email_verified: true,
-      created_at: '2025-01-01T00:00:00Z',
-    },
-    {
-      id: '2',
-      username: 'aser',
-      email: 'aserhisham21@gmail.com',
-      role: 'user',
-      email_verified: false,
-      created_at: '2025-12-06T10:04:00Z',
-    },
-  ]);
-
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editedRole, setEditedRole] = useState<'user' | 'admin'>('user');
-  const [editedVerified, setEditedVerified] = useState(false);
+  const [editedRole, setEditedRole] = useState<string>('user');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch users on mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await usersApi.listUsers();
+      setUsers(response.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = (user: User) => {
     setSelectedUser(user);
     setEditedRole(user.role);
-    setEditedVerified(user.email_verified);
     setEditDialogOpen(true);
   };
 
@@ -76,33 +80,63 @@ export function UserManagement() {
     setDeleteDialogOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    if (selectedUser) {
-      setUsers(users.map(u => 
-        u.id === selectedUser.id 
-          ? { ...u, role: editedRole, email_verified: editedVerified }
-          : u
-      ));
+  const handleSaveEdit = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setActionLoading(true);
+      setError(null);
+
+      // Update role if changed
+      if (editedRole !== selectedUser.role) {
+        await usersApi.updateUserRole(selectedUser.id, editedRole);
+      }
+
+      // Refresh users list
+      await fetchUsers();
+      setEditDialogOpen(false);
+      setSelectedUser(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user');
+    } finally {
+      setActionLoading(false);
     }
-    setEditDialogOpen(false);
-    setSelectedUser(null);
   };
 
-  const handleConfirmDelete = () => {
-    if (selectedUser) {
-      setUsers(users.filter(u => u.id !== selectedUser.id));
+  const handleConfirmDelete = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setActionLoading(true);
+      setError(null);
+      await usersApi.deleteUser(selectedUser.id);
+      await fetchUsers();
+      setDeleteDialogOpen(false);
+      setSelectedUser(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete user');
+    } finally {
+      setActionLoading(false);
     }
-    setDeleteDialogOpen(false);
-    setSelectedUser(null);
   };
 
-  const handleVerifyEmail = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId 
-        ? { ...u, email_verified: true }
-        : u
-    ));
+  const handleVerifyEmail = async (userId: string) => {
+    try {
+      setError(null);
+      await usersApi.verifyUserEmail(userId);
+      await fetchUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify email');
+    }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -111,6 +145,12 @@ export function UserManagement() {
           User Management
         </Typography>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <Paper sx={{ p: 3 }}>
         <TableContainer>
@@ -225,9 +265,9 @@ export function UserManagement() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit User</DialogTitle>
+        <DialogTitle sx={{ textAlign: 'center' }}>Edit User</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 2 }}>
+          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <TextField
               label="Username"
               value={selectedUser?.username || ''}
@@ -268,62 +308,56 @@ export function UserManagement() {
               <InputLabel>Role</InputLabel>
               <Select
                 value={editedRole}
-                onChange={(e) => setEditedRole(e.target.value as 'user' | 'admin')}
+                onChange={(e) => setEditedRole(e.target.value)}
                 label="Role"
               >
+                <MenuItem value="guest">Guest</MenuItem>
                 <MenuItem value="user">User</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
               </Select>
             </FormControl>
-            <FormControl sx={{ width: 350 }}>
-              <InputLabel>Email Verified</InputLabel>
-              <Select
-                value={editedVerified ? 'true' : 'false'}
-                onChange={(e) => setEditedVerified(e.target.value === 'true')}
-                label="Email Verified"
-              >
-                <MenuItem value="true">Verified</MenuItem>
-                <MenuItem value="false">Unverified</MenuItem>
-              </Select>
-            </FormControl>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', px: 3, pb: 2 }}>
+        <DialogActions sx={{ justifyContent: 'center', px: 3, pb: 2 }}>
           <Button 
             onClick={() => setEditDialogOpen(false)}
             variant="gradientBorder"
+            disabled={actionLoading}
           >
             Cancel
           </Button>
           <Button 
             onClick={handleSaveEdit} 
             variant="gradientBorder"
+            disabled={actionLoading}
           >
-            Save Changes
+            {actionLoading ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Delete User</DialogTitle>
+        <DialogTitle sx={{ textAlign: 'center' }}>Delete User</DialogTitle>
         <DialogContent>
-          <Typography>
+          <Typography sx={{ textAlign: 'center' }}>
             Are you sure you want to delete user "{selectedUser?.username}"? This action cannot be undone.
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', px: 3, pb: 2 }}>
+        <DialogActions sx={{ justifyContent: 'center', px: 3, pb: 2 }}>
           <Button 
             onClick={() => setDeleteDialogOpen(false)}
             variant="gradientBorder"
+            disabled={actionLoading}
           >
             Cancel
           </Button>
           <Button 
             onClick={handleConfirmDelete} 
             variant="gradientBorder"
+            disabled={actionLoading}
           >
-            Delete
+            {actionLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
