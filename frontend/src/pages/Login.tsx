@@ -100,6 +100,18 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
 
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => {
+                  login('admin', 'admin');
+                  navigate('/dashboard');
+                }}
+                sx={{ mb: 2, py: 1.5 }}
+              >
+                Login as Admin (Dev)
+              </Button>
+
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   Don't have an account?{' '}

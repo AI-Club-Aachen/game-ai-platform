@@ -37,13 +37,13 @@ export function Home() {
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Button
             component={Link}
-            to="/dashboard"
+            to="/login"
             variant="gradientBorder"
             size="large"
             sx={{
-              px: 4,
-              py: 1.5,
-              fontSize: '1.1rem',
+              px: 6,
+              py: 2,
+              fontSize: '1.3rem',
               '&:hover': {
                 transform: 'translateY(-2px)',
               },
@@ -51,23 +51,6 @@ export function Home() {
             }}
           >
             Get Started
-          </Button>
-          <Button
-            component={Link}
-            to="/leaderboard"
-            variant="gradientBorder"
-            size="large"
-            sx={{
-              px: 4,
-              py: 1.5,
-              fontSize: '1.1rem',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-              },
-              transition: 'transform 0.3s',
-            }}
-          >
-            View Leaderboard
           </Button>
         </Box>
       </Box>
