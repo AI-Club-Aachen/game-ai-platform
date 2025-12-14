@@ -3,13 +3,15 @@ from datetime import datetime
 from uuid import UUID
 
 class Match(BaseModel):
+    game_id: uuid
     match_id: uuid
     player_a_id: uuid
     player_b_id: uuid
     winner_id: uuid | None # In case we have any ties
     created_at: datetime
 
-class Player(BaseModel):
+class Agent(BaseModel):
+    game_id: uuid
     player_id: uuid
     elo: float               # For now only winrate
     games_played: int        # 0 by default
