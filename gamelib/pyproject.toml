@@ -107,6 +107,7 @@ ignore = [
     "TRY003",  # Avoid specifying long messages outside exception class
     "G004",    # Logging statement uses f-string
     "SIM108",  # Use ternary operator `move = agent1.get_move(state) if state.turn == 0 else agent2.get_move(state)` instead of `if`-`else`-block
+    "TC001",   # Use `if TYPE_CHECKING:` for type-checking imports
 ]
 
 fixable = ["ALL"]
@@ -164,8 +165,6 @@ addopts = [
     "--strict-config",
     "--showlocals",
 ]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
 
 # Coverage configuration
 [tool.coverage.run]
