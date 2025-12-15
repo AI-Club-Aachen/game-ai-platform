@@ -1,9 +1,8 @@
-import pytest
 import docker
-import time
-from submissions.agent_runner import run_agent, start_agent_container, RunError
+import pytest
 from submissions.agent_builder import build_from_zip
 from submissions.agent_manager import delete_agent_container
+from submissions.agent_runner import RunError, run_agent, start_agent_container
 
 
 @pytest.fixture
@@ -44,22 +43,22 @@ def test_run_agent_success(sleeper_agent):
 def test_run_agent_timeout(create_zip, track_images):
     """Test agent execution timeout."""
     import submissions.agent_runner
-    
+
     original_loader = submissions.agent_runner._load_secure_defaults
-    
+
     def mocked_loader():
         s = original_loader()
         s["time_limit_seconds"] = 1
         return s
-        
+
     submissions.agent_runner._load_secure_defaults = mocked_loader
-    
+
     try:
         zip_bytes = create_zip({"agent.py": "import time; time.sleep(5)"})
         res = build_from_zip(zip_bytes, owner_id="timeout_test")
         tag = res["tag"]
         track_images(res["image_id"])
-        
+
         result = run_agent(tag)
         assert result["timeout"] is True
         assert result["exit_code"] == 124
@@ -80,19 +79,19 @@ def test_start_agent_container(echo_agent):
         match_id="m_run",
         agent_id="a_run",
         owner_id="runner_test",
-        extra_env={"MY_VAR": "HelloRunner"}
+        extra_env={"MY_VAR": "HelloRunner"},
     )
     cid = res["container_id"]
-    
+
     try:
         client = docker.from_env()
         container = client.containers.get(cid)
         container.wait()
-        
+
         logs = container.logs().decode()
         assert "HelloRunner" in logs
         assert container.labels["org.gameai.match_id"] == "m_run"
-        
+
     finally:
         delete_agent_container(cid, force=True)
 
@@ -114,20 +113,20 @@ for i in range(6000):
     zip_bytes = create_zip({"agent.py": agent_code})
     res = build_from_zip(zip_bytes, owner_id="truncation_test")
     track_images(res["image_id"])
-    
+
     result = run_agent(res["tag"])
-    
+
     # Verify the agent ran successfully
     assert result["exit_code"] == 0
     assert not result["timeout"]
-    
+
     # Verify logs were truncated
     logs = result["logs"]
-    log_size = len(logs.encode('utf-8'))
-    
+    log_size = len(logs.encode("utf-8"))
+
     # Should be around 5MB + truncation message, definitely less than 6MB
     assert log_size < 6 * 1024 * 1024, f"Logs were not truncated: {log_size} bytes"
     assert "Logs truncated due to size limit" in logs, "Truncation message not found"
-    
+
     # Should have some content (at least some of the X's)
-    assert 'X' in logs
+    assert "X" in logs

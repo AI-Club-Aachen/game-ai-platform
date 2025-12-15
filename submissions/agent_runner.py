@@ -1,21 +1,26 @@
 """
 Agent runner for managing and executing game agents in a safe dockerized environment.
 """
+
+from pathlib import Path
+
 import docker
 import yaml
-import time
-from pathlib import Path
+
 
 class RunError(Exception):
     pass
 
+
 MAX_LOG_BYTES = 5 * 1024 * 1024
+
 
 def _load_secure_defaults() -> dict:
     settings_path = Path(__file__).parent / "secure_default_settings.yaml"
     if not settings_path.exists():
         raise RunError("secure_default_settings.yaml not found.")
     return yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+
 
 def _build_docker_run_kwargs(settings):
     allowed = [
@@ -27,13 +32,15 @@ def _build_docker_run_kwargs(settings):
         "ulimits",
         "mem_limit",
         "nano_cpus",
-        "network_mode"
+        "network_mode",
     ]
     return {k: settings[k] for k in allowed if k in settings}
+
 
 # ---------------------------------------------------------------------------
 # INTERNAL USE ONLY
 # ---------------------------------------------------------------------------
+
 
 def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
     """
@@ -60,12 +67,7 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
     stop_timeout = settings.get("stop_timeout", 2)
 
     try:
-        container = client.containers.run(
-            image_ref,
-            detach=True,
-            environment=env,
-            **run_kwargs
-        )
+        container = client.containers.run(image_ref, detach=True, environment=env, **run_kwargs)
     except docker.errors.ImageNotFound:
         raise RunError(f"Image not found: {image_ref}")
     except Exception as e:
@@ -87,14 +89,14 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
             container.kill()
         except Exception:
             pass
-        exit_code = 124 # standard timeout code
-    
+        exit_code = 124  # standard timeout code
+
     try:
         # Use stream=True to avoid loading everything into memory at once
         log_stream = container.logs(stdout=True, stderr=True, tail=log_tail, stream=True)
         raw_logs_list = []
         total_bytes = 0
-        
+
         for chunk in log_stream:
             if total_bytes + len(chunk) > MAX_LOG_BYTES:
                 remaining = MAX_LOG_BYTES - total_bytes
@@ -104,7 +106,7 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
                 break
             raw_logs_list.append(chunk)
             total_bytes += len(chunk)
-        
+
         raw_logs = b"".join(raw_logs_list)
     except Exception:
         raw_logs = b""
@@ -120,21 +122,23 @@ def run_agent(image_ref: str, extra_env: dict | None = None) -> dict:
         "exit_code": exit_code,
         "timeout": timeout_flag,
         "logs": logs,
-        "container_id": container.id
+        "container_id": container.id,
     }
+
 
 # ---------------------------------------------------------------------------
 # PUBLIC API – for match execution
 # ---------------------------------------------------------------------------
 
+
 def start_agent_container(
-        image_ref: str,
-        *,
-        match_id: str,
-        agent_id: str,
-        owner_id: str,
-        extra_env: dict[str, str] | None = None,
-        name: str | None = None
+    image_ref: str,
+    *,
+    match_id: str,
+    agent_id: str,
+    owner_id: str,
+    extra_env: dict[str, str] | None = None,
+    name: str | None = None,
 ) -> dict:
     """
     Start a long-running agent container for a match.
@@ -147,7 +151,7 @@ def start_agent_container(
         name:         assigned container name
         image:        image reference used
     """
-    
+
     client = docker.from_env()
     settings = _load_secure_defaults()
     run_kwargs = _build_docker_run_kwargs(settings)
@@ -159,37 +163,29 @@ def start_agent_container(
 
     if name is None:
         name = f"match-{match_id}-agent-{agent_id}"
-    
+
     labels = {
         "org.gameai.kind": "agent-container",
         "org.gameai.owner_id": owner_id,
         "org.gameai.agent_id": agent_id,
-        "org.gameai.match_id": match_id
+        "org.gameai.match_id": match_id,
     }
 
     try:
         container = client.containers.run(
-            image_ref,
-            detach=True,
-            name=name,
-            environment=env,
-            labels=labels,
-            **run_kwargs
+            image_ref, detach=True, name=name, environment=env, labels=labels, **run_kwargs
         )
     except docker.errors.ImageNotFound:
         raise RunError(f"Image not found: {image_ref}")
     except Exception as e:
         raise RunError(f"Failed to start container: {e}")
-    
-    return {
-        "container_id": container.id,
-        "name": container.name,
-        "image": image_ref
-    }
+
+    return {"container_id": container.id, "name": container.name, "image": image_ref}
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Run a built agent image with secure defaults.")
     parser.add_argument("image_ref", help="Image tag or ID, e.g. agent-1234abcd")
     args = parser.parse_args()
