@@ -57,6 +57,39 @@ services:
       - app-network
     restart: unless-stopped
 
+  agent-builder:
+    build: .
+    command: python /submissions/agent_builder_worker.py
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./app:/app/app:z
+      - ../submissions:/submissions:z
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  match-runner:
+    build: .
+    command: python /orchestrator/match_runner_worker.py
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./app:/app/app:z
+      - ../orchestrator:/orchestrator:z
+    networks:
+      - app-network
+    restart: unless-stopped
+
 networks:
   app-network:
     driver: bridge
