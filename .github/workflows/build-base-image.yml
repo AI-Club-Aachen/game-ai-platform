@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'feat/submissions-and-agent-runner'
+      - 'feat/agent-builder'
     paths:
       - 'submissions/Dockerfile.base'
       - 'submissions/base_requirements.txt'
