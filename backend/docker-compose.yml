@@ -53,6 +53,7 @@ services:
     volumes:
       - ./app:/app/app:z
       - ./alembic:/app/alembic:z
+      - ./uploads:/app/uploads:z
     networks:
       - app-network
     restart: unless-stopped
@@ -63,6 +64,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_HOST=redis
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     depends_on:
       - db
       - redis
@@ -80,6 +82,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_HOST=redis
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     depends_on:
       - db
       - redis

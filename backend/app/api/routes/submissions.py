@@ -5,8 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlmodel import Session, select
 
-from app.api.deps.db import get_db
-from app.api.deps.users import get_current_user
+from app.db.session import get_session
+from app.api.deps import get_current_user
 from app.core.queue import job_queue
 from app.models.submission import Submission
 from app.models.user import User
@@ -23,7 +23,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 async def create_submission(
     file: Annotated[UploadFile, File(...)],
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
 ):
     """
     Upload an agent zip file and queue it for building.
@@ -65,7 +65,7 @@ async def create_submission(
 def get_submission(
     submission_id: str, # UUID
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
 ):
     submission = db.get(Submission, submission_id)
     if not submission:
@@ -81,7 +81,7 @@ def get_submission(
 @router.get("/", response_model=list[SubmissionRead])
 def list_submissions(
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     skip: int = 0,
     limit: int = 20,
 ):
