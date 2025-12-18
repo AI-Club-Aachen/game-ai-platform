@@ -72,6 +72,8 @@ services:
       - ./app:/app/app:z
       - ../submissions:/submissions:z
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./uploads:/app/uploads:z
+    user: root
     networks:
       - app-network
     restart: unless-stopped
