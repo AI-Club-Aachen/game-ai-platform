@@ -6,26 +6,29 @@ User submissions must be a `.zip` containing:
 
 This directory includes:
 
-* **agent_builder.py** — turns a submission ZIP into an Agent Docker image using `Dockerfile.agent`
+* **agent_builder.py** — creates Agent images using `Dockerfile.agent`
+* **agent_builder_worker.py** — Redis worker for processing build jobs
 * **agent_runner.py** — runs Agent containers with restricted settings
-* **agent_manager.py** — lists, stops, deletes and inspects built images and containers
-* **Dockerfile.base** — base image for all Agents (contains global Python environment)
-* **Dockerfile.agent** — lightweight Agent image using the base image
-* **base_requirements.txt** — global Python packages installed into the base image
+* **agent_manager.py** — utility for inspecting images/containers
+* **Dockerfile.base** — base image using Docker Hardened Images (DHI)
+* **Dockerfile.agent** — lightweight Agent image build template
+* **base_requirements.txt** — global Python packages for the base image
 * **secure_default_settings.yaml** — runtime and sandbox restrictions
 * **default_dockerignore** — applied when the submission ZIP has no `.dockerignore`
-* **tests/** — pytest tests that have to be run from the project root with:
+* **tests/** — pytest tests run with:
 
-    ```
-    python -m pytest submissions/tests -v
+    ```bash
+    cd submissions && uv run pytest tests/ -v
     ```
 
 ### Base Image
 
-The base image is a slim Python 3.11 image that runs as a non-root user. It includes basic packages for ML and scientific computing (numpy, scipy, scikit-learn, networkx, numba). A GitHub Action rebuilds and pushes this to GHCR when you change `Dockerfile.base` or `base_requirements.txt` on main. The workflow builds for both amd64 and arm64, and runs a Trivy security scan.
+The base image uses **Docker Hardened Images (DHI)** for Python 3.12. It runs as a non-root user and is "shell-free" in the final stage to prevent command injection attacks. 
 
-For local development or if you need to rebuild manually:
+It includes basic packages for ML and scientific computing (numpy, scipy, scikit-learn, networkx, numba). A GitHub Action rebuilds and pushes this to GHCR on changes. The workflow includes a Trivy security scan.
 
-```
-docker build -f submissions/Dockerfile.base -t gameai-agent-base:latest submissions/
+For local development:
+
+```bash
+docker build -f submissions/Dockerfile.base -t ghcr.io/aiclub-aachen/game-ai-platform/agent-base:latest submissions/
 ```
