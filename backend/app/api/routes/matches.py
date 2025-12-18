@@ -1,12 +1,8 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
-
-from app.db.session import get_session
-from app.api.deps import get_current_user
-from app.core.queue import job_queue
-from app.models.match import Match, MatchStatus
+from app.api.deps import get_current_user, get_match_service
+from app.api.services.match import MatchService
 from app.models.user import User
 from app.schemas.match import MatchCreate, MatchRead
 
@@ -17,31 +13,20 @@ router = APIRouter()
 async def create_match(
     match_in: MatchCreate,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_session),
+    service: MatchService = Depends(get_match_service),
 ):
     """
     Create a new match request.
     """
-    match = Match(
-        status=MatchStatus.QUEUED,
-        config=match_in.config
-    )
-    db.add(match)
-    db.commit()
-    db.refresh(match)
-
-    # Enqueue job
-    await job_queue.enqueue_match(match.id, match.config)
-
-    return match
+    return await service.create_match(match_in.config)
 
 
 @router.get("/{match_id}", response_model=MatchRead)
 def get_match(
     match_id: str,
-    db: Session = Depends(get_session),
+    service: MatchService = Depends(get_match_service),
 ):
-    match = db.get(Match, match_id)
+    match = service.get_match(match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     return match
@@ -49,9 +34,8 @@ def get_match(
 
 @router.get("/", response_model=list[MatchRead])
 def list_matches(
-    db: Session = Depends(get_session),
+    service: MatchService = Depends(get_match_service),
     skip: int = 0,
     limit: int = 20,
 ):
-    query = select(Match).offset(skip).limit(limit)
-    return db.exec(query).all()
+    return service.list_matches(skip, limit)

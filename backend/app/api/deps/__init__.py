@@ -33,6 +33,8 @@ from app.api.deps.services import (
     get_email_notification_service,
     get_user_repository,
     get_user_service,
+    get_submission_service,
+    get_match_service,
 )
 
 
@@ -43,6 +45,8 @@ __all__ = [
     "get_email_notification_service",
     "get_user_repository",
     "get_user_service",
+    "get_submission_service",
+    "get_match_service",
     # Authentication
     "CurrentUser",
     "OptionalUser",
