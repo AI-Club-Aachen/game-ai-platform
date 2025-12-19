@@ -108,6 +108,7 @@ ignore = [
     "G004",    # Logging statement uses f-string
     "SIM108",  # Use ternary operator `move = agent1.get_move(state) if state.turn == 0 else agent2.get_move(state)` instead of `if`-`else`-block
     "TC001",   # Use `if TYPE_CHECKING:` for type-checking imports
+    "TC003",   # Move into `if TYPE_CHECKING:` block
 ]
 
 fixable = ["ALL"]

@@ -28,10 +28,6 @@ The `GameState` object passed to `get_move` is defined in `gamelib.GAME.gamestat
 ### Move
 The `Move` object returned by `get_move` is defined in `gamelib.GAME.move`.
 
-## Running Your Agent
-
-The agent uses standard input/output (stdin/stdout) to communicate with the game engine. When running on the platform, this is handled automatically. To test locally, you can instantiate your class in a `if __name__ == "__main__":` block as shown in the example.
-
 ## Example in TicTacToe
 
 Here is a simple example of a tictactoe agent that selects the first available cell on the board.
@@ -39,9 +35,7 @@ Here is a simple example of a tictactoe agent that selects the first available c
 ```python
 from typing import override
 
-from gamelib.tictactoe.agent import Agent
-from gamelib.tictactoe.gamestate import GameState
-from gamelib.tictactoe.move import Move
+from gamelib.tictactoe import Agent, GameState, Move
 
 class MyTicTacToeAgent(Agent):
     @override
@@ -66,7 +60,28 @@ class MyTicTacToeAgent(Agent):
         raise ValueError("No valid moves available.")
 
 if __name__ == "__main__":
-    # Instantiate the agent to start the game loop
-    MyTicTacToeAgent()
+    # Instantiate and start the agent (run by the platform)
+    agent = MyTicTacToeAgent()
+    agent.start()
 ```
 
+You can import this example agent right away with:
+```python
+from gamelib.tictactoe.examples import TicTacToeAgent
+```
+
+## Running Your Agent
+
+The agent uses standard input/output (stdin/stdout) to communicate with the game engine, when running on the platform. This is handled automatically as long as your agent is a subclass of `gamelib.GAME.agent.Agent`and properly started in the `__main__` block.
+
+To test locally, you can use the DevRunner provided in the `gamelib.GAME.dev_runner` module:
+```python
+from gamelib.tictactoe import DevRunner
+
+runner = DevRunner()
+agent1 = TicTacToeAgent()
+agent2 = TicTacToeAgent()
+runner.add_agent(agent1)
+runner.add_agent(agent2)
+runner.start()
+```

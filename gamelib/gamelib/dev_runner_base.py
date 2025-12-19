@@ -4,12 +4,26 @@ from gamelib.agent_base import AgentBase
 
 
 class DevRunnerBase(ABC):
+    @abstractmethod
     def __init__(self) -> None:
-        self.agents: list[AgentBase] = []
+        """
+        Initialize the development runner.
+        Subclasses must implement this.
+        """
+        raise NotImplementedError
 
+    @abstractmethod
     def add_agent(self, agent: AgentBase) -> None:
-        self.agents.append(agent)
+        """
+        Add an agent to the game.
+        Subclasses must implement this.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def start(self) -> None:
-        raise NotImplementedError("This method should be overridden by subclasses.")
+        """
+        Start the game loop.
+        Subclasses must implement this.
+        """
+        raise NotImplementedError

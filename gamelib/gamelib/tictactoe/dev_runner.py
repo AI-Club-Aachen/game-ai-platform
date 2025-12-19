@@ -3,19 +3,27 @@ from __future__ import annotations
 from typing import override
 
 from gamelib import DevRunnerBase
-from gamelib.tictactoe.engine import Engine
+from gamelib.tictactoe.agent import Agent
+from gamelib.tictactoe.engine import Engine, GameStatus
 from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.move import Move
 
 
 EXPECTED_AGENT_COUNT = 2
-DRAW_STATUS = -2
 
 
 class DevRunner(DevRunnerBase):
     """
     Dev runner for Tic-Tac-Toe game.
     """
+
+    @override
+    def __init__(self) -> None:
+        self.agents: list[Agent] = []
+
+    @override
+    def add_agent(self, agent: Agent) -> None:
+        self.agents.append(agent)
 
     @override
     def start(self) -> None:
@@ -36,11 +44,14 @@ class DevRunner(DevRunnerBase):
 
         while not engine.is_game_over(state):
             current_player = state.turn
-            agent = self.agents[current_player]
+            cur_agent: Agent = self.agents[current_player]
 
-            move: Move = agent.get_move(state)
+            move: Move = cur_agent.get_move(state)  # type: ignore
             if not engine.validate_move(state, move):
-                raise ValueError(f"Invalid move from player {current_player}: {move}")
+                print(f"Player {current_player} made an invalid move: {move}")
+                print("Match ended due to invalid move.")
+                print(f"Result: Player {1 - current_player} wins by opponent's invalid move.")
+                return
 
             state = engine.apply_move(state, move)
             print(f"Player {current_player} plays position {move.position}")
@@ -66,7 +77,7 @@ class DevRunner(DevRunnerBase):
     def _announce_result(self, state: State) -> None:
         """Print the final outcome of the match."""
 
-        if state.status == DRAW_STATUS:
+        if state.status == GameStatus.DRAW.value:
             print("Result: Draw")
         else:
             print(f"Result: Player {state.status} wins")
