@@ -243,3 +243,28 @@ async def delete_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user",
         ) from e
+
+
+@router.patch("/{user_id}/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("1000/hour")
+async def verify_user_email(
+    request: Request,  # noqa: ARG001
+    user_id: UUID,
+    admin: CurrentAdmin,
+    user_service: Annotated[UserService, Depends(get_user_service)],
+) -> UserResponse:
+    """Admin: Manually verify a user's email."""
+    try:
+        user = user_service.verify_user_email(admin=admin, user_id=user_id)
+        return UserResponse.model_validate(user)
+    except UserNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except UserServiceError as e:
+        logger.exception("Error verifying email for user %s by admin %s", user_id, admin.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify user email",
+        ) from e

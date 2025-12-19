@@ -78,8 +78,8 @@ export function UserManagement() {
 
   const handleSaveEdit = () => {
     if (selectedUser) {
-      setUsers(users.map(u => 
-        u.id === selectedUser.id 
+      setUsers(users.map(u =>
+        u.id === selectedUser.id
           ? { ...u, role: editedRole, email_verified: editedVerified }
           : u
       ));
@@ -97,8 +97,8 @@ export function UserManagement() {
   };
 
   const handleVerifyEmail = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId 
+    setUsers(users.map(u =>
+      u.id === userId
         ? { ...u, email_verified: true }
         : u
     ));
@@ -179,7 +179,7 @@ export function UserManagement() {
                     <IconButton
                       size="small"
                       onClick={() => handleEdit(user)}
-                      sx={{ 
+                      sx={{
                         mr: 1,
                         color: '#ffffff',
                         backgroundColor: 'transparent !important',
@@ -232,7 +232,7 @@ export function UserManagement() {
               label="Username"
               value={selectedUser?.username || ''}
               disabled
-              sx={{ 
+              sx={{
                 mb: 3,
                 width: 350,
                 '& .MuiInputBase-input.Mui-disabled': {
@@ -250,7 +250,7 @@ export function UserManagement() {
               label="Email"
               value={selectedUser?.email || ''}
               disabled
-              sx={{ 
+              sx={{
                 mb: 3,
                 width: 350,
                 '& .MuiInputBase-input.Mui-disabled': {
@@ -289,14 +289,14 @@ export function UserManagement() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', px: 3, pb: 2 }}>
-          <Button 
+          <Button
             onClick={() => setEditDialogOpen(false)}
             variant="gradientBorder"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleSaveEdit} 
+          <Button
+            onClick={handleSaveEdit}
             variant="gradientBorder"
           >
             Save Changes
@@ -313,14 +313,14 @@ export function UserManagement() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', px: 3, pb: 2 }}>
-          <Button 
+          <Button
             onClick={() => setDeleteDialogOpen(false)}
             variant="gradientBorder"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleConfirmDelete} 
+          <Button
+            onClick={handleConfirmDelete}
             variant="gradientBorder"
           >
             Delete
