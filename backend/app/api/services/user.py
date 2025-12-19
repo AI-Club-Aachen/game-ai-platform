@@ -215,8 +215,9 @@ class UserService:
 
         try:
             updated = self._repo.save(user)
-            logger.warning("Admin %s manually verified email for user %s (%s)", admin.id, user_id, user.email)
-            return updated
         except UserRepositoryError as e:
             logger.exception("Error verifying email for user %s", user_id)
             raise UserServiceError("Failed to verify user email") from e
+        else:
+            logger.warning("Admin %s manually verified email for user %s (%s)", admin.id, user_id, user.email)
+            return updated
