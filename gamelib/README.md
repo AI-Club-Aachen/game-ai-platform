@@ -9,12 +9,14 @@ This directory contains the core game logic and interfaces for the AI Game Compe
     - `engine_base.py`: Base class for game engines (rules, move validation, state updates).
     - `gamestate_base.py`: Base class for game state representations.
     - `move_base.py`: Base class for move representations.
+    - `dev_runner_base.py`: Utility to run games between agents for development and testing.
 
 - **Game Implementations**: Each game has its own subdirectory (e.g., `tictactoe/`) containing implementations of the base classes.
     - `gamestate.py`: Defines the specific game state (board, scores, etc.).
     - `move.py`: Defines valid moves for the game.
     - `engine.py`: Implements the game rules.
     - `agent.py`: Base agent for the specific game (handles game-specific I/O).
+    - `dev_runner.py`: Utility to run matches between agents for that game.
 
 - **Tests**: `tests/` contains unit and integration tests for the games.
 
@@ -25,8 +27,9 @@ To add a new game (e.g., "Chess"), follow these steps:
 1.  **Create a Directory**: Create `gamelib/chess/`.
 2.  **Implement State**: Create `gamelib/chess/gamestate.py` inheriting from `GameStateBase`. Implement `initial`, `clone`, `from_json`, and `to_json`.
 3.  **Implement Move**: Create `gamelib/chess/move.py` inheriting from `MoveBase`. Implement `from_json` and `to_json`.
-4.  **Implement Engine**: Create `gamelib/chess/engine.py` inheriting from `EngineBase`. Implement `validate_move`, `apply_move`, `is_game_over`, and `get_status`.
-5.  **Implement Agent**: Create `gamelib/chess/agent.py` inheriting from `AgentBase`. Override `_read_init` and `_read_state` to parse your specific JSON formats.
+4.  **Implement Engine**: Create `gamelib/chess/engine.py` inheriting from `EngineBase`. Implement `__init__`, `validate_move`, `apply_move`, `is_game_over`, and `get_status`.
+5.  **Implement Agent**: Create `gamelib/chess/agent.py` inheriting from `AgentBase`. Implement `_read_init` and `_read_state` to parse your specific JSON formats.
+6.  **Implement Dev Runner**: Create `gamelib/chess/dev_runner.py` inheriting from `DevRunnerBase`. Implement the game loop in the `start` method.
 
 ## Tic-Tac-Toe Example
 
@@ -34,7 +37,7 @@ The `tictactoe/` directory provides a complete reference implementation.
 
 - **State**: 3x3 board, current turn, and game status.
 - **Engine**: Standard Tic-Tac-Toe rules.
-- **Agent**: Includes a `SimpleAgent` example that plays random valid moves.
+- **Agent**: Includes a `SimpleAgent` example that plays first valid move.
 
 ## Running Tests
 
@@ -54,12 +57,14 @@ After `uv sync`, you can run either:
 uv run python -m scripts.commands lint
 uv run python -m scripts.commands format
 uv run python -m scripts.commands type-check
+uv run python -m scripts.commands checks-all
 ```
 or with the venv activated:
 ```
 python -m scripts.commands lint
 python -m scripts.commands format
 python -m scripts.commands type-check
+python -m scripts.commands checks-all
 ```
 
 ## Packaging and Publishing

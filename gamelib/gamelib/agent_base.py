@@ -14,9 +14,11 @@ class AgentBase(ABC):
     Base class for game agent implementations.
     """
 
-    def __init__(self) -> None:
+    def start(self) -> None:
         """
-        Initialize the agent and game loop.
+        Initialize the agent and start the game loop.
+        Should only be used by competition servers.
+        Use DevRunner for local testing instead.
         """
         init_data = self._read_init()
         self.initialize(init_data)

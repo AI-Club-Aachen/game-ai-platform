@@ -2,11 +2,19 @@
 Tic Tac Toe game engine implementation.
 """
 
+from enum import Enum
 from typing import override
 
 from gamelib.engine_base import EngineBase
 from gamelib.tictactoe.gamestate import GameState as State
 from gamelib.tictactoe.move import Move
+
+
+class GameStatus(Enum):
+    ONGOING = -1
+    DRAW = -2
+    PLAYER_0_WINS = 0
+    PLAYER_1_WINS = 1
 
 
 class Engine(EngineBase):
@@ -36,7 +44,7 @@ class Engine(EngineBase):
             raise TypeError("Invalid game state type.")
         if not isinstance(move, Move):
             raise TypeError("Invalid move type.")
-        if game_state.status != -1:
+        if game_state.status != GameStatus.ONGOING.value:
             return False  # Game is already over
         if game_state.board[move.position] != -1:
             return False  # Cell is not empty
@@ -66,7 +74,7 @@ class Engine(EngineBase):
         Args:
             game_state (State): The current game state.
         Returns:
-            int: 0 if player 0 wins, 1 if player 1 wins, -2 for a draw, -1 if the game is ongoing.
+            int: The status of the game (check GameStatus enum for details).
         """
         winning_positions = [
             [0, 1, 2],
@@ -83,12 +91,12 @@ class Engine(EngineBase):
                 game_state.board[positions[0]] != -1
                 and game_state.board[positions[0]] == game_state.board[positions[1]] == game_state.board[positions[2]]
             ):
-                return game_state.board[positions[0]]  # Return the winning player immediately
+                return GameStatus(game_state.board[positions[0]]).value  # Return the winning player immediately
 
         if all(cell != -1 for cell in game_state.board):
-            return -2  # Draw
+            return GameStatus.DRAW.value  # Draw
 
-        return -1  # Game is ongoing
+        return GameStatus.ONGOING.value  # Game is ongoing
 
     @override
     def is_game_over(self, game_state: State) -> bool:
@@ -101,4 +109,4 @@ class Engine(EngineBase):
         Returns:
             bool: True if the game is over, False otherwise.
         """
-        return game_state.status != -1
+        return game_state.status != GameStatus.ONGOING.value

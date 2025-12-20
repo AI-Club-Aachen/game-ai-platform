@@ -30,9 +30,9 @@ def test_full_game():
     """
     Test a full game of Tic-Tac-Toe between two simple agents.
     """
-    agent1 = Agent(run_init=False)
+    agent1 = Agent()
     agent1.player_id = 0
-    agent2 = Agent(run_init=False)
+    agent2 = Agent()
     agent2.player_id = 1
     engine = Engine()
     state = State.initial()  # Initial empty state
@@ -154,7 +154,7 @@ def test_agent_identifies_player():
     from the 'turn' field of the initial state.
     """
     # Test for Player 0
-    agent_0 = Agent(run_init=False)
+    agent_0 = Agent()
     init_state_0 = State.initial({"turn": 0})  # Player 0's turn
 
     # Simulate the _read_init logic: agent determines player_id from init state's turn
@@ -164,7 +164,7 @@ def test_agent_identifies_player():
     assert agent_0.player_id == 0, "Agent should identify as player 0 when turn=0 in initial state"
 
     # Test for Player 1
-    agent_1 = Agent(run_init=False)
+    agent_1 = Agent()
     init_state_1 = State.initial({"turn": 1})  # Player 1's turn
 
     # Simulate the _read_init logic: agent determines player_id from init state's turn

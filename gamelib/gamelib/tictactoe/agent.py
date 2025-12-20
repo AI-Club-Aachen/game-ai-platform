@@ -16,15 +16,6 @@ class Agent(AgentBase):
     Do not override __init__; use initialize() instead.
     """
 
-    def __init__(self, run_init: bool = True) -> None:
-        """
-        Initialize the Tic-Tac-Toe agent.
-        Args:
-            run_init (bool): Whether to run the init loop.
-        """
-        if run_init:
-            super().__init__()
-
     @override
     def _read_init(self) -> dict:
         """
