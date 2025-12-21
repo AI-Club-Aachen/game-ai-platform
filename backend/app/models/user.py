@@ -23,6 +23,7 @@ class User(SQLModel, table=True):
     email: str = Field(sa_column=Column(String, unique=True, index=True, nullable=False))
     password_hash: str = Field(nullable=False)
     role: UserRole = Field(default=UserRole.GUEST, nullable=False)
+    profile_picture_url: str | None = Field(default=None, nullable=True)
 
     # Email verification fields
     email_verified: bool = Field(default=False, nullable=False, index=True)

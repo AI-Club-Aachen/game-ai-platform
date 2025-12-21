@@ -12,6 +12,7 @@ class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(..., min_length=12, max_length=128)
+    profile_picture_url: str | None = None
 
     @field_validator("username")
     @classmethod
@@ -27,6 +28,7 @@ class UserUpdate(BaseModel):
 
     username: str | None = Field(None, min_length=3, max_length=50)
     email: EmailStr | None = None
+    profile_picture_url: str | None = None
 
     @field_validator("username")
     @classmethod
@@ -50,6 +52,7 @@ class UserResponse(BaseModel):
     username: str
     email: EmailStr
     role: UserRole
+    profile_picture_url: str | None
     email_verified: bool
     created_at: datetime
     updated_at: datetime
