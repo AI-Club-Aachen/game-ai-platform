@@ -1,5 +1,3 @@
-import random
-import string
 import uuid
 
 import pytest
@@ -8,27 +6,12 @@ from sqlmodel import select
 from app.core.config import settings
 from app.models.user import User, UserRole
 from tests.api.test_users import _create_admin_and_token, _create_verified_user_and_token
+from tests.utils import random_email, random_username, strong_password
 
 
 # ruff: noqa: S311
 
 API_PREFIX = settings.API_V1_PREFIX
-
-
-def _generate_strong_password() -> str:
-    """Generate a password that satisfies strict complexity requirements."""
-    chars = string.ascii_letters + string.digits + "!@#$%^&*"
-    # Ensure at least one of each required type
-    password = [
-        random.choice(string.ascii_uppercase),
-        random.choice(string.ascii_lowercase),
-        random.choice(string.digits),
-        random.choice("!@#$%^&*"),
-    ]
-    # Fill the rest
-    password.extend(random.choice(chars) for _ in range(12))
-    random.shuffle(password)
-    return "".join(password)
 
 
 @pytest.mark.anyio
@@ -40,17 +23,17 @@ async def test_role_enforcement_flow(api_client, fake_email_client, db_session):
     3. Admin demotes User to Guest -> Admin Endpoint -> 403
     """
     # 1. Create standard user (Guest)
-    username = f"role_test_user_{uuid.uuid4().hex[:8]}"
-    email = f"{username}@example.com"
-    password = _generate_strong_password()
+    username = random_username()
+    email = random_email()
+    password = strong_password()
     user_id, user_token = await _create_verified_user_and_token(
         api_client, fake_email_client, username, email, password
     )
 
     # 2. Create Admin
-    admin_username = f"role_test_admin_{uuid.uuid4().hex[:8]}"
-    admin_email = f"{admin_username}@example.com"
-    admin_password = _generate_strong_password()
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
@@ -109,9 +92,9 @@ async def test_user_deletion_flow(api_client, fake_email_client, db_session):
     3. User tries to Login -> Fail
     """
     # 1. Create User
-    username = f"delete_test_user_{uuid.uuid4().hex[:8]}"
-    email = f"{username}@example.com"
-    password = _generate_strong_password()
+    username = random_username()
+    email = random_email()
+    password = strong_password()
     user_id, _ = await _create_verified_user_and_token(api_client, fake_email_client, username, email, password)
 
     # 2. Login check (should work)
@@ -122,9 +105,9 @@ async def test_user_deletion_flow(api_client, fake_email_client, db_session):
     assert response.status_code == 200
 
     # 3. Create Admin
-    admin_username = f"delete_test_admin_{uuid.uuid4().hex[:8]}"
-    admin_email = f"{admin_username}@example.com"
-    admin_password = _generate_strong_password()
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
@@ -154,10 +137,10 @@ async def test_password_change_security_flow(api_client, fake_email_client):
     3. Login with Old Password -> Fail
     4. Login with New Password -> Success
     """
-    username = f"pw_security_user_{uuid.uuid4().hex[:8]}"
-    email = f"{username}@example.com"
-    old_password = _generate_strong_password()
-    new_password = _generate_strong_password()
+    username = random_username()
+    email = random_email()
+    old_password = strong_password()
+    new_password = strong_password()
 
     _, bearer_token = await _create_verified_user_and_token(
         api_client, fake_email_client, username, email, old_password
