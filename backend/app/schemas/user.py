@@ -61,3 +61,18 @@ class UserRoleUpdate(BaseModel):
     """Schema for admin updating user role"""
 
     role: UserRole
+
+
+class ChangePasswordResponse(BaseModel):
+    """Response for password change"""
+
+    message: str
+
+
+class UserListResponse(BaseModel):
+    """Response for listing users with pagination"""
+
+    data: list[UserResponse]
+    total: int
+    skip: int
+    limit: int

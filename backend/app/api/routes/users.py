@@ -23,7 +23,9 @@ from app.api.services.user import (
 )
 from app.models.user import UserRole
 from app.schemas.user import (
+    ChangePasswordResponse,
     PasswordChangeRequest,
+    UserListResponse,
     UserResponse,
     UserRoleUpdate,
     UserUpdate,
@@ -79,14 +81,14 @@ async def update_current_user_profile(
         ) from e
 
 
-@router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
+@router.post("/change-password", response_model=ChangePasswordResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def change_password(
     request: Request,  # noqa: ARG001
     password_request: PasswordChangeRequest,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
-) -> dict:
+) -> ChangePasswordResponse:
     """
     Change current user's password.
 
@@ -107,11 +109,11 @@ async def change_password(
             detail="Failed to change password",
         ) from e
     else:
-        return {"message": "Password changed successfully"}
+        return ChangePasswordResponse(message="Password changed successfully")
 
 
 # Admin endpoints with higher rate limits (1000/hour)
-@router.get("/", response_model=dict, status_code=status.HTTP_200_OK)
+@router.get("/", response_model=UserListResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
     request: Request,  # noqa: ARG001
@@ -121,7 +123,7 @@ async def list_users(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
     role: Annotated[UserRole | None, Query()] = None,
     email_verified: Annotated[bool | None, Query()] = None,
-) -> dict:
+) -> UserListResponse:
     """Admin: List all users with filtering and pagination."""
     try:
         users, total = user_service.list_users(
@@ -145,13 +147,12 @@ async def list_users(
         limit,
     )
 
-    return {
-        "data": users,
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-    }
-
+    return UserListResponse(
+        data=[UserResponse.model_validate(u) for u in users],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
