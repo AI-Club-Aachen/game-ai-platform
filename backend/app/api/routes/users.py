@@ -27,6 +27,7 @@ from app.schemas.user import (
     PasswordChangeRequest,
     UserListResponse,
     UserResponse,
+    UserRoleList,
     UserRoleUpdate,
     UserUpdate,
 )
@@ -36,6 +37,20 @@ logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/users")
+
+
+@router.get("/roles", response_model=UserRoleList, status_code=status.HTTP_200_OK)
+@limiter.limit("60/minute")
+async def list_roles(
+    request: Request,  # noqa: ARG001
+    # We allow any authenticated user to see available roles, or even public if needed.
+    # For now, let's keep it open or maybe just require auth?
+    # Given it's a "platform", knowing roles isn't super sensitive, but usually you'd be logged in.
+    # Let's make it authenticated to be consistent with /me.
+    user: CurrentUser,
+) -> UserRoleList:
+    """List all available user roles."""
+    return UserRoleList(roles=list(UserRole))
 
 
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)

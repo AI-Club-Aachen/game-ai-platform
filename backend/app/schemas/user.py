@@ -79,3 +79,9 @@ class UserListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class UserRoleList(BaseModel):
+    """Response schema for available user roles"""
+
+    roles: list[UserRole]

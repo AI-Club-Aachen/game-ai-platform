@@ -345,3 +345,34 @@ async def test_admin_get_update_delete_nonexistent_user_fails(api_client, fake_e
     )
     assert delete_response.status_code == 404
     assert "User not found" in delete_response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Success: get user roles
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_roles_authenticated(api_client, fake_email_client):
+    username = "roles_user"
+    email = "roles_user@example.com"
+    password = "R0lesStr0ngP@ssw0rd!"
+    _, token = await _create_verified_user_and_token(
+        api_client, fake_email_client, username, email, password
+    )
+
+    response = await api_client.get(f"{API_PREFIX}/users/roles", headers={"Authorization": token})
+    assert response.status_code == 200
+    data = response.json()
+    assert "roles" in data
+    assert len(data["roles"]) == 3
+    assert "guest" in data["roles"]
+    assert "user" in data["roles"]
+    assert "admin" in data["roles"]
+
+
+@pytest.mark.anyio
+async def test_get_roles_unauthenticated(api_client):
+    response = await api_client.get(f"{API_PREFIX}/users/roles")
+    # HTTPBearer raises 403 when Authorization header is missing.
+    assert response.status_code == 403
