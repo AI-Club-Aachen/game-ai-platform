@@ -43,11 +43,7 @@ router = APIRouter(prefix="/users")
 @limiter.limit("60/minute")
 async def list_roles(
     request: Request,  # noqa: ARG001
-    # We allow any authenticated user to see available roles, or even public if needed.
-    # For now, let's keep it open or maybe just require auth?
-    # Given it's a "platform", knowing roles isn't super sensitive, but usually you'd be logged in.
-    # Let's make it authenticated to be consistent with /me.
-    user: CurrentUser,
+    user: CurrentUser,  # noqa: ARG001
 ) -> UserRoleList:
     """List all available user roles."""
     return UserRoleList(roles=list(UserRole))
@@ -168,6 +164,7 @@ async def list_users(
         skip=skip,
         limit=limit,
     )
+
 
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")

@@ -71,7 +71,9 @@ async def resend_verification_email(
     return EmailVerificationResponse(message="Verification email sent. Check your inbox.")
 
 
-@router.post("/{user_id}/resend-verification", status_code=status.HTTP_200_OK, response_model=AdminEmailVerificationResponse)
+@router.post(
+    "/{user_id}/resend-verification", status_code=status.HTTP_200_OK, response_model=AdminEmailVerificationResponse
+)
 @limiter.limit("1000/hour")
 async def admin_resend_verification_email(
     request: Request,  # noqa: ARG001

@@ -9,8 +9,6 @@ from tests.api.test_users import _create_admin_and_token, _create_verified_user_
 from tests.utils import random_email, random_username, strong_password
 
 
-# ruff: noqa: S311
-
 API_PREFIX = settings.API_V1_PREFIX
 
 

@@ -1,7 +1,10 @@
 import re
+
 import pytest
+
 from app.core.config import settings
 from tests.utils import random_email, random_username, strong_password
+
 
 API_PREFIX = settings.API_V1_PREFIX
 

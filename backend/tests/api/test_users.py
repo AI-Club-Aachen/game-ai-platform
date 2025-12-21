@@ -358,9 +358,7 @@ async def test_get_roles_authenticated(api_client, fake_email_client):
     username = random_username()
     email = random_email()
     password = strong_password()
-    _, token = await _create_verified_user_and_token(
-        api_client, fake_email_client, username, email, password
-    )
+    _, token = await _create_verified_user_and_token(api_client, fake_email_client, username, email, password)
 
     response = await api_client.get(f"{API_PREFIX}/users/roles", headers={"Authorization": token})
     assert response.status_code == 200
