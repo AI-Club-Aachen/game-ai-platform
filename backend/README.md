@@ -148,16 +148,17 @@ Create `.env` from `.env.example` and set:
 ### Features
 
 - User registration with email verification (default role: `guest`)
+- Profile picture support (upload and update via API)
 - Email verification with secure tokens and configurable expiry
 - Password reset via email with secure tokens
-- JWT‑based authentication for API access
-- Role‑based access control (`guest`, `user`, `admin`)
+- JWT-based authentication for API access
+- Role-based access control (`guest`, `user`, `admin`)
 - Password hashing with bcrypt and strong password validation
-- Async email delivery via SMTP with retry/backoff and environment‑aware behavior (log‑only in development)
+- Async email delivery via SMTP with retry/backoff and environment-aware behavior (log-only in development)
 - Strong typing with SQLModel and Pydantic for models and schemas
 - PostgreSQL database with Alembic migrations
 - Docker Compose setup for backend, PostgreSQL, and Redis
-- Rate limiting with SlowAPI (per‑endpoint quotas)
+- Rate limiting with SlowAPI (per-endpoint and global quota)
 - Centralized logging and structured error handling
 - Security middleware (CORS, security headers, HSTS in production)
 
@@ -189,9 +190,11 @@ Deployments in staging/production enforce full SMTP configuration at startup, so
 
 ### User Roles
 
+The backend defines three roles using specific enums. You can retrieve the list of available roles via the `GET /users/roles` endpoint (authenticated).
+
 #### Guest (default)
 
-- Read‑only access to public content.
+- Read-only access to public content.
 - Cannot upload models or participate in matches.
 - Must be promoted to `user` by an admin.
 
@@ -227,7 +230,7 @@ Deployments in staging/production enforce full SMTP configuration at startup, so
 
 ### Testing
 
-The backend ships with async end‑to‑end tests for auth, email verification, and user/role management, built with `pytest` and `pytest-anyio`. 
+The backend ships with async end-to-end tests for auth, email verification, and user/role management, built with `pytest` and `pytest-anyio`.
 
 #### Docker Compose Files
 
@@ -253,8 +256,9 @@ The test suite:
 - Spins up the FastAPI app in‑process and talks to it via an async HTTP client. 
 - Uses a dedicated Postgres test database and overrides the app's DB session via `tests/conftest.py`.
 - Injects a fake email client so verification and reset emails are captured in memory instead of hitting SMTP.
+- Uses `tests/utils.py` for generating random test data (users, emails, strong passwords) to ensure robust and independent test cases.
 
-Test environment variables (DB URLs, JWT secret, `ENVIRONMENT=test`) are configured in `pytest.ini` using `pytest-env`.
+Test environment variables are configured in `pytest.ini`.
 
 ### Security Notes
 

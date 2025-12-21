@@ -3,6 +3,7 @@ import re
 import pytest
 
 from app.core.config import settings
+from tests.utils import random_email, random_username, strong_password
 
 
 API_PREFIX = settings.API_V1_PREFIX
@@ -56,10 +57,10 @@ async def _create_verified_user(api_client, fake_email_client, username: str, em
 
 @pytest.mark.anyio
 async def test_auth_happy_path_register_verify_login_reset_password(api_client, fake_email_client):
-    username = "authhappyuser"
-    email = "authhappyuser@example.com"
-    original_password = "Str0ngOriginalPass!"
-    new_password = "Str0ngNewPassw0rd!"
+    username = random_username()
+    email = random_email()
+    original_password = strong_password()
+    new_password = strong_password()
 
     fake_email_client.sent.clear()
 
@@ -127,9 +128,9 @@ async def test_auth_happy_path_register_verify_login_reset_password(api_client, 
 
 @pytest.mark.anyio
 async def test_login_fails_if_email_not_verified(api_client, fake_email_client):
-    username = "unverifieduser"
-    email = "unverifieduser@example.com"
-    password = "Unver1fiedPass!"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
 
     fake_email_client.sent.clear()
 
@@ -146,10 +147,10 @@ async def test_login_fails_if_email_not_verified(api_client, fake_email_client):
 
 @pytest.mark.anyio
 async def test_login_fails_with_wrong_credentials(api_client, fake_email_client):
-    username = "verifiedforwronglogin"
-    email = "verifiedforwronglogin@example.com"
-    password = "Wr0ngLoginBasePass!"
-    wrong_password = "TotallyWrongPass123!"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
+    wrong_password = strong_password()
 
     await _create_verified_user(api_client, fake_email_client, username, email, password)
 
@@ -164,9 +165,9 @@ async def test_login_fails_with_wrong_credentials(api_client, fake_email_client)
 
 @pytest.mark.anyio
 async def test_register_fails_if_user_already_exists(api_client, fake_email_client):
-    username = "existinguser"
-    email = "existinguser@example.com"
-    password = "Exist1ngAcc0unt!1"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
 
     await _create_verified_user(api_client, fake_email_client, username, email, password)
 
