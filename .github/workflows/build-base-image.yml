@@ -7,8 +7,8 @@ on:
       - 'feat/submissions-and-agent-runner'
       - 'feat/agent-builder'
     paths:
-      - 'submissions/Dockerfile.base'
-      - 'submissions/base_requirements.txt'
+      - 'orchestration/Dockerfile.base'
+      - 'orchestration/base_requirements.txt'
   workflow_dispatch:
 
 env:
@@ -58,8 +58,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./submissions
-          file: ./submissions/Dockerfile.base
+          context: ./orchestration
+          file: ./orchestration/Dockerfile.base
           push: true
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}

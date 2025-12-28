@@ -1,4 +1,4 @@
-## Submissions
+## Orchestration
 
 User submissions must be a `.zip` containing:
 
@@ -6,10 +6,12 @@ User submissions must be a `.zip` containing:
 
 This directory includes:
 
-* **agent_builder.py** — creates Agent images using `Dockerfile.agent`
 * **agent_builder_worker.py** — Redis worker for processing build jobs
-* **agent_runner.py** — runs Agent containers with restricted settings
-* **agent_manager.py** — utility for inspecting images/containers
+* **match_runner_worker.py** — Redis worker for processing match jobs
+* **lib/** — Core orchestration logic:
+    * **agent_builder.py** — creates Agent images using `Dockerfile.agent`
+    * **agent_runner.py** — runs Agent containers with restricted settings
+    * **agent_manager.py** — utility for inspecting images/containers
 * **Dockerfile.base** — base image using Docker Hardened Images (DHI)
 * **Dockerfile.agent** — lightweight Agent image build template
 * **base_requirements.txt** — global Python packages for the base image
@@ -18,7 +20,7 @@ This directory includes:
 * **tests/** — pytest tests run with:
 
     ```bash
-    cd submissions && uv run pytest tests/ -v
+    uv run python -m pytest
     ```
 
 ### Base Image
@@ -27,8 +29,8 @@ The base image uses **Docker Hardened Images (DHI)** for Python 3.12. It runs as
 
 It includes basic packages for ML and scientific computing (numpy, scipy, scikit-learn, networkx, numba). A GitHub Action rebuilds and pushes this to GHCR on changes. The workflow includes a Trivy security scan.
 
-For local development:
+For local development (run from project root):
 
 ```bash
-docker build -f submissions/Dockerfile.base -t ghcr.io/aiclub-aachen/game-ai-platform/agent-base:latest submissions/
+docker build -f orchestration/Dockerfile.base -t ghcr.io/aiclub-aachen/game-ai-platform/agent-base:latest orchestration/
 ```

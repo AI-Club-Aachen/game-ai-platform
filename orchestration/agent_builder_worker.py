@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import asyncio
 import json
 import logging
@@ -11,7 +12,6 @@ backend_dir = current_dir.parent / "backend"
 if str(backend_dir) not in sys.path:
     sys.path.append(str(backend_dir))
 
-import docker
 from redis import asyncio as aioredis
 from sqlmodel import Session, create_engine
 
@@ -22,10 +22,7 @@ except ImportError as e:
     print(f"Error importing backend modules: {e}")
     sys.exit(1)
 
-try:
-    from agent_builder import build_from_zip
-except ImportError:
-    from submissions.agent_builder import build_from_zip
+from lib.agent_builder import build_from_zip
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_builder_worker")
@@ -36,7 +33,7 @@ engine = create_engine(DATABASE_URL)
 
 async def process_build(submission_id: str, zip_path: str):
     logger.info(f"Processing build for submission {submission_id}")
-    
+
     with Session(engine) as session:
         submission = session.get(Submission, submission_id)
         if not submission:
@@ -51,22 +48,20 @@ async def process_build(submission_id: str, zip_path: str):
             zip_p = Path(zip_path)
             if not zip_p.exists():
                 raise FileNotFoundError(f"Zip file not found: {zip_path}")
-            
+
             zip_bytes = zip_p.read_bytes()
 
             logger.info("Starting Docker build...")
             result = await asyncio.to_thread(
-                build_from_zip, 
-                zip_bytes=zip_bytes, 
-                owner_id=str(submission.user_id)
+                build_from_zip, zip_bytes=zip_bytes, owner_id=str(submission.user_id)
             )
-            
+
             logger.info(f"Build success! Image ID: {result['image_id']}")
 
             submission.status = SubmissionStatus.COMPLETED
             submission.image_id = result["image_id"]
             submission.image_tag = result["tag"]
-            submission.logs = "Build successful" 
+            submission.logs = "Build successful"
             session.add(submission)
             session.commit()
 
@@ -81,20 +76,20 @@ async def process_build(submission_id: str, zip_path: str):
 async def worker_loop():
     redis_url = "redis://redis:6379"
     if os.getenv("ENVIRONMENT") == "development" and "redis" not in os.getenv("REDIS_HOST", ""):
-         redis_url = "redis://localhost:6379"
+        redis_url = "redis://localhost:6379"
 
     logger.info(f"Connecting to Redis at {redis_url}")
     redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=True)
 
     logger.info("Agent Builder Worker started. Waiting for jobs...")
-    
+
     while True:
         try:
             _, data_str = await redis.blpop("queue:builds", timeout=0)
-            
+
             job_data = json.loads(data_str)
             logger.info(f"Received job: {job_data}")
-            
+
             if job_data.get("type") == "build":
                 await process_build(job_data["submission_id"], job_data["zip_path"])
             else:

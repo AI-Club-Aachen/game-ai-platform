@@ -17,7 +17,7 @@ async def create_submission(
     file: Annotated[UploadFile, File(...)],
     current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
-):
+) -> SubmissionRead:
     """
     Upload an agent zip file and queue it for building.
     """
@@ -30,7 +30,10 @@ def get_submission(
     submission_id: str,  # UUID
     current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
-):
+) -> SubmissionRead:
+    """
+    Get a submission by ID.
+    """
     submission = service.get_submission(submission_id)
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
@@ -49,5 +52,8 @@ def list_submissions(
     service: SubmissionService = Depends(get_submission_service),
     skip: int = 0,
     limit: int = 20,
-):
+) -> list[SubmissionRead]:
+    """
+    List submissions for the current user.
+    """
     return service.list_user_submissions(current_user.id, skip, limit)

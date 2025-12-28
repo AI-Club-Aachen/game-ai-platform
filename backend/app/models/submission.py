@@ -22,18 +22,18 @@ class Submission(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     user_id: UUID = Field(index=True, nullable=False)  # Foreign key to User, but loose coupling for now
-    
+
     status: SubmissionStatus = Field(default=SubmissionStatus.QUEUED, nullable=False)
-    
+
     # Path to the uploaded zip file
     object_path: str = Field(nullable=False)
-    
+
     # Docker Image ID
     image_id: str | None = Field(default=None, nullable=True)
-    
+
     # Docker Image Tag
     image_tag: str | None = Field(default=None, nullable=True)
-    
+
     # Build logs or error message
     logs: str | None = Field(default=None, nullable=True)
 

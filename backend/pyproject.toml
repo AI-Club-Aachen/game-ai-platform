@@ -45,10 +45,8 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
-    "httpx>=0.28.1",
     "black>=25.11.0",
     "ruff>=0.14.3",
-    "mypy>=1.18.2",
     "psycopg[binary]>=3.2.12",
     "pytest-env>=1.2.0",
     "safety>=3.6.2",
@@ -125,6 +123,8 @@ ignore = [
     "TRY003",  # Avoid specifying long messages outside exception class
     "G004",    # Logging statement uses f-string
     "RUF022",  # __all__ is not sorted
+    "B008",    # Do not perform function call `Depends` in argument defaults
+    "ERA001",  # Found commented-out code
 ]
 
 fixable = ["ALL"]
@@ -135,8 +135,8 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR2004", "S101", "S105", "TID252", "ANN", "ARG"]
 "**/tests/**/*.py" = ["PLR2004", "S101", "S105", "TID252", "ANN", "ARG"]
-"scripts.py" = ["T201"]  # Allow print statements in scripts
-"main.py" = ["T201"]  # Allow print statements in entry point
+"scripts.py" = ["T201"]                                                  # Allow print statements in scripts
+"main.py" = ["T201"]                                                     # Allow print statements in entry point
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -180,25 +180,14 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = [
-    "-ra",
-    "--strict-markers",
-    "--strict-config",
-    "--showlocals",
-]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--showlocals"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 # Coverage configuration
 [tool.coverage.run]
 source = ["app"]
-omit = [
-    "*/tests/*",
-    "*/test_*",
-    "*/__pycache__/*",
-    "*/venv/*",
-    "*/.venv/*",
-]
+omit = ["*/tests/*", "*/test_*", "*/__pycache__/*", "*/venv/*", "*/.venv/*"]
 
 [tool.coverage.report]
 precision = 2

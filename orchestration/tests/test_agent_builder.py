@@ -1,6 +1,7 @@
 import docker
 import pytest
-from agent_builder import BuildError, build_from_zip
+
+from lib.agent_builder import BuildError, build_from_zip
 
 
 def test_builder_success_valid_zip(docker_client, create_zip, track_images):

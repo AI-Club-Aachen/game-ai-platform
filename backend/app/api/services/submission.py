@@ -8,8 +8,10 @@ from app.api.repositories.submission import SubmissionRepository
 from app.core.queue import job_queue
 from app.models.submission import Submission
 
+
 class SubmissionServiceError(Exception):
     """Base exception for submission service errors."""
+
 
 class SubmissionService:
     """Service for managing submissions."""
@@ -33,20 +35,16 @@ class SubmissionService:
         3. Enqueue build job
         """
         if not file.filename or not file.filename.endswith(".zip"):
-             raise SubmissionServiceError("Only .zip files are allowed.")
+            raise SubmissionServiceError("Only .zip files are allowed.")
 
         # 1. Create initial record
-        submission = Submission(
-            user_id=user_id,
-            object_path="pending",
-            status="queued"
-        )
+        submission = Submission(user_id=user_id, object_path="pending", status="queued")
         submission = self._repository.save(submission)
 
         # 2. Save file
         safe_filename = f"{submission.id}.zip"
         file_path = self._upload_dir / safe_filename
-        
+
         try:
             with file_path.open("wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)

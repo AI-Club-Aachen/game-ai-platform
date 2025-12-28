@@ -1,4 +1,5 @@
-from typing import Sequence, Any
+from collections.abc import Sequence
+from typing import Any
 
 from app.api.repositories.match import MatchRepository
 from app.core.queue import job_queue
@@ -22,10 +23,7 @@ class MatchService:
         """
         Create a match and queue it for execution.
         """
-        match = Match(
-            status=MatchStatus.QUEUED,
-            config=config
-        )
+        match = Match(status=MatchStatus.QUEUED, config=config)
         match = self._repository.save(match)
 
         # Enqueue job

@@ -60,7 +60,8 @@ services:
 
   agent-builder:
     build: .
-    command: python /submissions/agent_builder_worker.py
+    working_dir: /orchestration
+    command: python agent_builder_worker.py
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_HOST=redis
@@ -70,7 +71,7 @@ services:
       - redis
     volumes:
       - ./app:/app/app:z
-      - ../submissions:/submissions:z
+      - ../orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
       - ./uploads:/app/uploads:z
     user: root
@@ -80,7 +81,8 @@ services:
 
   match-runner:
     build: .
-    command: python /orchestrator/match_runner_worker.py
+    working_dir: /orchestration
+    command: python match_runner_worker.py
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_HOST=redis
@@ -90,7 +92,7 @@ services:
       - redis
     volumes:
       - ./app:/app/app:z
-      - ../orchestrator:/orchestrator:z
+      - ../orchestration:/orchestration:z
     networks:
       - app-network
     restart: unless-stopped

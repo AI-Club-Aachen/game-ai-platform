@@ -2,8 +2,9 @@ import time
 
 import docker
 import pytest
-from agent_builder import build_from_zip
-from agent_manager import (
+
+from lib.agent_builder import build_from_zip
+from lib.agent_manager import (
     delete_agent_container,
     delete_agent_image,
     delete_images_for_owner,
@@ -13,7 +14,7 @@ from agent_manager import (
     list_agent_images,
     stop_agent_container,
 )
-from agent_runner import start_agent_container
+from lib.agent_runner import start_agent_container
 
 
 @pytest.fixture

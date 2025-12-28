@@ -5,7 +5,6 @@ from uuid import UUID
 
 from redis import asyncio as aioredis
 
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ class JobQueue:
     Manages enqueuing jobs to Redis for worker processes.
     """
 
-    def __init__(self, redis_url: str = "redis://redis:6379"):
+    def __init__(self, redis_url: str = "redis://redis:6379") -> None:
         self.redis_url = redis_url
         self._redis: aioredis.Redis | None = None
 
@@ -32,7 +31,7 @@ class JobQueue:
     async def _enqueue(self, queue_name: str, payload: dict[str, Any]) -> None:
         if not self._redis:
             await self.connect()
-        
+
         # Ensure redis is connected
         if self._redis:
             await self._redis.rpush(queue_name, json.dumps(payload))

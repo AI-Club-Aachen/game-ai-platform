@@ -31,10 +31,10 @@ from app.api.deps.services import (
     get_auth_service,
     get_email_client,
     get_email_notification_service,
+    get_match_service,
+    get_submission_service,
     get_user_repository,
     get_user_service,
-    get_submission_service,
-    get_match_service,
 )
 
 

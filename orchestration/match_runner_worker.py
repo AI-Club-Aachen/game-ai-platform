@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import asyncio
 import json
 import logging
@@ -34,19 +35,19 @@ async def run_match_simulation(config: dict) -> dict:
     For now, it sleeps and returns a dummy result.
     In the future, this will use docker-py to spin up agent containers and a game engine.
     """
-    await asyncio.sleep(2) # Simulate work
-    
+    await asyncio.sleep(2)  # Simulate work
+
     # Mock result
     return {
         "winner": "agent_1" if hash(str(config)) % 2 == 0 else "agent_2",
         "scores": {"agent_1": 10, "agent_2": 5},
-        "reason": "Turn limit reached"
+        "reason": "Turn limit reached",
     }
 
 
 async def process_match(match_id: str, config: dict):
     logger.info(f"Processing match {match_id}")
-    
+
     with Session(engine) as session:
         match_obj = session.get(Match, match_id)
         if not match_obj:
@@ -60,7 +61,7 @@ async def process_match(match_id: str, config: dict):
         try:
             logger.info("Starting Match execution...")
             result = await run_match_simulation(config)
-            
+
             logger.info("Match finished.")
             match_obj.status = MatchStatus.COMPLETED
             match_obj.result = result
@@ -79,20 +80,20 @@ async def process_match(match_id: str, config: dict):
 async def worker_loop():
     redis_url = "redis://redis:6379"
     if os.getenv("ENVIRONMENT") == "development" and "redis" not in os.getenv("REDIS_HOST", ""):
-         redis_url = "redis://localhost:6379"
+        redis_url = "redis://localhost:6379"
 
     logger.info(f"Connecting to Redis at {redis_url}")
     redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=True)
 
     logger.info("Match Runner Worker started. Waiting for jobs...")
-    
+
     while True:
         try:
             _, data_str = await redis.blpop("queue:matches", timeout=0)
-            
+
             job_data = json.loads(data_str)
             logger.info(f"Received job: {job_data}")
-            
+
             if job_data.get("type") == "match":
                 await process_match(job_data["match_id"], job_data["config"])
             else:

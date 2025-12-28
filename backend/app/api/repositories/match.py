@@ -1,9 +1,10 @@
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 from sqlmodel import Session, select
 
 from app.models.match import Match
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,7 @@ class MatchRepository:
         limit: int,
     ) -> Sequence[Match]:
         """List matches with pagination."""
-        statement = (
-            select(Match)
-            .offset(skip)
-            .limit(limit)
-            .order_by(Match.created_at.desc())
-        )
+        statement = select(Match).offset(skip).limit(limit).order_by(Match.created_at.desc())
         return self._session.exec(statement).all()
 
     # --- Commands ---
