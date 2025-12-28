@@ -38,8 +38,7 @@ A comprehensive platform for hosting AI game competitions. Build your AI agent, 
 | **[backend/](backend/)** | FastAPI backend with PostgreSQL, JWT auth, and email verification | [Backend README](backend/README.md) |
 | **[frontend/](frontend/)** | Next.js web UI for user registration, match viewing, and leaderboards | [Frontend README](frontend/README.md) |
 | **[gamelib/](gamelib/)** | Core game logic and interfaces published to PyPI as `aica-gamelib` | [Gamelib README](gamelib/README.md) |
-| **[submissions/](submissions/)** | Agent builder and runner for submissions | [Submissions README](submissions/README.md) |
-| **[orchestrator/](orchestrator/)** | Match orchestrator handling containerized execution and networking | [Orchestrator README](orchestrator/README.md) |
+| **[orchestration/](orchestration/)** | Agent building, containerized execution, and match orchestration | [Orchestration README](orchestration/README.md) |
 | **[tests/](tests/)** | Cross-component integration tests | [Tests README](tests/README.md) |
 | **[docs/](docs/)** | General documentation and specifications | [Docs README](docs/README.md) |
 
@@ -67,7 +66,7 @@ Each component has its own README with detailed setup instructions. See the tabl
 - Backend: FastAPI, PostgreSQL, SQLModel, Redis, Alembic
 - Frontend: Next.js, React, TypeScript
 - Gamelib: Python 3.12+, pytest
-- Orchestrator: Docker, Python
+- Orchestration: Docker, Python
 - Build Tool: uv (for Python dependencies)
 
 ## Contributing

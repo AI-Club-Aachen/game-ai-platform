@@ -33,9 +33,10 @@ from app.schemas.user import (
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
-router = APIRouter(prefix="/users")
+router = APIRouter()
 
 
+# GET /api/v1/users/me
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_current_user_profile(
@@ -46,6 +47,7 @@ async def get_current_user_profile(
     return UserResponse.model_validate(user)
 
 
+# PATCH /api/v1/users/me
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def update_current_user_profile(
@@ -79,6 +81,7 @@ async def update_current_user_profile(
         ) from e
 
 
+# POST /api/v1/users/change-password
 @router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def change_password(
@@ -111,6 +114,7 @@ async def change_password(
 
 
 # Admin endpoints with higher rate limits (1000/hour)
+# GET /api/v1/users/
 @router.get("/", response_model=dict, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
@@ -153,6 +157,7 @@ async def list_users(
     }
 
 
+# GET /api/v1/users/{user_id}
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def get_user_by_id(
@@ -181,6 +186,7 @@ async def get_user_by_id(
     return UserResponse.model_validate(user)
 
 
+# PATCH /api/v1/users/{user_id}/role
 @router.patch("/{user_id}/role", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def update_user_role(
@@ -216,6 +222,7 @@ async def update_user_role(
         ) from e
 
 
+# DELETE /api/v1/users/{user_id}
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("1000/hour")
 async def delete_user(

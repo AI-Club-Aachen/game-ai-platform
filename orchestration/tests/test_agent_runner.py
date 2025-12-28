@@ -1,8 +1,9 @@
 import docker
 import pytest
-from submissions.agent_builder import build_from_zip
-from submissions.agent_manager import delete_agent_container
-from submissions.agent_runner import RunError, run_agent, start_agent_container
+
+from lib.agent_builder import build_from_zip
+from lib.agent_manager import delete_agent_container
+from lib.agent_runner import RunError, run_agent, start_agent_container
 
 
 @pytest.fixture
@@ -42,16 +43,16 @@ def test_run_agent_success(sleeper_agent):
 
 def test_run_agent_timeout(create_zip, track_images):
     """Test agent execution timeout."""
-    import submissions.agent_runner
+    from lib import agent_runner
 
-    original_loader = submissions.agent_runner._load_secure_defaults
+    original_loader = agent_runner._load_secure_defaults
 
     def mocked_loader():
         s = original_loader()
         s["time_limit_seconds"] = 1
         return s
 
-    submissions.agent_runner._load_secure_defaults = mocked_loader
+    agent_runner._load_secure_defaults = mocked_loader
 
     try:
         zip_bytes = create_zip({"agent.py": "import time; time.sleep(5)"})
@@ -63,7 +64,7 @@ def test_run_agent_timeout(create_zip, track_images):
         assert result["timeout"] is True
         assert result["exit_code"] == 124
     finally:
-        submissions.agent_runner._load_secure_defaults = original_loader
+        agent_runner._load_secure_defaults = original_loader
 
 
 def test_run_agent_error(error_agent):

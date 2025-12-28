@@ -29,9 +29,10 @@ logger = logging.getLogger(__name__)
 MIN_TOKEN_LENGTH = 16
 limiter = Limiter(key_func=get_remote_address)
 
-router = APIRouter(prefix="/email")
+router = APIRouter()
 
 
+# POST /api/v1/email/resend-verification
 @router.post("/resend-verification", status_code=status.HTTP_200_OK)
 @limiter.limit("10/day")
 async def resend_verification_email(
@@ -66,6 +67,7 @@ async def resend_verification_email(
     return {"message": "Verification email sent. Check your inbox."}
 
 
+# POST /api/v1/email/{user_id}/resend-verification
 @router.post("/{user_id}/resend-verification", status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def admin_resend_verification_email(
@@ -107,6 +109,7 @@ async def admin_resend_verification_email(
     }
 
 
+# POST /api/v1/email/verify-email
 @router.post("/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def verify_email(
@@ -140,6 +143,7 @@ async def verify_email(
         ) from e
 
 
+# GET /api/v1/email/verification-status
 @router.get("/verification-status", response_model=dict)
 async def check_verification_status(
     user: CurrentUser,

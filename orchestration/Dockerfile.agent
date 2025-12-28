@@ -5,5 +5,6 @@ COPY . .
 
 ARG AGENT_FILE=agent.py
 ENV AGENT_FILE=${AGENT_FILE}
+ENV PYTHONUNBUFFERED=1
 
-CMD python $AGENT_FILE
+CMD ["python", "-u", "agent.py"]

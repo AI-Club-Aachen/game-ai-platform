@@ -4,10 +4,12 @@ This document lists the security measures implemented to safely run untrusted ag
 
 ## Container Isolation
 
-**User privileges:**
-- Runs as non-root user `runner`
+**Hardening:**
+- Uses **Docker Hardened Images (DHI)** as a secure base
+- **Shell-free runtime**: `/bin/sh` and other shell binaries are removed to prevent command injection
+- Runs as non-root user `runner` (UID 10001)
 - `no-new-privileges` prevents privilege escalation
-- All Linux capabilities dropped
+- All Linux capabilities dropped (`CAP_DROP ALL`)
 
 **Filesystem:**
 - Root filesystem is read-only
@@ -28,8 +30,9 @@ Prevents resource exhaustion attacks:
 
 ## Build Security
 
-- Automated vulnerability scanning with Trivy on base image builds
-- Scans fail CI/CD if critical or high-severity vulnerabilities are found
+- **Docker Hardened Images**: Base images provided by `dhi.io` with SLSA Level 3 provenance and built-in SBOMs.
+- Automated vulnerability scanning with **Trivy** on custom dependencies.
+- Scans fail CI/CD if critical vulnerabilities are found.
 
 ## Configuration
 
