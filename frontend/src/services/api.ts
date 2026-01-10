@@ -177,6 +177,46 @@ export const authApi = {
   },
 
   /**
+   * Update user profile
+   */
+  updateProfile: async (data: { username?: string; email?: string }) => {
+    return apiRequest<{
+      id: string;
+      username: string;
+      email: string;
+      role: 'guest' | 'user' | 'admin';
+      is_verified: boolean;
+      profile_picture_url?: string;
+      created_at: string;
+      updated_at: string;
+    }>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Change password
+   */
+  changePassword: async (data: { current_password: string; new_password: string }) => {
+    return apiRequest<{
+      message: string;
+    }>('/users/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete account
+   */
+  deleteAccount: async (userId: string) => {
+    return apiRequest<void>(`/users/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
    * Logout (client-side only for now)
    */
   logout: () => {
