@@ -463,10 +463,14 @@ export const usersApi = {
    * List all users (admin only)
    */
   listUsers: async (params?: {
+    skip?: number;
+    limit?: number;
     role?: string;
     email_verified?: boolean;
   }) => {
     const queryParams = new URLSearchParams();
+    if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString());
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.role) queryParams.append('role', params.role);
     if (params?.email_verified !== undefined) queryParams.append('email_verified', params.email_verified.toString());
 
