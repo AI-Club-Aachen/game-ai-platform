@@ -61,7 +61,7 @@ export function Register() {
         password: formData.password,
       });
 
-      setSuccess('Registration successful! Please check your email to verify your account before logging in.');
+      setSuccess('Registration successful! Please check your email to verify your account.');
 
       // Clear form
       setFormData({
@@ -72,9 +72,9 @@ export function Register() {
       });
       setAgreedToTerms(false);
 
-      // Redirect to login after 3 seconds
+      // Redirect to verification page after 3 seconds
       setTimeout(() => {
-        navigate('/login');
+        navigate('/verify-email', { state: { email: formData.email } });
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');

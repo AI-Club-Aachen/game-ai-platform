@@ -20,11 +20,11 @@ export function Login() {
 
     try {
       const response = await authApi.login({ email, password });
-      
+
       // Store the access token
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('user_id', response.user_id);
-      
+
       // Use the role from the backend response
       login(response.username, response.role);
       navigate('/dashboard');
@@ -61,7 +61,21 @@ export function Login() {
 
             {error && (
               <Alert severity="error" sx={{ mb: 3, borderRadius: 0 }}>
-                {error}
+                {error.toLowerCase().includes('not verified') ? (
+                  <span>
+                    Email not verified. Check your inbox for verification link or{' '}
+                    <Link
+                      to="/verify-email"
+                      state={{ email }}
+                      style={{ color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                    >
+                      request a new one
+                    </Link>
+                    .
+                  </span>
+                ) : (
+                  error
+                )}
               </Alert>
             )}
 

@@ -21,7 +21,7 @@ class ApiError extends Error {
  */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { skipAuth?: boolean } = {}
 ): Promise<T> {
   const token = localStorage.getItem('access_token');
 
@@ -36,7 +36,7 @@ async function apiRequest<T>(
     });
   }
 
-  if (token) {
+  if (token && !options.skipAuth) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -51,7 +51,15 @@ async function apiRequest<T>(
 
       try {
         const errorData = await response.json();
-        errorMessage = errorData.detail || errorData.message || errorMessage;
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          // Handle Pydantic validation errors (array of objects)
+          errorMessage = errorData.detail
+            .map((err: any) => err.msg || JSON.stringify(err))
+            .join('. ');
+        } else {
+          // Handle standard error message (string or other)
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        }
       } catch {
         // If error response is not JSON, use status text
       }
@@ -117,7 +125,32 @@ export const authApi = {
   verifyEmail: async (token: string) => {
     return apiRequest<{
       message: string;
-    }>(`/auth/verify-email?token=${encodeURIComponent(token)}`, {
+    }>('/email/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  },
+
+  /**
+   * Resend verification email
+   */
+  resendVerification: async (email: string) => {
+    return apiRequest<{
+      message: string;
+    }>('/email/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+      skipAuth: true,
+    });
+  },
+
+  /**
+   * Check verification status
+   */
+  checkVerificationStatus: async () => {
+    return apiRequest<{
+      is_verified: boolean;
+    }>('/email/verification-status', {
       method: 'GET',
     });
   },
