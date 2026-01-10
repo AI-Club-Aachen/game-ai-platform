@@ -158,13 +158,17 @@ export const authApi = {
   /**
    * Get current user profile
    */
+  /**
+   * Get current user profile
+   */
   getCurrentUser: async () => {
     return apiRequest<{
       id: string;
       username: string;
       email: string;
+      role: 'guest' | 'user' | 'admin';
       is_verified: boolean;
-    }>('/auth/me', {
+    }>('/users/me', {
       method: 'GET',
     });
   },

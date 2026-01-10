@@ -1,15 +1,20 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authApi } from '../services/api';
 
 interface User {
   id: string;
   username: string;
+  email: string;
   role: 'guest' | 'user' | 'admin';
+  is_verified?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
-  login: (username: string, role: 'guest' | 'user' | 'admin') => void;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (user: User, token: string) => void;
   logout: () => void;
 }
 
@@ -17,22 +22,48 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (username: string, role: 'guest' | 'user' | 'admin') => {
-    setUser({
-      id: Math.random().toString(36).substr(2, 9),
-      username,
-      role,
-    });
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    const token = localStorage.getItem('access_token');
+
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const userData = await authApi.getCurrentUser();
+      setUser(userData);
+    } catch (error) {
+      console.error('Failed to restore auth session:', error);
+      logout(); // Clear invalid token
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const login = (userData: User, token: string) => {
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user_id', userData.id);
+    setUser(userData);
   };
 
   const logout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_id');
     setUser(null);
   };
 
   const value = {
     user,
     isAdmin: user?.role === 'admin',
+    isAuthenticated: !!user,
+    isLoading,
     login,
     logout,
   };

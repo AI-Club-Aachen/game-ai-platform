@@ -21,12 +21,12 @@ export function Login() {
     try {
       const response = await authApi.login({ email, password });
 
-      // Store the access token
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('user_id', response.user_id);
-
-      // Use the role from the backend response
-      login(response.username, response.role);
+      login({
+        id: response.user_id,
+        username: response.username,
+        email: email,
+        role: response.role
+      }, response.access_token);
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
@@ -116,7 +116,12 @@ export function Login() {
                 variant="outlined"
                 fullWidth
                 onClick={() => {
-                  login('admin', 'admin');
+                  login({
+                    id: 'dev-admin',
+                    username: 'admin',
+                    email: 'admin@example.com',
+                    role: 'admin'
+                  }, 'dev-token');
                   navigate('/dashboard');
                 }}
                 sx={{ mb: 2, py: 1.5 }}
