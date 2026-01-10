@@ -7,6 +7,9 @@ interface User {
   email: string;
   role: 'guest' | 'user' | 'admin';
   is_verified?: boolean;
+  profile_picture_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface AuthContextType {
@@ -14,7 +17,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user: User, token: string) => void;
+  login: (token: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -47,10 +50,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = (userData: User, token: string) => {
+  const login = async (token: string) => {
     localStorage.setItem('access_token', token);
-    localStorage.setItem('user_id', userData.id);
-    setUser(userData);
+    try {
+      // Fetch full user details immediately after setting token
+      const userData = await authApi.getCurrentUser();
+      setUser(userData);
+      localStorage.setItem('user_id', userData.id);
+    } catch (error) {
+      console.error('Failed to fetch user details during login:', error);
+      // Even if fetching user fails, we keep the token? 
+      // Or should we fail the login? 
+      // For now, let's allow it but user state might be partial if we didn't fetch it.
+      // Actually, better to throw so the UI knows login "failed" effectively if we can't get user.
+      logout();
+      throw error;
+    }
   };
 
   const logout = () => {

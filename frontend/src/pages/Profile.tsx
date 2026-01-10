@@ -15,13 +15,22 @@ import {
   DialogActions,
 } from '@mui/material';
 import { Person as PersonIcon } from '@mui/icons-material';
+import { getAvatarUrl } from '../utils/avatar';
+import { useEffect } from 'react';
 
 export function Profile() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const [username, setUsername] = useState(user?.username || '');
-  const [email, setEmail] = useState('user@example.com');
+  const [email, setEmail] = useState(user?.email || '');
+
+  useEffect(() => {
+    if (user) {
+      setUsername(user.username);
+      setEmail(user.email);
+    }
+  }, [user]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -60,6 +69,8 @@ export function Profile() {
       <Paper sx={{ p: 4 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
           <Avatar
+            src={user ? getAvatarUrl(user.username, user.profile_picture_url) : undefined}
+            alt={user?.username}
             sx={{
               width: 100,
               height: 100,
@@ -68,7 +79,7 @@ export function Profile() {
               fontSize: '2.5rem',
             }}
           >
-            <PersonIcon sx={{ fontSize: '3rem' }} />
+            {!user?.profile_picture_url && <PersonIcon sx={{ fontSize: '3rem' }} />}
           </Avatar>
           <Typography variant="h5">{username}</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -179,13 +190,13 @@ export function Profile() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeleteDialogOpen(false)}
             variant="gradientBorder"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleDeleteAccount}
             variant="outlined"
             color="error"

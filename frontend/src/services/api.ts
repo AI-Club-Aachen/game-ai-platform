@@ -168,6 +168,9 @@ export const authApi = {
       email: string;
       role: 'guest' | 'user' | 'admin';
       is_verified: boolean;
+      profile_picture_url?: string;
+      created_at: string;
+      updated_at: string;
     }>('/users/me', {
       method: 'GET',
     });
