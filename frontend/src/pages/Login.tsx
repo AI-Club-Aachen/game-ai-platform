@@ -78,6 +78,7 @@ export function Login() {
               <TextField
                 fullWidth
                 label="Email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -89,6 +90,7 @@ export function Login() {
               <TextField
                 fullWidth
                 label="Password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
