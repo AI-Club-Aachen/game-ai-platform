@@ -32,7 +32,7 @@ import {
   CheckCircle as VerifiedIcon,
   Cancel as UnverifiedIcon,
 } from '@mui/icons-material';
-import { usersApi } from '../services/api';
+import { usersApi } from '../services/api/users';
 
 interface User {
   id: string;
@@ -90,7 +90,7 @@ export function UserManagement() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 

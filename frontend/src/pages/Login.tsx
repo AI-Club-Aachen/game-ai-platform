@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert } from '@mui/material';
 import { Login as LoginIcon } from '@mui/icons-material';
-import { authApi } from '../services/api';
+import { authApi } from '../services/api/auth';
 
 export function Login() {
   const navigate = useNavigate();

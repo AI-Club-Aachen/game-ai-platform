@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 //import { useAuth } from '../context/AuthContext'; //TODO
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, Checkbox, FormControlLabel } from '@mui/material';
 import { PersonAdd } from '@mui/icons-material';
-import { authApi } from '../services/api';
+import { authApi } from '../services/api/auth';
 
 export function Register() {
   const navigate = useNavigate();

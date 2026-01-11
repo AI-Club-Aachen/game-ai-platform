@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Person as PersonIcon } from '@mui/icons-material';
 import { getAvatarUrl } from '../utils/avatar';
-import { authApi } from '../services/api';
+import { usersApi } from '../services/api/users';
 import { useEffect } from 'react';
 
 export function Profile() {
@@ -77,7 +77,7 @@ export function Profile() {
 
     // Just username change
     try {
-      await authApi.updateProfile({ username });
+      await usersApi.updateProfile({ username });
       await refreshUser();
       showFeedback('Profile updated successfully', 'success');
     } catch (error: any) {
@@ -87,7 +87,7 @@ export function Profile() {
 
   const handleConfirmEmailChange = async () => {
     try {
-      await authApi.updateProfile({ username, email });
+      await usersApi.updateProfile({ username, email });
       setEmailConfirmOpen(false);
 
       // Email changed, logout user
@@ -106,7 +106,7 @@ export function Profile() {
     }
 
     try {
-      await authApi.changePassword({
+      await usersApi.changePassword({
         current_password: currentPassword,
         new_password: newPassword,
       });
@@ -123,7 +123,7 @@ export function Profile() {
     if (!user) return;
 
     try {
-      await authApi.deleteAccount(user.id);
+      await usersApi.deleteUser(user.id);
       logout();
       navigate('/login');
     } catch (error: any) {

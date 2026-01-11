@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi } from '../services/api';
+import { usersApi } from '../services/api/users';
 
 interface User {
   id: string;
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const userData = await authApi.getCurrentUser();
+      const userData = await usersApi.getCurrentUser();
       setUser(userData);
     } catch (error) {
       console.error('Failed to restore auth session:', error);
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('access_token', token);
     try {
       // Fetch full user details immediately after setting token
-      const userData = await authApi.getCurrentUser();
+      const userData = await usersApi.getCurrentUser();
       setUser(userData);
       localStorage.setItem('user_id', userData.id);
     } catch (error) {

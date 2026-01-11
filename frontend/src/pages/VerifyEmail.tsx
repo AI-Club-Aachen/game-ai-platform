@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Box, Container, Typography, Card, CardContent, CircularProgress, Alert, Button, TextField, Divider } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon, MarkEmailRead, Send } from '@mui/icons-material';
-import { authApi } from '../services/api';
+import { emailApi } from '../services/api/email';
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -35,7 +35,7 @@ export function VerifyEmail() {
     setStatus('loading');
     setMessage('');
     try {
-      await authApi.verifyEmail(tokenToVerify);
+      await emailApi.verifyEmail(tokenToVerify);
       setStatus('success');
       setMessage('Your email has been successfully verified! Redirecting to login...');
 
@@ -61,7 +61,7 @@ export function VerifyEmail() {
     setResendStatus('loading');
     setResendMessage('');
     try {
-      const response = await authApi.resendVerification(email);
+      const response = await emailApi.resendVerification(email);
       setResendStatus('success');
       setResendMessage(response.message || 'If an account exists with this email, a verification link has been sent.');
     } catch (err) {
