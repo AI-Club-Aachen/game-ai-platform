@@ -184,7 +184,7 @@ export function UserManagement() {
             '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.7)' },
           }}>
-            <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>verification</InputLabel>
+            <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Verification</InputLabel>
             <Select
               value={filterVerified}
               label="Verification"

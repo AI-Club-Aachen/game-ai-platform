@@ -47,3 +47,16 @@ export const deleteUserByEmail = (email: string) => {
         `Deleting user ${email}`
     );
 };
+
+export const createUnverifiedUser = (username: string, email: string) => {
+    // Generate a new UUID for the user
+    const id = crypto.randomUUID();
+    // Use a dummy hash for password since we won't log in
+    const dummyHash = 'dummy_hash_for_test';
+
+    executeDbCommand(
+        `INSERT INTO users (id, username, email, password_hash, role, email_verified, created_at, updated_at) VALUES ('${id}', '${username}', '${email}', '${dummyHash}', 'GUEST', false, NOW(), NOW());`,
+        `Creating unverified user ${username} (${email})`
+    );
+    return id;
+};

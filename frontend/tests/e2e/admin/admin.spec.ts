@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+import { createUnverifiedUser, deleteUserByEmail } from '../../utils/db';
+
 test.describe('Admin Features', () => {
     // We assume the test is authenticated as Admin via the 'admin' project in playwright.config.ts
 

@@ -80,7 +80,7 @@ export default defineConfig({
                 storageState: 'tests/.auth/admin.json',
             },
             dependencies: ['admin-setup'],
-            testMatch: ['**/admin.spec.ts'],
+            testMatch: ['**/e2e/admin/*.spec.ts'],
         },
     ],
 
