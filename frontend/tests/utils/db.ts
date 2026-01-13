@@ -8,7 +8,8 @@ const __filename = fileURLToPath(import.meta.url);
 const executeDbCommand = (sql: string, description: string) => {
     try {
         console.log(`${description}...`);
-        const command = `docker-compose -f ../backend/docker-compose.yml exec -T db psql -U postgres -d gameai -c "${sql}"`;
+        const composeFile = process.env.CI_COMPOSE_FILE || '../backend/docker-compose.yml';
+        const command = `docker compose -f ${composeFile} exec -T db psql -U postgres -d gameai -c "${sql}"`;
         execSync(command, { stdio: 'inherit' });
         console.log(`Success: ${description}.`);
     } catch (error) {

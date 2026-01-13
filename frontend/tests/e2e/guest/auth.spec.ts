@@ -10,73 +10,49 @@ test.describe('Authentication', () => {
     test.use({ storageState: { cookies: [], origins: [] } }); // Start with clean state for login tests
 
     test('should allow user to login', async ({ page }) => {
-        const email = 'test-login-flow@example.com';
-        const password = 'Password123!';
+        // Use a dynamic user for this test to avoid conflicts with global setup
+        const uniqueSuffix = Date.now().toString();
+        const testUser = {
+            username: `guest_auth_${uniqueSuffix}`,
+            email: `guest.auth.${uniqueSuffix}@example.com`,
+            password: 'ComplexPass!2024!Secure'
+        };
 
-        // Register first ensuring user exists (or just fail if exists and try login)
-        // For specialized login test, better to have a dedicated user or handle registration.
-
+        // 1. Registration
         await page.goto('/register');
-        await page.fill('input[name="username"]', 'login_tester');
-        await page.fill('input[name="email"]', email);
-        await page.fill('input[name="password"]', password);
-        await page.fill('input[name="confirmPassword"]', password);
-        // Agree to terms
+        await page.fill('input[name="username"]', testUser.username);
+        await page.fill('input[name="email"]', testUser.email);
+        await page.fill('input[name="password"]', testUser.password);
+        await page.fill('input[name="confirmPassword"]', testUser.password);
         await page.locator('input[type="checkbox"]').check();
-
-        // Attempt registration
         await page.click('button[type="submit"]');
 
-        // Handle "user already exists" scenario if needed
-        // But since we want to test the happy path, we assume clean DB or unique user.
-        // Making unique email:
-        const uniqueEmail = `test-login-${Date.now()}@example.com`;
-
-        // Actually, let's restart with unique email
-        await page.goto('/register');
-        await page.fill('input[name="username"]', `tester_${Date.now()}`);
-        await page.fill('input[name="email"]', uniqueEmail);
-        await page.fill('input[name="password"]', password);
-        await page.fill('input[name="confirmPassword"]', password);
-        // Agree to terms
-        await page.locator('input[type="checkbox"]').check();
-
-        await page.click('button[type="submit"]');
-
-        // Wait for redirect to verify email
+        // Wait for verify page
         await page.waitForURL('**/verify-email**');
 
-        // Set a known verification token
+        // 2. Verify Email (Backend override)
+        // Use the token helper or direct DB verification
         const verificationToken = '123456';
-        setEmailVerificationToken(uniqueEmail, verificationToken);
+        setEmailVerificationToken(testUser.email, verificationToken);
 
-        // Enter the token in the UI (assuming there is an input for the token)
-        // Adjust selector based on actual UI implementation. 
-        // Usually it's an input field or a set of inputs.
-        // If it's a URL-based verification, we might need to visit the link.
-        // But user asked for "get the email code", implying manual entry or simulating the link.
-
-        // If we are on the verification page, look so see if we can input the code.
-        // If the UI is just "Resend Email" and waiting for link click, we might need to construct the link.
-        // Link format in backend: /verify-email?token=...
-
-        // Let's assume for now we can visit the verification link directly with the token
+        // Visit verification link
         await page.goto(`/verify-email?token=${verificationToken}`);
 
-        // Wait for success message or redirect
-        // If successful, we should be able to login or be redirected to login/dashboard
-        // Assuming after verification, we can login.
+        // Should be redirected to login or show success (adjust based on app flow)
+        // Assuming it stays on verify-email with success message or redirects
+        await expect(page.getByText('Your email has been successfully verified')).toBeVisible({ timeout: 15000 });
 
-        // Now Login
+        // 3. Login
         await page.goto('/login');
-        await page.fill('input[name="email"]', uniqueEmail);
-        await page.fill('input[name="password"]', password);
+        await page.fill('input[name="email"]', testUser.email);
+        await page.fill('input[name="password"]', testUser.password);
         await page.click('button[type="submit"]');
 
+        // 4. Verify Dashboard
         await expect(page).toHaveURL('/dashboard');
 
-        // Verify dashboard content
-        await expect(page.locator('text=Welcome')).toBeVisible();
+        // Cleanup
+        // deleteUserByEmail(testUser.email); // Optional: if we want to clean up immediately
     });
 });
 

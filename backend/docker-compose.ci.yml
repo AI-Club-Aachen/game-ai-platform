@@ -1,0 +1,57 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gameai}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  backend:
+    build: .
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:-24}
+      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      PROJECT_NAME: ${PROJECT_NAME:-AI Game Competition Platform}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME}
+      SMTP_USE_TLS: ${SMTP_USE_TLS}
+      EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: ${EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS}
+      PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: ${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES}
+      ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+    # No volumes - use code from image
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

@@ -8,13 +8,13 @@ export const TEST_USERS = {
     standard: {
         username: 'testuser_e2e',
         email: 'test-e2e@example.com',
-        password: 'Test1!Test1!Test1',
+        password: 'ComplexPass!2024!Secure',
         authFile: path.join(AUTH_DIR, 'user.json'),
     },
     admin: {
         username: 'testuser_admin',
         email: 'test-admin@example.com',
-        password: 'Test1!Test1!Test1',
+        password: 'ComplexPass!2024!Secure',
         authFile: path.join(AUTH_DIR, 'admin.json'),
     },
 };
