@@ -1,15 +1,29 @@
 import { test as setup, expect } from '@playwright/test';
 import { promoteUserToAdmin, verifyUserEmail, deleteUserByEmail } from '../utils/db';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const authFile = path.join(__dirname, '../playwright/.auth/admin.json');
+import { TEST_USERS } from '../utils/constants';
+import fs from 'fs';
 
 setup('authenticate as admin', async ({ page }) => {
-    const email = 'test-admin@example.com';
-    const password = 'Test1!Test1!Test1';
-    const username = 'testuser_admin';
+    const { authFile, email, password, username } = TEST_USERS.admin;
+
+    // Check if we have a valid auth file
+    console.log(`Checking auth file at: ${authFile}`);
+    const exists = fs.existsSync(authFile);
+    console.log(`Auth file exists: ${exists}`);
+
+    if (exists) {
+        try {
+            const content = fs.readFileSync(authFile, 'utf-8');
+            const json = JSON.parse(content);
+            // Basic validity check - ensure not empty
+            if (Object.keys(json).length > 0) {
+                console.log('Auth file exists and is valid, skipping setup.');
+                return;
+            }
+        } catch (e) {
+            console.log('Auth file exists but is invalid, recreating...');
+        }
+    }
 
     // Cleanup potential stale state
     try {

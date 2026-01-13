@@ -1,17 +1,9 @@
 import { test as setup, expect } from '@playwright/test';
-import { promoteUserToAdmin, verifyUserEmail, deleteUserByEmail } from '../utils/db';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { verifyUserEmail, deleteUserByEmail } from '../utils/db';
+import { TEST_USERS } from '../utils/constants';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const authFile = path.join(__dirname, '../playwright/.auth/user.json');
-
-setup('authenticate', async ({ page }) => {
-    // Test user credentials
-    const email = 'test-e2e@example.com';
-    const password = 'Test1!Test1!Test1';
-    const username = 'testuser_e2e';
+setup('authenticate as user', async ({ page }) => {
+    const { authFile, email, password, username } = TEST_USERS.standard;
 
     // Cleanup potential stale state
     try {
@@ -57,7 +49,6 @@ setup('authenticate', async ({ page }) => {
         console.log('Registration complete. Verifying email and role...');
         // Use DB helper to verify email
         verifyUserEmail(email);
-        promoteUserToAdmin(email);
 
         // Let's try to login again
         await page.goto('/login');

@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { promoteUserToAdmin } from '../../utils/db';
 
 test.describe('Admin Features', () => {
     // We assume the test is authenticated as Admin via the 'admin' project in playwright.config.ts

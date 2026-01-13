@@ -66,7 +66,7 @@ export default defineConfig({
             name: 'chromium',
             use: {
                 ...devices['Desktop Chrome'],
-                storageState: 'playwright/.auth/user.json',
+                storageState: 'tests/.auth/user.json',
             },
             dependencies: ['setup'],
             testMatch: ['**/protected.spec.ts'], // Tests that require login
@@ -77,7 +77,7 @@ export default defineConfig({
             name: 'admin',
             use: {
                 ...devices['Desktop Chrome'],
-                storageState: 'playwright/.auth/admin.json',
+                storageState: 'tests/.auth/admin.json',
             },
             dependencies: ['admin-setup'],
             testMatch: ['**/admin.spec.ts'],

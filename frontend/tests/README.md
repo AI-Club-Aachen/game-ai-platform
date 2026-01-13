@@ -14,7 +14,9 @@ tests/
 │   ├── guest/          # Public routes (Login, Landing)
 │   ├── user/           # Protected routes (Dashboard, Profile)
 │   └── admin/          # Admin-only features
-└── utils/              # Shared helpers (db access, etc.)
+├── utils/              # Shared helpers
+│   ├── db.ts           # Direct DB access
+│   └── constants.ts    # Centralized test configuration (Users, Paths)
 ```
 
 ## Authentication Strategy
@@ -24,7 +26,7 @@ Test authentication is handled globally to save time and ensure robustness.
 1.  **Global Setup (`tests/setup/*.setup.ts`)**:
     *   Runs **once** before tests.
     *   Creates/Verify a test user in the DB.
-    *   Saves the browser state (cookies/storage) to `playwright/.auth/*.json`.
+    *   Saves the browser state (cookies/storage) to `tests/.auth/*.json`.
 2.  **Test Execution**:
     *   Tests reuse this state via `playwright.config.ts` projects (`chromium`, `admin`).
     *   Tests start *already logged in*.
