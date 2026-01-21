@@ -6,6 +6,7 @@ from sqlmodel import select
 
 from app.core.config import settings
 from app.models.user import User, UserRole
+from tests.utils import random_email, random_username, strong_password
 
 
 API_PREFIX = settings.API_V1_PREFIX
@@ -101,10 +102,10 @@ async def _create_admin_and_token(
 
 @pytest.mark.anyio
 async def test_user_profile_and_change_password_success(api_client, fake_email_client):
-    username = "user_profile_change"
-    email = "user_profile_change@example.com"
-    original_password = "Us€rPr0f1leP4ss!"
-    new_password = "Us€rProf1leP4ssN€w!"
+    username = random_username()
+    email = random_email()
+    original_password = strong_password()
+    new_password = strong_password()
 
     # Create verified user and login.
     user_id, bearer_token = await _create_verified_user_and_token(
@@ -123,7 +124,7 @@ async def test_user_profile_and_change_password_success(api_client, fake_email_c
     assert me_data["username"] == username
 
     # 2) Update current user profile (username only to avoid re-verification logic).
-    new_username = "user_profile_change_updated"
+    new_username = random_username()
     update_response = await api_client.patch(
         f"{API_PREFIX}/users/me",
         headers={"Authorization": bearer_token},
@@ -167,17 +168,17 @@ async def test_user_profile_and_change_password_success(api_client, fake_email_c
 @pytest.mark.anyio
 async def test_admin_list_get_update_role_delete_user_success(api_client, fake_email_client, db_session):
     # Target user the admin will manage.
-    target_username = "managed_user"
-    target_email = "managed_user@example.com"
-    target_password = "ManagedAcc0unt!1"
+    target_username = random_username()
+    target_email = random_email()
+    target_password = strong_password()
     target_id, _ = await _create_verified_user_and_token(
         api_client, fake_email_client, target_username, target_email, target_password
     )
 
     # Admin.
-    admin_username = "admin_user"
-    admin_email = "admin_user@example.com"
-    admin_password = "RootRol3Str0ng!1"
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     admin_id, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
@@ -254,7 +255,7 @@ async def test_update_current_user_profile_unauthenticated_fails(api_client):
 async def test_change_password_unauthenticated_fails(api_client):
     response = await api_client.post(
         f"{API_PREFIX}/users/change-password",
-        json={"current_password": "irrelevant", "new_password": "AlsoIrrelevant1!"},
+        json={"current_password": "irrelevant", "new_password": strong_password()},
     )
     assert response.status_code == 403
 
@@ -267,9 +268,9 @@ async def test_change_password_unauthenticated_fails(api_client):
 @pytest.mark.anyio
 async def test_non_admin_cannot_use_admin_endpoints(api_client, fake_email_client, db_session):
     # Create a normal verified user (role GUEST).
-    username = "non_admin_user"
-    email = "non_admin_user@example.com"
-    password = "NonPrivAcc0unt!1"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
     user_id, user_token = await _create_verified_user_and_token(
         api_client, fake_email_client, username, email, password
     )
@@ -312,9 +313,9 @@ async def test_non_admin_cannot_use_admin_endpoints(api_client, fake_email_clien
 @pytest.mark.anyio
 async def test_admin_get_update_delete_nonexistent_user_fails(api_client, fake_email_client, db_session):
     # Admin.
-    admin_username = "admin_nonexistent"
-    admin_email = "admin_nonexistent@example.com"
-    admin_password = "SuperRootX!4"
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client, fake_email_client, db_session, admin_username, admin_email, admin_password
     )
@@ -345,3 +346,32 @@ async def test_admin_get_update_delete_nonexistent_user_fails(api_client, fake_e
     )
     assert delete_response.status_code == 404
     assert "User not found" in delete_response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Success: get user roles
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_get_roles_authenticated(api_client, fake_email_client):
+    username = random_username()
+    email = random_email()
+    password = strong_password()
+    _, token = await _create_verified_user_and_token(api_client, fake_email_client, username, email, password)
+
+    response = await api_client.get(f"{API_PREFIX}/users/roles", headers={"Authorization": token})
+    assert response.status_code == 200
+    data = response.json()
+    assert "roles" in data
+    assert len(data["roles"]) == 3
+    assert "guest" in data["roles"]
+    assert "user" in data["roles"]
+    assert "admin" in data["roles"]
+
+
+@pytest.mark.anyio
+async def test_get_roles_unauthenticated(api_client):
+    response = await api_client.get(f"{API_PREFIX}/users/roles")
+    # HTTPBearer raises 403 when Authorization header is missing.
+    assert response.status_code == 403

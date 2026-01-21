@@ -73,7 +73,12 @@ class UserService:
             current_user.email_verified = False
             logger.info("Email updated for user %s - re-verification required", current_user.id)
 
-        if user_update.username is None and user_update.email is None:
+        # Profile picture update
+        if user_update.profile_picture_url is not None:
+            current_user.profile_picture_url = user_update.profile_picture_url
+            logger.info("Profile picture updated for user %s", current_user.id)
+
+        if user_update.username is None and user_update.email is None and user_update.profile_picture_url is None:
             # Nothing to change
             return current_user
 

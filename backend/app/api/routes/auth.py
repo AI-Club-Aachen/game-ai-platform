@@ -15,7 +15,12 @@ from app.api.services.auth import (
     AuthServiceError,
     AuthValidationError,
 )
-from app.schemas.auth import LoginRequest, LoginResponse
+from app.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
+    PasswordResetRequestResponse,
+    RegistrationResponse,
+)
 from app.schemas.user import UserCreate, UserResponse
 
 
@@ -25,14 +30,14 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth")
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=dict)
+@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegistrationResponse)
 @limiter.limit("20/hour")
 async def register(
     request: Request,  # noqa: ARG001
     user_data: UserCreate,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> RegistrationResponse:
     """
     Register new user with email verification.
 
@@ -62,11 +67,11 @@ async def register(
             detail="Failed to create user account",
         ) from e
 
-    return {
-        "message": "Registration successful. Check your email for verification link.",
-        "user_id": str(user.id),
-        "email": user.email,
-    }
+    return RegistrationResponse(
+        message="Registration successful. Check your email for verification link.",
+        user_id=str(user.id),
+        email=user.email,
+    )
 
 
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
@@ -112,14 +117,14 @@ async def login(
     )
 
 
-@router.post("/request-password-reset", status_code=status.HTTP_200_OK)
+@router.post("/request-password-reset", status_code=status.HTTP_200_OK, response_model=PasswordResetRequestResponse)
 @limiter.limit("10/hour")
 async def request_password_reset(
     request: Request,  # noqa: ARG001
     email: str,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> PasswordResetRequestResponse:
     """
     Request password reset via email.
 
@@ -130,7 +135,7 @@ async def request_password_reset(
         email=email,
         background_tasks=background_tasks,
     )
-    return {"message": "If email exists, password reset link will be sent"}
+    return PasswordResetRequestResponse(message="If email exists, password reset link will be sent")
 
 
 @router.post("/reset-password", response_model=UserResponse, status_code=status.HTTP_200_OK)
