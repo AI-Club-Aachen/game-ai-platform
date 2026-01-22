@@ -32,7 +32,7 @@ test.describe('Authentication', () => {
 
         // 2. Verify Email (Backend override)
         // Use the token helper or direct DB verification
-        const verificationToken = '123456';
+        const verificationToken = '1234567890123456'; // Must be >= 16 chars
         setEmailVerificationToken(testUser.email, verificationToken);
 
         // Visit verification link
