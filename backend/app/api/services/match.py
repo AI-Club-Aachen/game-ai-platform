@@ -34,6 +34,26 @@ class MatchService:
     def get_match(self, match_id: str) -> Match | None:
         return self._repository.get_by_id(match_id)
 
+    def update_match(
+        self,
+        match_id: str,
+        status: str,
+        logs: str | None = None,
+        result: dict[str, Any] | None = None,
+    ) -> Match | None:
+        """Update match fields (used by workers)."""
+        match = self._repository.get_by_id(match_id)
+        if not match:
+            return None
+
+        match.status = MatchStatus(status)
+        if logs is not None:
+            match.logs = logs
+        if result is not None:
+            match.result = result
+
+        return self._repository.save(match)
+
     def list_matches(
         self,
         skip: int,

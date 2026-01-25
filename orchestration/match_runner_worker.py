@@ -1,32 +1,13 @@
 # ruff: noqa: E402
 import asyncio
-import json
 import logging
-import os
-import sys
-from pathlib import Path
 
-# Ensure backend modules are importable
-current_dir = Path(__file__).resolve().parent
-backend_dir = current_dir.parent / "backend"
-if str(backend_dir) not in sys.path:
-    sys.path.append(str(backend_dir))
+from lib.backend_api import BackendAPI
+from lib.job_queue import JobQueue
 
-from redis import asyncio as aioredis
-from sqlmodel import Session, create_engine
-
-try:
-    from app.core.config import settings
-    from app.models.match import Match, MatchStatus
-except ImportError as e:
-    print(f"Error importing backend modules: {e}")
-    sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("match_runner_worker")
-
-DATABASE_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
-engine = create_engine(DATABASE_URL)
 
 
 async def run_match_simulation(config: dict) -> dict:
@@ -45,63 +26,62 @@ async def run_match_simulation(config: dict) -> dict:
     }
 
 
-async def process_match(match_id: str, config: dict):
+async def process_match(match_id: str, config: dict, api: BackendAPI):
     logger.info(f"Processing match {match_id}")
 
-    with Session(engine) as session:
-        match_obj = session.get(Match, match_id)
-        if not match_obj:
-            logger.error(f"Match {match_id} not found in DB")
-            return
+    try:
+        # Update status to RUNNING
+        await api.update_match(match_id, status="running")
 
-        match_obj.status = MatchStatus.RUNNING
-        session.add(match_obj)
-        session.commit()
+        logger.info("Starting Match execution...")
+        result = await run_match_simulation(config)
 
-        try:
-            logger.info("Starting Match execution...")
-            result = await run_match_simulation(config)
+        logger.info("Match finished.")
+        # Update status to COMPLETED with result
+        await api.update_match(
+            match_id,
+            status="completed",
+            result=result,
+            logs="Match completed successfully.",
+        )
 
-            logger.info("Match finished.")
-            match_obj.status = MatchStatus.COMPLETED
-            match_obj.result = result
-            match_obj.logs = "Match completed successfully."
-            session.add(match_obj)
-            session.commit()
-
-        except Exception as e:
-            logger.exception(f"Match execution failed for {match_id}")
-            match_obj.status = MatchStatus.FAILED
-            match_obj.logs = str(e)
-            session.add(match_obj)
-            session.commit()
+    except Exception as e:
+        logger.exception(f"Match execution failed for {match_id}")
+        await api.update_match(
+            match_id,
+            status="failed",
+            logs=str(e),
+        )
 
 
 async def worker_loop():
-    redis_url = "redis://redis:6379"
-    if os.getenv("ENVIRONMENT") == "development" and "redis" not in os.getenv("REDIS_HOST", ""):
-        redis_url = "redis://localhost:6379"
-
-    logger.info(f"Connecting to Redis at {redis_url}")
-    redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=True)
+    queue = JobQueue()
+    api = BackendAPI()
+    
+    await queue.connect()
 
     logger.info("Match Runner Worker started. Waiting for jobs...")
 
-    while True:
-        try:
-            _, data_str = await redis.blpop("queue:matches", timeout=0)
+    try:
+        while True:
+            try:
+                job_data = await queue.pop_match_job(timeout=0)
+                if job_data is None:
+                    continue
 
-            job_data = json.loads(data_str)
-            logger.info(f"Received job: {job_data}")
+                logger.info(f"Received job: {job_data}")
 
-            if job_data.get("type") == "match":
-                await process_match(job_data["match_id"], job_data["config"])
-            else:
-                logger.warning(f"Unknown job type: {job_data.get('type')}")
+                if job_data.get("type") == "match":
+                    await process_match(job_data["match_id"], job_data["config"], api)
+                else:
+                    logger.warning(f"Unknown job type: {job_data.get('type')}")
 
-        except Exception as e:
-            logger.error(f"Error in worker loop: {e}")
-            await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"Error in worker loop: {e}")
+                await asyncio.sleep(1)
+    finally:
+        await queue.close()
+        await api.close()
 
 
 if __name__ == "__main__":

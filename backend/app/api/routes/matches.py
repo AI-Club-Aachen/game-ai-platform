@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_current_user, get_match_service
 from app.api.services.match import MatchService
 from app.models.user import User
-from app.schemas.match import MatchCreate, MatchRead
+from app.schemas.match import MatchCreate, MatchRead, MatchUpdate
 
 
 router = APIRouter()
@@ -34,6 +34,29 @@ def get_match(
     Get a match by ID.
     """
     match = service.get_match(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return match
+
+
+# PATCH /api/v1/matches/{match_id}
+@router.patch("/{match_id}", response_model=MatchRead)
+def update_match(
+    match_id: str,
+    update_data: MatchUpdate,
+    service: MatchService = Depends(get_match_service),
+) -> MatchRead:
+    """
+    Update a match (used by workers).
+    Note: This endpoint has no authentication for worker access.
+    In production, consider adding API key authentication for workers.
+    """
+    match = service.update_match(
+        match_id,
+        status=update_data.status.value,
+        logs=update_data.logs,
+        result=update_data.result,
+    )
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     return match

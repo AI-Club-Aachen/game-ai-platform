@@ -15,7 +15,7 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./backend/postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 10s
@@ -25,7 +25,7 @@ services:
       - app-network
 
   backend:
-    build: .
+    build: backend/.
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
@@ -51,48 +51,48 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./app:/app/app:z
-      - ./alembic:/app/alembic:z
-      - ./uploads:/app/uploads:z
+      - ./backend/app:/app/app:z
+      - ./backend/alembic:/app/alembic:z
+      - ./backend/uploads:/app/uploads:z
     networks:
       - app-network
     restart: unless-stopped
 
   agent-builder:
-    build: .
+    build: 
+      context: orchestration
+      dockerfile: Dockerfile.worker
     working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_HOST=redis
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - BACKEND_URL=${BACKEND_URL}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
-      - db
+      - backend
       - redis
     volumes:
-      - ./app:/app/app:z
-      - ../orchestration:/orchestration:z
+      - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./uploads:/app/uploads:z
+      - ./backend/uploads:/app/uploads:z
     user: root
     networks:
       - app-network
     restart: unless-stopped
 
   match-runner:
-    build: .
+    build:
+      context: orchestration
+      dockerfile: Dockerfile.worker
     working_dir: /orchestration
     command: python match_runner_worker.py
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_HOST=redis
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - BACKEND_URL=${BACKEND_URL}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
-      - db
+      - backend
       - redis
     volumes:
-      - ./app:/app/app:z
-      - ../orchestration:/orchestration:z
+      - ./orchestration:/orchestration:z
     networks:
       - app-network
     restart: unless-stopped

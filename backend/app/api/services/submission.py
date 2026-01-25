@@ -64,6 +64,29 @@ class SubmissionService:
     def get_submission(self, submission_id: str) -> Submission | None:
         return self._repository.get_by_id(submission_id)
 
+    def update_submission(
+        self,
+        submission_id: str,
+        status: str,
+        logs: str | None = None,
+        image_id: str | None = None,
+        image_tag: str | None = None,
+    ) -> Submission | None:
+        """Update submission fields (used by workers)."""
+        submission = self._repository.get_by_id(submission_id)
+        if not submission:
+            return None
+
+        submission.status = status
+        if logs is not None:
+            submission.logs = logs
+        if image_id is not None:
+            submission.image_id = image_id
+        if image_tag is not None:
+            submission.image_tag = image_tag
+
+        return self._repository.save(submission)
+
     def list_user_submissions(
         self,
         user_id: UUID,

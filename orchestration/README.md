@@ -23,14 +23,41 @@ This directory includes:
     uv run python -m pytest
     ```
 
-### Base Image
+### Agent Image Construction
 
 The base image uses **Docker Hardened Images (DHI)** for Python 3.12. It runs as a non-root user and is "shell-free" in the final stage to prevent command injection attacks. 
 
 It includes basic packages for ML and scientific computing (numpy, scipy, scikit-learn, networkx, numba). A GitHub Action rebuilds and pushes this to GHCR on changes. The workflow includes a Trivy security scan.
 
+To use Docker Hardened Images, first login before building:
+
+```bash
+docker login dhi.io
+```
+
+`Dockerfile.base` is built into an image and published as `ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest`.
+
 For local development (run from project root):
 
 ```bash
 docker build -f orchestration/Dockerfile.base -t ghcr.io/aiclub-aachen/game-ai-platform/agent-base:latest orchestration/
+```
+
+The base imaged is used as the foundation for building Agent images in `Dockerfile.agent`.
+
+### Workers
+
+Workers use `Dockerfile.worker` and run either `agent_builder_worker.py` or `match_runner_worker.py`.
+
+Workers gather tasks from Redis queues and process them.
+
+Run `uv sync` before building because workers use `uv.lock` for dependencies.
+
+#### Connection to Backend
+
+The workers connect to the backend API and redis. Set the `BACKEND_URL` and `REDIS_URL` environment variables in `.env` of the root project directory:
+
+```
+BACKEND_URL=http://localhost:8000/api/v1
+REDIS_URL=redis://redis:6379/0
 ```

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from app.api.deps import get_current_user, get_submission_service
 from app.api.services.submission import SubmissionService
 from app.models.user import User
-from app.schemas.submission import SubmissionRead
+from app.schemas.submission import SubmissionRead, SubmissionUpdate
 
 
 router = APIRouter()
@@ -42,6 +42,30 @@ def get_submission(
     if submission.user_id != current_user.id and current_user.role != "admin":  # assuming role logic
         raise HTTPException(status_code=403, detail="Not authorized to view this submission")
 
+    return submission
+
+
+# PATCH /api/v1/submissions/{submission_id}
+@router.patch("/{submission_id}", response_model=SubmissionRead)
+def update_submission(
+    submission_id: str,
+    update_data: SubmissionUpdate,
+    service: SubmissionService = Depends(get_submission_service),
+) -> SubmissionRead:
+    """
+    Update a submission (used by workers).
+    Note: This endpoint has no authentication for worker access.
+    In production, consider adding API key authentication for workers.
+    """
+    submission = service.update_submission(
+        submission_id,
+        status=update_data.status.value,
+        logs=update_data.logs,
+        image_id=update_data.image_id,
+        image_tag=update_data.image_tag,
+    )
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
     return submission
 
 

@@ -14,6 +14,14 @@ class SubmissionCreate(SubmissionBase):
     pass  # We don't take JSON body for create, likely just a file upload
 
 
+class SubmissionUpdate(BaseModel):
+    """Schema for updating a submission (used by workers)."""
+    status: SubmissionStatus
+    logs: str | None = None
+    image_id: str | None = None
+    image_tag: str | None = None
+
+
 class SubmissionRead(SubmissionBase):
     id: UUID
     user_id: UUID
