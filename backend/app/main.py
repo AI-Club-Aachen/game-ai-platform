@@ -16,7 +16,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from starlette.responses import Response
 
-from app.api.routes import auth, email, users
+from app.api.routes import auth, email, matches, submissions, users
 from app.core.config import settings
 
 
@@ -205,9 +205,11 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
 
 
 # Include routers
-app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Authentication"])
-app.include_router(users.router, prefix=settings.API_V1_PREFIX, tags=["Users"])
-app.include_router(email.router, prefix=settings.API_V1_PREFIX, tags=["Email"])
+app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
+app.include_router(users.router, prefix=f"{settings.API_V1_PREFIX}/users", tags=["Users"])
+app.include_router(email.router, prefix=f"{settings.API_V1_PREFIX}/email", tags=["Email"])
+app.include_router(submissions.router, prefix=f"{settings.API_V1_PREFIX}/submissions", tags=["Submissions"])
+app.include_router(matches.router, prefix=f"{settings.API_V1_PREFIX}/matches", tags=["Matches"])
 
 
 # Health check endpoint

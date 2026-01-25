@@ -1,6 +1,7 @@
 import docker
 import pytest
-from submissions.agent_builder import BuildError, build_from_zip
+
+from lib.agent_builder import BuildError, build_from_zip
 
 
 def test_builder_success_valid_zip(docker_client, create_zip, track_images):
@@ -38,11 +39,17 @@ def test_builder_success_with_dockerignore(docker_client, create_zip, track_imag
     track_images(result["image_id"])
 
     client = docker.from_env()
+    container = client.containers.create(result["image_id"])
     try:
-        client.containers.run(result["image_id"], "ls ignored_file.txt", remove=True)
+        # try to get the file from the container
+        # get_archive returns a stream of the tar archive
+        container.get_archive("ignored_file.txt")
         pytest.fail("ignored_file.txt should not exist in the image")
-    except docker.errors.ContainerError:
+    except docker.errors.NotFound:
+        # This is expected if the file was correctly ignored
         pass
+    finally:
+        container.remove()
 
 
 def test_builder_fails_no_agent_file(create_zip):

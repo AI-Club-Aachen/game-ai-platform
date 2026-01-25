@@ -23,8 +23,11 @@ from app.api.services.user import (
 )
 from app.models.user import UserRole
 from app.schemas.user import (
+    ChangePasswordResponse,
     PasswordChangeRequest,
+    UserListResponse,
     UserResponse,
+    UserRoleList,
     UserRoleUpdate,
     UserUpdate,
 )
@@ -33,9 +36,21 @@ from app.schemas.user import (
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
-router = APIRouter(prefix="/users")
+router = APIRouter()
 
 
+# GET /api/v1/users/roles
+@router.get("/roles", response_model=UserRoleList, status_code=status.HTTP_200_OK)
+@limiter.limit("60/minute")
+async def list_roles(
+    request: Request,  # noqa: ARG001
+    user: CurrentUser,  # noqa: ARG001
+) -> UserRoleList:
+    """List all available user roles."""
+    return UserRoleList(roles=list(UserRole))
+
+
+# GET /api/v1/users/me
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("60/minute")
 async def get_current_user_profile(
@@ -46,6 +61,7 @@ async def get_current_user_profile(
     return UserResponse.model_validate(user)
 
 
+# PATCH /api/v1/users/me
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def update_current_user_profile(
@@ -79,14 +95,15 @@ async def update_current_user_profile(
         ) from e
 
 
-@router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
+# POST /api/v1/users/change-password
+@router.post("/change-password", response_model=ChangePasswordResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def change_password(
     request: Request,  # noqa: ARG001
     password_request: PasswordChangeRequest,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
-) -> dict:
+) -> ChangePasswordResponse:
     """
     Change current user's password.
 
@@ -107,11 +124,12 @@ async def change_password(
             detail="Failed to change password",
         ) from e
     else:
-        return {"message": "Password changed successfully"}
+        return ChangePasswordResponse(message="Password changed successfully")
 
 
 # Admin endpoints with higher rate limits (1000/hour)
-@router.get("/", response_model=dict, status_code=status.HTTP_200_OK)
+# GET /api/v1/users/
+@router.get("/", response_model=UserListResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
     request: Request,  # noqa: ARG001
@@ -121,7 +139,7 @@ async def list_users(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
     role: Annotated[UserRole | None, Query()] = None,
     email_verified: Annotated[bool | None, Query()] = None,
-) -> dict:
+) -> UserListResponse:
     """Admin: List all users with filtering and pagination."""
     try:
         users, total = user_service.list_users(
@@ -145,14 +163,15 @@ async def list_users(
         limit,
     )
 
-    return {
-        "data": users,
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-    }
+    return UserListResponse(
+        data=[UserResponse.model_validate(u) for u in users],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
+# GET /api/v1/users/{user_id}
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def get_user_by_id(
@@ -181,6 +200,7 @@ async def get_user_by_id(
     return UserResponse.model_validate(user)
 
 
+# PATCH /api/v1/users/{user_id}/role
 @router.patch("/{user_id}/role", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def update_user_role(
@@ -216,6 +236,7 @@ async def update_user_role(
         ) from e
 
 
+# DELETE /api/v1/users/{user_id}
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("1000/hour")
 async def delete_user(

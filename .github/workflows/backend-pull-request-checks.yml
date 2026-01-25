@@ -43,4 +43,34 @@ jobs:
         with:
           working-directory: 'backend'
 
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/python-uv
+        with:
+          working-directory: 'backend'
+
+      - name: Start Test Services
+        working-directory: 'backend'
+        run: docker compose -f docker-compose.test.yml up -d
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for PostgreSQL..."
+          timeout 30s bash -c 'until docker exec gameai-test-db pg_isready -U postgres; do sleep 1; done'
+
+      - name: Run Tests
+        working-directory: 'backend'
+        run: uv run pytest
+
+      - name: Stop Test Services
+        if: always()
+        working-directory: 'backend'
+        run: docker compose -f docker-compose.test.yml down
+
 

@@ -16,7 +16,7 @@ MAX_LOG_BYTES = 5 * 1024 * 1024
 
 
 def _load_secure_defaults() -> dict:
-    settings_path = Path(__file__).parent / "secure_default_settings.yaml"
+    settings_path = Path(__file__).parent.parent / "secure_default_settings.yaml"
     if not settings_path.exists():
         raise RunError("secure_default_settings.yaml not found.")
     return yaml.safe_load(settings_path.read_text(encoding="utf-8"))
