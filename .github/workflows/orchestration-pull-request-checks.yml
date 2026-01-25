@@ -2,12 +2,12 @@ name: Orchestration Pull Request Checks
 
 on:
   pull_request:
-    branches: [main, develop, feat/agent-builder]
+    branches: [main, develop]
     paths:
       - 'orchestration/**'
       - '.github/workflows/**'
   push:
-    branches: [main, develop, feat/agent-builder]
+    branches: [main, develop]
     paths:
       - 'orchestration/**'
       - '.github/workflows/**'

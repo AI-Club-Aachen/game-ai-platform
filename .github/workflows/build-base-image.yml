@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      - 'feat/submissions-and-agent-runner'
-      - 'feat/agent-builder'
     paths:
       - 'orchestration/Dockerfile.base'
       - 'orchestration/base_requirements.txt'
