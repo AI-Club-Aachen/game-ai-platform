@@ -1,6 +1,5 @@
 import docker
 import pytest
-
 from lib.agent_builder import BuildError, build_from_zip
 
 

@@ -1,6 +1,5 @@
 import docker
 import pytest
-
 from lib.agent_builder import build_from_zip
 from lib.agent_manager import delete_agent_container
 from lib.agent_runner import RunError, run_agent, start_agent_container
