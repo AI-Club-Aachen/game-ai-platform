@@ -4,10 +4,9 @@ on:
   push:
     branches:
       - main
-      - 'feat/submissions-and-agent-runner'
     paths:
-      - 'submissions/Dockerfile.base'
-      - 'submissions/base_requirements.txt'
+      - 'orchestration/Dockerfile.base'
+      - 'orchestration/base_requirements.txt'
   workflow_dispatch:
 
 env:
@@ -38,6 +37,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hardened Images
+        uses: docker/login-action@v3
+        with:
+          registry: dhi.io
+          username: ${{ secrets.DHI_USERNAME }}
+          password: ${{ secrets.DHI_PASSWORD }}
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -50,8 +56,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./submissions
-          file: ./submissions/Dockerfile.base
+          context: ./orchestration
+          file: ./orchestration/Dockerfile.base
           push: true
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}

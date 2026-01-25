@@ -1,0 +1,24 @@
+# Stage 1: Builder
+FROM dhi.io/python:3.12-debian12-dev AS builder
+
+WORKDIR /build
+
+COPY base_requirements.txt .
+# Install dependencies into /install
+RUN pip install --no-cache-dir --prefix=/install -r base_requirements.txt
+
+# Create non-root user in builder stage (since runtime has no shell)
+RUN useradd -u 10001 -m runner
+
+# Stage 2: Runtime
+FROM dhi.io/python:3.12-debian12
+
+WORKDIR /home/runner/app
+
+COPY --from=builder /install /usr/local
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
+
+# Switch to non-root user
+USER runner
+ENV PYTHONUNBUFFERED=1

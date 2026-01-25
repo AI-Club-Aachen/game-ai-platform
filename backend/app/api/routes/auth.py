@@ -27,9 +27,10 @@ from app.schemas.user import UserCreate, UserResponse
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
-router = APIRouter(prefix="/auth")
+router = APIRouter()
 
 
+# POST /api/v1/auth/register
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegistrationResponse)
 @limiter.limit("20/hour")
 async def register(
@@ -74,6 +75,7 @@ async def register(
     )
 
 
+# POST /api/v1/auth/login
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute;200/day")
 async def login(
@@ -117,6 +119,7 @@ async def login(
     )
 
 
+# POST /api/v1/auth/request-password-reset
 @router.post("/request-password-reset", status_code=status.HTTP_200_OK, response_model=PasswordResetRequestResponse)
 @limiter.limit("10/hour")
 async def request_password_reset(
@@ -138,6 +141,7 @@ async def request_password_reset(
     return PasswordResetRequestResponse(message="If email exists, password reset link will be sent")
 
 
+# POST /api/v1/auth/reset-password
 @router.post("/reset-password", response_model=UserResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def reset_password(

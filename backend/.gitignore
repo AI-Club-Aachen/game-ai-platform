@@ -1,0 +1,35 @@
+# Uploaded files (user submissions)
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Misc
+*.log
+.DS_Store
