@@ -24,6 +24,21 @@ services:
     networks:
       - app-network
 
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_BACKEND_URL=http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - app-network
+    restart: unless-stopped
+
   backend:
     build: backend/.
     ports:
@@ -60,7 +75,7 @@ services:
     restart: unless-stopped
 
   agent-builder:
-    build: 
+    build:
       context: orchestration
       dockerfile: Dockerfile.worker
     working_dir: /orchestration

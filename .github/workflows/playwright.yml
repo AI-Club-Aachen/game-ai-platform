@@ -14,23 +14,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
       with:
-        node-version: '20'
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: 9
+        bun-version: latest
 
     - name: Install dependencies
       working-directory: ./frontend
-      run: pnpm install --frozen-lockfile
+      run: bun install
 
     - name: Install Playwright Browsers
       working-directory: ./frontend
-      run: pnpm exec playwright install --with-deps chromium
+      run: bunx playwright install --with-deps chromium
 
     # Verify docker installation
     - name: Check Docker
@@ -90,10 +85,10 @@ jobs:
     - name: Run Playwright tests
       working-directory: ./frontend
       run: |
-        pnpm run dev --port 3000 --host &
+        bun run dev --port 3000 --host &
         echo "Waiting for frontend to be ready..."
-        npx wait-on tcp:3000
-        pnpm run test:e2e
+        bunx wait-on tcp:3000
+        bun run test:e2e
       env:
         CI: true
         CI_COMPOSE_FILE: ../backend/docker-compose.ci.yml

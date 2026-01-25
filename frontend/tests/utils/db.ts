@@ -9,7 +9,8 @@ const executeDbCommand = (sql: string, description: string) => {
     try {
         console.log(`${description}...`);
         const __dirname = path.dirname(__filename);
-        const defaultComposePath = path.resolve(__dirname, '../../../backend/docker-compose.yml');
+        // Correct path to the root docker-compose.yml
+        const defaultComposePath = path.resolve(__dirname, '../../../docker-compose.yml');
         const composeFile = process.env.CI_COMPOSE_FILE || defaultComposePath;
         const command = `docker compose -f "${composeFile}" exec -T db psql -U postgres -d gameai -c "${sql}"`;
         execSync(command, { stdio: 'inherit' });
