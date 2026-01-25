@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 //import { useAuth } from '../context/AuthContext'; //TODO
-import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, Checkbox, FormControlLabel } from '@mui/material';
-import { PersonAdd } from '@mui/icons-material';
+import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, Checkbox, FormControlLabel, List, ListItem, ListItemIcon, ListItemText, IconButton, InputAdornment } from '@mui/material';
+import { PersonAdd, CheckCircle, Cancel, Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '../services/api/auth';
 
 export function Register() {
@@ -14,10 +14,34 @@ export function Register() {
     password: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Password Validation State
+  const [passwordValidations, setPasswordValidations] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    digit: false,
+    special: false,
+  });
+
+  useEffect(() => {
+    const { password } = formData;
+    setPasswordValidations({
+      length: password.length >= 12,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      digit: /[0-9]/.test(password),
+      special: /[!@#$%^&*()_+\-=[\]{}|;:',.<>?/\\`~]/.test(password),
+    });
+  }, [formData.password]);
+
+  const allRequirementsMet = Object.values(passwordValidations).every(Boolean);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -37,8 +61,8 @@ export function Register() {
       return;
     }
 
-    if (formData.password.length < 12) {
-      setError('Password must be at least 12 characters long');
+    if (!allRequirementsMet) {
+      setError('Please ensure your password meets all security requirements');
       return;
     }
 
@@ -82,6 +106,25 @@ export function Register() {
       setLoading(false);
     }
   };
+
+  const ValidationItem = ({ met, text }: { met: boolean; text: string }) => (
+    <ListItem dense sx={{ py: 0 }}>
+      <ListItemIcon sx={{ minWidth: 32 }}>
+        {met ? (
+          <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
+        ) : (
+          <Cancel sx={{ fontSize: 16, color: 'error.main' }} />
+        )}
+      </ListItemIcon>
+      <ListItemText
+        primary={text}
+        primaryTypographyProps={{
+          variant: 'caption',
+          color: met ? 'text.primary' : 'text.secondary'
+        }}
+      />
+    </ListItem>
+  );
 
   return (
     <Box
@@ -147,25 +190,65 @@ export function Register() {
                 fullWidth
                 label="Password"
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={handleChange}
                 required
-                sx={{ mb: 3 }}
+                sx={{ mb: 1 }}
                 autoComplete="new-password"
-                helperText="Must be at least 12 characters"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        sx={{ color: 'text.primary' }}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
+
+              <Box sx={{ mb: 3, ml: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 'bold' }}>
+                  Password Requirements:
+                </Typography>
+                <List dense sx={{ pt: 0.5 }}>
+                  <ValidationItem met={passwordValidations.length} text="At least 12 characters" />
+                  <ValidationItem met={passwordValidations.uppercase} text="One uppercase letter (A-Z)" />
+                  <ValidationItem met={passwordValidations.lowercase} text="One lowercase letter (a-z)" />
+                  <ValidationItem met={passwordValidations.digit} text="One number (0-9)" />
+                  <ValidationItem met={passwordValidations.special} text="One special character (!@#$%^&*...)" />
+                </List>
+              </Box>
 
               <TextField
                 fullWidth
                 label="Confirm Password"
                 name="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
                 sx={{ mb: 3 }}
                 autoComplete="new-password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle confirm password visibility"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        edge="end"
+                        sx={{ color: 'text.primary' }}
+                      >
+                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
 
               <FormControlLabel
@@ -207,6 +290,7 @@ export function Register() {
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </Button>
+
 
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">

@@ -15,8 +15,14 @@ import {
   DialogActions,
   Alert,
   Snackbar,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
-import { Person as PersonIcon } from '@mui/icons-material';
+import { Person as PersonIcon, CheckCircle, Cancel, Visibility, VisibilityOff } from '@mui/icons-material';
 import { getAvatarUrl } from '../utils/avatar';
 import { usersApi } from '../services/api/users';
 import { useEffect } from 'react';
@@ -38,6 +44,30 @@ export function Profile() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password Validation State
+  const [passwordValidations, setPasswordValidations] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    digit: false,
+    special: false,
+  });
+
+  useEffect(() => {
+    setPasswordValidations({
+      length: newPassword.length >= 12,
+      uppercase: /[A-Z]/.test(newPassword),
+      lowercase: /[a-z]/.test(newPassword),
+      digit: /[0-9]/.test(newPassword),
+      special: /[!@#$%^&*()_+\-=[\]{}|;:',.<>?/\\`~]/.test(newPassword),
+    });
+  }, [newPassword]);
+
+  const allRequirementsMet = Object.values(passwordValidations).every(Boolean);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Email confirmation state
@@ -105,6 +135,11 @@ export function Profile() {
       return;
     }
 
+    if (!allRequirementsMet) {
+      showFeedback('Please ensure your password meets all security requirements', 'error');
+      return;
+    }
+
     try {
       await usersApi.changePassword({
         current_password: currentPassword,
@@ -131,6 +166,24 @@ export function Profile() {
       showFeedback(error.message || 'Failed to delete account', 'error');
     }
   };
+  const ValidationItem = ({ met, text }: { met: boolean; text: string }) => (
+    <ListItem dense sx={{ py: 0 }}>
+      <ListItemIcon sx={{ minWidth: 32 }}>
+        {met ? (
+          <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
+        ) : (
+          <Cancel sx={{ fontSize: 16, color: 'error.main' }} />
+        )}
+      </ListItemIcon>
+      <ListItemText
+        primary={text}
+        primaryTypographyProps={{
+          variant: 'caption',
+          color: met ? 'text.primary' : 'text.secondary'
+        }}
+      />
+    </ListItem>
+  );
 
   return (
     <Box>
@@ -161,20 +214,24 @@ export function Profile() {
 
         <Divider sx={{ mb: 3 }} />
 
-        <Box sx={{ mb: 3 }}>
-          <TextField
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            sx={{ mb: 3, width: 400 }}
-          />
-          <TextField
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            sx={{ mb: 3, width: 400 }}
-          />
+        <Box sx={{ mb: 3, maxWidth: 820 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+            <TextField
+              label="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              fullWidth
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              fullWidth
+              sx={{ flex: 1 }}
+            />
+          </Box>
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
@@ -201,28 +258,93 @@ export function Profile() {
           Change Password
         </Typography>
 
-        <Box sx={{ mb: 3 }}>
-          <TextField
-            label="Current Password"
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            sx={{ mb: 2, width: 400 }}
-          />
-          <TextField
-            label="New Password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            sx={{ mb: 2, width: 400 }}
-          />
-          <TextField
-            label="Confirm New Password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            sx={{ mb: 2, width: 400 }}
-          />
+        <Box sx={{ mb: 3, maxWidth: 820 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+            <TextField
+              label="Current Password"
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              fullWidth
+              sx={{ flex: 1 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle current password visibility"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      edge="end"
+                      sx={{ color: 'text.primary' }}
+                    >
+                      {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            {/* Empty spacer to align with the 2-column layout below */}
+            <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+            <TextField
+              label="New Password"
+              type={showNewPassword ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              fullWidth
+              sx={{ flex: 1 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle new password visibility"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                      sx={{ color: 'text.primary' }}
+                    >
+                      {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Confirm New Password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              fullWidth
+              sx={{ flex: 1 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle confirm password visibility"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                      sx={{ color: 'text.primary' }}
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+
+          <Box sx={{ mb: 2, ml: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 'bold' }}>
+              Password Requirements:
+            </Typography>
+            <List dense sx={{ pt: 0.5 }}>
+              <ValidationItem met={passwordValidations.length} text="At least 12 characters" />
+              <ValidationItem met={passwordValidations.uppercase} text="One uppercase letter (A-Z)" />
+              <ValidationItem met={passwordValidations.lowercase} text="One lowercase letter (a-z)" />
+              <ValidationItem met={passwordValidations.digit} text="One number (0-9)" />
+              <ValidationItem met={passwordValidations.special} text="One special character (!@#$%^&*...)" />
+            </List>
+          </Box>
         </Box>
 
         <Button

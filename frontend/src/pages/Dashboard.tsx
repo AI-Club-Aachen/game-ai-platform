@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
-import { AdminPanelSettings, Dashboard as DashboardIcon, Settings } from '@mui/icons-material';
+import { AdminPanelSettings, Dashboard as DashboardIcon } from '@mui/icons-material';
 
 interface Submission {
   id: string;
@@ -166,10 +166,10 @@ export function Dashboard() {
             <Typography variant="h6" gutterBottom>
               📈 Quick Stats
             </Typography>
-            <Box sx={{ 
-              display: 'grid', 
+            <Box sx={{
+              display: 'grid',
               gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
-              gap: 3 
+              gap: 3
             }}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="h3" color="primary">3</Typography>
@@ -191,22 +191,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Admin Only Section */}
-        {isAdmin && (
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Settings /> Admin Controls
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Button variant="contained">Manage Users</Button>
-                <Button variant="contained">Review Submissions</Button>
-                <Button variant="contained">View System Logs</Button>
-                <Button variant="contained">Configure Tournaments</Button>
-              </Box>
-            </CardContent>
-          </Card>
-        )}
+
       </Box>
     </Container>
   );

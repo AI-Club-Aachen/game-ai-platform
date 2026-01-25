@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert } from '@mui/material';
-import { Login as LoginIcon } from '@mui/icons-material';
+import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, IconButton, InputAdornment } from '@mui/material';
+import { Login as LoginIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '../services/api/auth';
 
 export function Login() {
@@ -10,6 +10,7 @@ export function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -91,12 +92,26 @@ export function Login() {
                 fullWidth
                 label="Password"
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 sx={{ mb: 3 }}
                 autoComplete="current-password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        sx={{ color: 'text.primary' }}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
 
               <Button

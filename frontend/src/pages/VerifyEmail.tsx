@@ -91,7 +91,9 @@ export function VerifyEmail() {
                 Verify Email
               </Typography>
               <Typography color="text.secondary">
-                Please verify your email address to continue
+                Registration successful! Please check your email to verify your account.
+                <br />
+                Don't forget to check your <u><b>spam folder</b></u>.
               </Typography>
             </Box>
 
@@ -194,6 +196,6 @@ export function VerifyEmail() {
           </CardContent>
         </Card>
       </Container>
-    </Box>
+    </Box >
   );
 }
