@@ -39,4 +39,18 @@ jobs:
         with:
           working-directory: 'orchestration'
 
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Setup Python and uv
+        uses: ./.github/actions/python-uv
+        with:
+          working-directory: 'orchestration'
+
+      - name: Run Tests
+        working-directory: 'orchestration'
+        run: uv run pytest
