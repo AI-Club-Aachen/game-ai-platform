@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.models.user import User
 from tests.api.test_users import _create_admin_and_token, _create_verified_user_and_token
 from tests.fakes import _extract_token_from_html
+from tests.utils import random_email, random_username, strong_password
 
 
 API_PREFIX = settings.API_V1_PREFIX
@@ -84,9 +85,9 @@ async def _register_verify_login_bearer(api_client, fake_email_client, username,
 
 @pytest.mark.anyio
 async def test_email_verification_full_flow_success(api_client, fake_email_client, db_session):
-    username = "email_flow_user"
-    email = "email_flow_user@example.com"
-    password = "EmailFlowPass1!"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
 
     fake_email_client.sent.clear()
 
@@ -210,9 +211,9 @@ async def test_verify_email_fails_for_unknown_token(api_client):
 
 @pytest.mark.anyio
 async def test_resend_verification_fails_for_already_verified_user(api_client, fake_email_client):
-    username = "already_verified_user"
-    email = "already_verified_user@example.com"
-    password = "AlreadyVer1fiedPass!"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
 
     _, bearer = await _register_verify_login_bearer(api_client, fake_email_client, username, email, password)
 
@@ -246,9 +247,9 @@ async def test_verification_status_unauthenticated_fails(api_client):
 @pytest.mark.anyio
 async def test_admin_resend_verification_email_for_unverified_user_success(api_client, fake_email_client, db_session):
     # Create unverified user (register but do not verify).
-    username = "unverified_for_admin"
-    email = "unverified_for_admin@example.com"
-    password = "Unver1fiedAcc0unt!2"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
 
     fake_email_client.sent.clear()
     await _register_user(api_client, username, email, password)
@@ -260,9 +261,9 @@ async def test_admin_resend_verification_email_for_unverified_user_success(api_c
     old_token_hash = user.email_verification_token_hash
 
     # Admin.
-    admin_username = "admin_for_resend"
-    admin_email = "admin_for_resend@example.com"
-    admin_password = "ResendRootX!3"
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client,
         fake_email_client,
@@ -299,9 +300,9 @@ async def test_admin_resend_verification_email_for_unverified_user_success(api_c
 @pytest.mark.anyio
 async def test_non_admin_cannot_resend_verification(api_client, fake_email_client, db_session):
     # Create a normal verified user (role GUEST).
-    username = "non_admin_user_email"
-    email = "non_admin_user_email@example.com"
-    password = "NonPrivAcc0unt!1"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
     user_id, user_token = await _register_verify_login_bearer(api_client, fake_email_client, username, email, password)
 
     # Try to resend verification for self (using admin endpoint)
@@ -315,9 +316,9 @@ async def test_non_admin_cannot_resend_verification(api_client, fake_email_clien
 @pytest.mark.anyio
 async def test_admin_resend_verification_fails_for_nonexistent_user(api_client, fake_email_client, db_session):
     # Admin.
-    admin_username = "admin_resend_404"
-    admin_email = "admin_resend_404@example.com"
-    admin_password = "ResendRootX!4"
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client,
         fake_email_client,
@@ -340,15 +341,15 @@ async def test_admin_resend_verification_fails_for_nonexistent_user(api_client, 
 @pytest.mark.anyio
 async def test_admin_resend_verification_fails_for_already_verified_user(api_client, fake_email_client, db_session):
     # Create verified user.
-    username = "verified_target"
-    email = "verified_target@example.com"
-    password = "VerifiedTarget!1"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
     user_id, _ = await _create_verified_user_and_token(api_client, fake_email_client, username, email, password)
 
     # Admin.
-    admin_username = "admin_resend_400"
-    admin_email = "admin_resend_400@example.com"
-    admin_password = "ResendRootX!5"
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client,
         fake_email_client,
@@ -372,16 +373,16 @@ async def test_admin_resend_verification_token_actually_works(api_client, fake_e
     E2E: Admin triggers resend -> User gets email -> User verifies with token.
     """
     # 1. Create unverified user.
-    username = "admin_flow_user"
-    email = "admin_flow_user@example.com"
-    password = f"R@nd0mP@ss{uuid.uuid4()}!"
+    username = random_username()
+    email = random_email()
+    password = strong_password()
     fake_email_client.sent.clear()
     await _register_user(api_client, username, email, password)
 
     # 2. Admin triggers resend.
-    admin_username = "admin_flow_tester"
-    admin_email = "admin_flow_tester@example.com"
-    admin_password = f"Adm1nP@ss{uuid.uuid4()}!"
+    admin_username = random_username()
+    admin_email = random_email()
+    admin_password = strong_password()
     _, admin_token = await _create_admin_and_token(
         api_client,
         fake_email_client,

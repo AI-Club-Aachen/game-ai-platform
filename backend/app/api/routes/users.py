@@ -23,8 +23,11 @@ from app.api.services.user import (
 )
 from app.models.user import UserRole
 from app.schemas.user import (
+    ChangePasswordResponse,
     PasswordChangeRequest,
+    UserListResponse,
     UserResponse,
+    UserRoleList,
     UserRoleUpdate,
     UserUpdate,
 )
@@ -34,6 +37,17 @@ logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
+
+
+# GET /api/v1/users/roles
+@router.get("/roles", response_model=UserRoleList, status_code=status.HTTP_200_OK)
+@limiter.limit("60/minute")
+async def list_roles(
+    request: Request,  # noqa: ARG001
+    user: CurrentUser,  # noqa: ARG001
+) -> UserRoleList:
+    """List all available user roles."""
+    return UserRoleList(roles=list(UserRole))
 
 
 # GET /api/v1/users/me
@@ -82,14 +96,14 @@ async def update_current_user_profile(
 
 
 # POST /api/v1/users/change-password
-@router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
+@router.post("/change-password", response_model=ChangePasswordResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("15/day")
 async def change_password(
     request: Request,  # noqa: ARG001
     password_request: PasswordChangeRequest,
     user: CurrentUser,
     user_service: Annotated[UserService, Depends(get_user_service)],
-) -> dict:
+) -> ChangePasswordResponse:
     """
     Change current user's password.
 
@@ -110,12 +124,12 @@ async def change_password(
             detail="Failed to change password",
         ) from e
     else:
-        return {"message": "Password changed successfully"}
+        return ChangePasswordResponse(message="Password changed successfully")
 
 
 # Admin endpoints with higher rate limits (1000/hour)
 # GET /api/v1/users/
-@router.get("/", response_model=dict, status_code=status.HTTP_200_OK)
+@router.get("/", response_model=UserListResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
     request: Request,  # noqa: ARG001
@@ -125,7 +139,7 @@ async def list_users(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
     role: Annotated[UserRole | None, Query()] = None,
     email_verified: Annotated[bool | None, Query()] = None,
-) -> dict:
+) -> UserListResponse:
     """Admin: List all users with filtering and pagination."""
     try:
         users, total = user_service.list_users(
@@ -149,12 +163,12 @@ async def list_users(
         limit,
     )
 
-    return {
-        "data": users,
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-    }
+    return UserListResponse(
+        data=[UserResponse.model_validate(u) for u in users],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 # GET /api/v1/users/{user_id}
@@ -249,4 +263,29 @@ async def delete_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user",
+        ) from e
+
+
+@router.patch("/{user_id}/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("1000/hour")
+async def verify_user_email(
+    request: Request,  # noqa: ARG001
+    user_id: UUID,
+    admin: CurrentAdmin,
+    user_service: Annotated[UserService, Depends(get_user_service)],
+) -> UserResponse:
+    """Admin: Manually verify a user's email."""
+    try:
+        user = user_service.verify_user_email(admin=admin, user_id=user_id)
+        return UserResponse.model_validate(user)
+    except UserNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except UserServiceError as e:
+        logger.exception("Error verifying email for user %s by admin %s", user_id, admin.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify user email",
         ) from e

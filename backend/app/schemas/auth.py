@@ -15,3 +15,18 @@ class LoginResponse(BaseModel):
     token_type: str
     user_id: str
     username: str
+    role: str
+
+
+class RegistrationResponse(BaseModel):
+    """Response for user registration"""
+
+    message: str
+    user_id: str
+    email: EmailStr
+
+
+class PasswordResetRequestResponse(BaseModel):
+    """Response for password reset request"""
+
+    message: str

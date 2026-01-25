@@ -73,7 +73,12 @@ class UserService:
             current_user.email_verified = False
             logger.info("Email updated for user %s - re-verification required", current_user.id)
 
-        if user_update.username is None and user_update.email is None:
+        # Profile picture update
+        if user_update.profile_picture_url is not None:
+            current_user.profile_picture_url = user_update.profile_picture_url
+            logger.info("Profile picture updated for user %s", current_user.id)
+
+        if user_update.username is None and user_update.email is None and user_update.profile_picture_url is None:
             # Nothing to change
             return current_user
 
@@ -196,3 +201,28 @@ class UserService:
         except UserRepositoryError as e:
             logger.exception("Error deleting user %s", user_id)
             raise UserServiceError("Failed to delete user") from e
+
+    def verify_user_email(self, admin: User, user_id: UUID) -> User:
+        """Admin: manually verify a user's email."""
+        user = self._repo.get_by_id(user_id)
+        if not user:
+            logger.warning("Admin %s attempted to verify non-existent user %s", admin.id, user_id)
+            raise UserNotFoundError("User not found")
+
+        if user.email_verified:
+            logger.info("Admin %s attempted to verify already verified user %s", admin.id, user_id)
+            return user
+
+        user.email_verified = True
+        user.email_verification_token_hash = None
+        user.email_verification_expires_at = None
+        user.updated_at = datetime.now(UTC)
+
+        try:
+            updated = self._repo.save(user)
+        except UserRepositoryError as e:
+            logger.exception("Error verifying email for user %s", user_id)
+            raise UserServiceError("Failed to verify user email") from e
+        else:
+            logger.warning("Admin %s manually verified email for user %s (%s)", admin.id, user_id, user.email)
+            return updated

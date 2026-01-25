@@ -87,6 +87,7 @@ export const authApi = {
       token_type: string;
       user_id: string;
       username: string;
+      role: 'guest' | 'user' | 'admin';
     }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
@@ -370,6 +371,85 @@ export const tournamentsApi = {
     }>(`/tournaments/${tournamentId}/register`, {
       method: 'POST',
       body: JSON.stringify({ submission_id: submissionId }),
+    });
+  },
+};
+
+/**
+ * Users API (Admin)
+ */
+export const usersApi = {
+  /**
+   * List all users (admin only)
+   */
+  listUsers: async (params?: {
+    role?: string;
+    email_verified?: boolean;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.role) queryParams.append('role', params.role);
+    if (params?.email_verified !== undefined) queryParams.append('email_verified', params.email_verified.toString());
+
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/users/?${queryString}` : '/users/';
+
+    return apiRequest<{
+      data: Array<{
+        id: string;
+        username: string;
+        email: string;
+        role: string;
+        email_verified: boolean;
+        created_at: string;
+        updated_at: string;
+      }>;
+      total: number;
+    }>(endpoint, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Update user role (admin only)
+   */
+  updateUserRole: async (userId: string, role: string) => {
+    return apiRequest<{
+      id: string;
+      username: string;
+      email: string;
+      role: string;
+      email_verified: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(`/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  /**
+   * Verify user email manually (admin only)
+   */
+  verifyUserEmail: async (userId: string) => {
+    return apiRequest<{
+      id: string;
+      username: string;
+      email: string;
+      role: string;
+      email_verified: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(`/users/${userId}/verify-email`, {
+      method: 'PATCH',
+    });
+  },
+
+  /**
+   * Delete user (admin only)
+   */
+  deleteUser: async (userId: string) => {
+    return apiRequest<void>(`/users/${userId}`, {
+      method: 'DELETE',
     });
   },
 };

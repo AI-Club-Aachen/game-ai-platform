@@ -19,7 +19,12 @@ from app.api.services.auth import (
     AuthServiceError,
     AuthValidationError,
 )
-from app.schemas.email import EmailVerificationRequest
+from app.schemas.email import (
+    AdminEmailVerificationResponse,
+    EmailVerificationRequest,
+    EmailVerificationResponse,
+    VerificationStatusResponse,
+)
 from app.schemas.user import UserResponse
 
 
@@ -33,14 +38,14 @@ router = APIRouter()
 
 
 # POST /api/v1/email/resend-verification
-@router.post("/resend-verification", status_code=status.HTTP_200_OK)
+@router.post("/resend-verification", status_code=status.HTTP_200_OK, response_model=EmailVerificationResponse)
 @limiter.limit("10/day")
 async def resend_verification_email(
     request: Request,  # noqa: ARG001
     user: CurrentUser,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> EmailVerificationResponse:
     """
     Resend email verification link to current user.
 
@@ -64,11 +69,13 @@ async def resend_verification_email(
             detail="Failed to resend verification email",
         ) from e
 
-    return {"message": "Verification email sent. Check your inbox."}
+    return EmailVerificationResponse(message="Verification email sent. Check your inbox.")
 
 
 # POST /api/v1/email/{user_id}/resend-verification
-@router.post("/{user_id}/resend-verification", status_code=status.HTTP_200_OK)
+@router.post(
+    "/{user_id}/resend-verification", status_code=status.HTTP_200_OK, response_model=AdminEmailVerificationResponse
+)
 @limiter.limit("1000/hour")
 async def admin_resend_verification_email(
     request: Request,  # noqa: ARG001
@@ -76,7 +83,7 @@ async def admin_resend_verification_email(
     admin: CurrentAdmin,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> AdminEmailVerificationResponse:
     """Admin: Resend verification email to user."""
     try:
         user = auth_service.admin_resend_verification_email(
@@ -103,10 +110,10 @@ async def admin_resend_verification_email(
 
     logger.info("Admin %s triggered verification email for user %s", admin.id, user_id)
 
-    return {
-        "message": "Verification email sent",
-        "user_id": str(user.id),
-    }
+    return AdminEmailVerificationResponse(
+        message="Verification email sent",
+        user_id=str(user.id),
+    )
 
 
 # POST /api/v1/email/verify-email
@@ -144,14 +151,14 @@ async def verify_email(
 
 
 # GET /api/v1/email/verification-status
-@router.get("/verification-status", response_model=dict)
+@router.get("/verification-status", response_model=VerificationStatusResponse)
 async def check_verification_status(
     user: CurrentUser,
-) -> dict:
+) -> VerificationStatusResponse:
     """Check current user's email verification status."""
-    return {
-        "email": user.email,
-        "email_verified": user.email_verified,
-        "verification_expires_at": user.email_verification_expires_at,
-        "can_resend": not user.email_verified,
-    }
+    return VerificationStatusResponse(
+        email=user.email,
+        email_verified=user.email_verified,
+        verification_expires_at=user.email_verification_expires_at,
+        can_resend=not user.email_verified,
+    )
