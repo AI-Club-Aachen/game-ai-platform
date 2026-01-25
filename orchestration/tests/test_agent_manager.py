@@ -2,6 +2,7 @@ import time
 
 import docker
 import pytest
+
 from lib.agent_builder import build_from_zip
 from lib.agent_manager import (
     delete_agent_container,
