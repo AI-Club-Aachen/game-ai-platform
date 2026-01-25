@@ -109,25 +109,7 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={async () => {
-                  try {
-                    await login('dev-token');
-                    navigate('/dashboard');
-                  } catch (e) {
-                    // In dev mode with fake token, getCurrentUser will likely fail unless mocked or backend allows.
-                    // But for this specific fix I just want to match the signature.
-                    // Since 'dev-token' won't work with real backend for /users/me, 
-                    // implementing this "Dev Admin" button properly requires backend support or skipping the fetch.
-                    // For now, I will just call login. If it fails, it fails.
-                  }
-                }}
-                sx={{ mb: 2, py: 1.5 }}
-              >
-                Login as Admin (Dev)
-              </Button>
+
 
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
