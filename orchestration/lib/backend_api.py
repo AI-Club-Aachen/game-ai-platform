@@ -19,7 +19,7 @@ class BackendAPIError(Exception):
 class BackendAPI:
     """
     Client for interacting with the backend API.
-    
+
     This abstraction allows workers to update submission and match status
     without directly accessing the database or importing backend models.
     """
@@ -27,14 +27,14 @@ class BackendAPI:
     def __init__(self, backend_url: str | None = None) -> None:
         """
         Initialize backend API client.
-        
+
         Args:
             backend_url: Backend API base URL. If None, uses BACKEND_URL environment variable
                         or defaults to "http://backend:8000/api/v1"
         """
         if backend_url is None:
             backend_url = os.getenv("BACKEND_URL", "http://backend:8000/api/v1")
-        
+
         # Remove trailing slash for consistent URL construction
         self.backend_url = backend_url.rstrip("/")
         self._client = httpx.AsyncClient(timeout=30.0)
@@ -46,14 +46,14 @@ class BackendAPI:
     async def _patch(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
         """
         Send PATCH request to backend API.
-        
+
         Args:
             endpoint: API endpoint path (e.g., "/submissions/123")
             data: Request payload
-            
+
         Returns:
             Response JSON
-            
+
         Raises:
             BackendAPIError: If request fails
         """
@@ -74,13 +74,13 @@ class BackendAPI:
     async def _get(self, endpoint: str) -> dict[str, Any]:
         """
         Send GET request to backend API.
-        
+
         Args:
             endpoint: API endpoint path
-            
+
         Returns:
             Response JSON
-            
+
         Raises:
             BackendAPIError: If request fails
         """
@@ -110,14 +110,14 @@ class BackendAPI:
     ) -> dict[str, Any]:
         """
         Update a submission's status and related fields.
-        
+
         Args:
             submission_id: Submission UUID
             status: New status (queued, building, completed, failed)
             logs: Optional build logs or error message
             image_id: Optional Docker image ID
             image_tag: Optional Docker image tag
-            
+
         Returns:
             Updated submission data
         """
@@ -134,10 +134,10 @@ class BackendAPI:
     async def get_submission(self, submission_id: str) -> dict[str, Any]:
         """
         Get a submission by ID.
-        
+
         Args:
             submission_id: Submission UUID
-            
+
         Returns:
             Submission data
         """
@@ -154,13 +154,13 @@ class BackendAPI:
     ) -> dict[str, Any]:
         """
         Update a match's status and related fields.
-        
+
         Args:
             match_id: Match UUID
             status: New status (queued, running, completed, failed)
             logs: Optional execution logs or error message
             result: Optional match result data (scores, winner, etc.)
-            
+
         Returns:
             Updated match data
         """
@@ -175,10 +175,10 @@ class BackendAPI:
     async def get_match(self, match_id: str) -> dict[str, Any]:
         """
         Get a match by ID.
-        
+
         Args:
             match_id: Match UUID
-            
+
         Returns:
             Match data
         """
@@ -188,12 +188,11 @@ class BackendAPI:
 def get_backend_api(backend_url: str | None = None) -> BackendAPI:
     """
     Factory function to create a BackendAPI instance.
-    
+
     Args:
         backend_url: Optional backend URL. If None, uses BACKEND_URL env var.
-        
+
     Returns:
         BackendAPI instance
     """
     return BackendAPI(backend_url=backend_url)
-

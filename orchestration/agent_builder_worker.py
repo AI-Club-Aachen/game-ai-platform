@@ -7,7 +7,6 @@ from lib.agent_builder import build_from_zip
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_builder_worker")
 
@@ -53,7 +52,7 @@ async def process_build(submission_id: str, zip_path: str, api: BackendAPI):
 async def worker_loop():
     queue = JobQueue()
     api = BackendAPI()
-    
+
     await queue.connect()
 
     logger.info("Agent Builder Worker started. Waiting for jobs...")

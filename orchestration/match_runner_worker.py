@@ -5,7 +5,6 @@ import logging
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("match_runner_worker")
 
@@ -57,7 +56,7 @@ async def process_match(match_id: str, config: dict, api: BackendAPI):
 async def worker_loop():
     queue = JobQueue()
     api = BackendAPI()
-    
+
     await queue.connect()
 
     logger.info("Match Runner Worker started. Waiting for jobs...")

@@ -20,7 +20,7 @@ class RedisQueueError(Exception):
 class JobQueue:
     """
     Abstraction layer for accessing the backend's Redis job queues.
-    
+
     This class handles connection management and job retrieval from Redis queues,
     allowing workers to focus on job processing logic.
     """
@@ -28,14 +28,14 @@ class JobQueue:
     def __init__(self, redis_url: str | None = None) -> None:
         """
         Initialize Redis queue client.
-        
+
         Args:
             redis_url: Redis connection URL. If None, uses REDIS_URL environment variable
                       or defaults to "redis://redis:6379"
         """
         if redis_url is None:
             redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-        
+
         self.redis_url = redis_url
         self._redis: aioredis.Redis | None = None
         self._is_connected = False
@@ -74,16 +74,16 @@ class JobQueue:
     ) -> dict[str, Any] | None:
         """
         Pop a job from the specified queue.
-        
+
         Uses blocking pop (BLPOP) to wait for jobs.
-        
+
         Args:
             queue_name: Name of the queue (e.g., "queue:builds", "queue:matches")
             timeout: Block timeout in seconds. 0 means block indefinitely.
-        
+
         Returns:
             Parsed job dictionary, or None if timeout reached
-            
+
         Raises:
             RedisQueueError: If Redis operation fails
         """
@@ -110,17 +110,17 @@ class JobQueue:
     async def pop_build_job(self, timeout: int = 0) -> dict[str, Any] | None:
         """
         Pop a build job from the builds queue.
-        
+
         Expected job format:
         {
             "type": "build",
             "submission_id": "<uuid>",
             "zip_path": "<path>"
         }
-        
+
         Args:
             timeout: Block timeout in seconds. 0 means block indefinitely.
-            
+
         Returns:
             Job dictionary or None if timeout reached
         """
@@ -129,17 +129,17 @@ class JobQueue:
     async def pop_match_job(self, timeout: int = 0) -> dict[str, Any] | None:
         """
         Pop a match job from the matches queue.
-        
+
         Expected job format:
         {
             "type": "match",
             "match_id": "<uuid>",
             "config": {<match configuration>}
         }
-        
+
         Args:
             timeout: Block timeout in seconds. 0 means block indefinitely.
-            
+
         Returns:
             Job dictionary or None if timeout reached
         """
@@ -148,10 +148,10 @@ class JobQueue:
     async def get_queue_length(self, queue_name: str) -> int:
         """
         Get the number of jobs in a queue.
-        
+
         Args:
             queue_name: Name of the queue
-            
+
         Returns:
             Number of jobs in the queue
         """
@@ -168,10 +168,10 @@ class JobQueue:
 def get_redis_queue(redis_url: str | None = None) -> JobQueue:
     """
     Factory function to create a JobQueue instance.
-    
+
     Args:
         redis_url: Optional Redis URL. If None, uses REDIS_URL env var.
-        
+
     Returns:
         JobQueue instance
     """
