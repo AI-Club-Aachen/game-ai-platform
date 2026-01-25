@@ -29,6 +29,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
+      ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
