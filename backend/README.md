@@ -34,15 +34,7 @@ Secure backend for an AI game competition platform, built with FastAPI, PostgreS
 
 ### Quick Start (Docker)
 
-1. **Frontend**:
-   ```bash
-   cd frontend
-   pnpm install
-   pnpm run dev
-   # Access at http://localhost:3000
-   ```
-
-2. **Backend (Development)**:
+**Backend (Development)**:
    ```bash
    cd backend
    cp .env.example .env

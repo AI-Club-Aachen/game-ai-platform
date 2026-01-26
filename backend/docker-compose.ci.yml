@@ -14,8 +14,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-gameai}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - ./backend/postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 10s
@@ -24,27 +22,11 @@ services:
     networks:
       - app-network
 
-  frontend:
-    build:
-      context: frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_BACKEND_URL=http://backend:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    networks:
-      - app-network
-    restart: unless-stopped
-
   backend:
-    build: backend/.
+    build: .
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
-      ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
@@ -66,56 +48,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./backend/app:/app/app:z
-      - ./backend/alembic:/app/alembic:z
-      - ./backend/uploads:/app/uploads:z
+    # No volumes - use code from image
     networks:
       - app-network
-    restart: unless-stopped
-
-  agent-builder:
-    build:
-      context: orchestration
-      dockerfile: Dockerfile.worker
-    working_dir: /orchestration
-    command: python agent_builder_worker.py
-    environment:
-      - BACKEND_URL=${BACKEND_URL}
-      - REDIS_URL=${REDIS_URL}
-    depends_on:
-      - backend
-      - redis
-    volumes:
-      - ./orchestration:/orchestration:z
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend/uploads:/app/uploads:z
-    user: root
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  match-runner:
-    build:
-      context: orchestration
-      dockerfile: Dockerfile.worker
-    working_dir: /orchestration
-    command: python match_runner_worker.py
-    environment:
-      - BACKEND_URL=${BACKEND_URL}
-      - REDIS_URL=${REDIS_URL}
-    depends_on:
-      - backend
-      - redis
-    volumes:
-      - ./orchestration:/orchestration:z
-    networks:
-      - app-network
-    restart: unless-stopped
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  postgres_data:

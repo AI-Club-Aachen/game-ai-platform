@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert } from '@mui/material';
-import { Login as LoginIcon } from '@mui/icons-material';
-import { authApi } from '../services/api';
+import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, IconButton, InputAdornment } from '@mui/material';
+import { Login as LoginIcon, Visibility, VisibilityOff } from '@mui/icons-material';
+import { authApi } from '../services/api/auth';
 
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,13 +21,8 @@ export function Login() {
 
     try {
       const response = await authApi.login({ email, password });
-      
-      // Store the access token
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('user_id', response.user_id);
-      
-      // Use the role from the backend response
-      login(response.username, response.role);
+
+      await login(response.access_token);
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
@@ -61,7 +57,21 @@ export function Login() {
 
             {error && (
               <Alert severity="error" sx={{ mb: 3, borderRadius: 0 }}>
-                {error}
+                {error.toLowerCase().includes('not verified') ? (
+                  <span>
+                    Email not verified. Check your inbox for verification link or{' '}
+                    <Link
+                      to="/verify-email"
+                      state={{ email }}
+                      style={{ color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                    >
+                      request a new one
+                    </Link>
+                    .
+                  </span>
+                ) : (
+                  error
+                )}
               </Alert>
             )}
 
@@ -69,6 +79,7 @@ export function Login() {
               <TextField
                 fullWidth
                 label="Email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -80,12 +91,27 @@ export function Login() {
               <TextField
                 fullWidth
                 label="Password"
-                type="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 sx={{ mb: 3 }}
                 autoComplete="current-password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        sx={{ color: 'text.primary' }}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
 
               <Button
@@ -98,17 +124,7 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={() => {
-                  login('admin', 'admin');
-                  navigate('/dashboard');
-                }}
-                sx={{ mb: 2, py: 1.5 }}
-              >
-                Login as Admin (Dev)
-              </Button>
+
 
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">

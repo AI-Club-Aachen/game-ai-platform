@@ -49,6 +49,18 @@ const theme = createTheme({
         },
     },
     components: {
+        MuiIconButton: {
+            styleOverrides: {
+                root: {
+                    background: 'transparent',
+                    padding: 8,
+                    borderRadius: '50%',
+                    '&:hover': {
+                        background: 'rgba(255, 255, 255, 0.08)',
+                    },
+                },
+            },
+        },
         MuiButton: {
             styleOverrides: {
                 root: {
@@ -64,11 +76,12 @@ const theme = createTheme({
                     },
                 },
                 outlined: {
+                    background: 'transparent',
                     color: '#ffffff', // White text for outlined buttons
                     borderColor: '#00A6FF',
                     '&:hover': {
                         borderColor: '#00D98B',
-                        backgroundColor: 'rgba(0, 217, 139, 0.08)',
+                        backgroundColor: 'rgba(0, 219, 139, 0.08)',
                     },
                 },
             },

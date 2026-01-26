@@ -10,33 +10,27 @@ A comprehensive platform for hosting AI game competitions. Build your AI agent, 
 
 ## Quick Start
 
-**Run the Platform Locally:**
-
-1. **Backend:**
+**Run the Whole Platform:**
+1. Start all services (Backend, Frontend, Database, Redis):
    ```bash
-   cd backend
    docker-compose up --build
-   # API at http://localhost:8000
    ```
+2. Access the platform:
+   - **Frontend:** http://localhost:3000
+   - **Backend API:** http://localhost:8000
+   - **API Docs:** http://localhost:8000/docs
 
-2. **Frontend:**
-   ```bash
-   cd frontend
-   pnpm install && pnpm run dev
-   # UI at http://localhost:3000
-   ```
-
-3. **Install Gamelib (for agent development):**
-   ```bash
-   pip install aica-gamelib
-   ```
+**Install Gamelib (for agent development):**
+```bash
+pip install aica-gamelib
+```
 
 ## Project Structure
 
 | Directory | Description | Documentation |
 |-----------|-------------|---------------|
 | **[backend/](backend/)** | FastAPI backend with PostgreSQL, JWT auth, and email verification | [Backend README](backend/README.md) |
-| **[frontend/](frontend/)** | Next.js web UI for user registration, match viewing, and leaderboards | [Frontend README](frontend/README.md) |
+| **[frontend/](frontend/)** | React + Vite web UI for user registration, match viewing, and leaderboards | [Frontend README](frontend/README.md) |
 | **[gamelib/](gamelib/)** | Core game logic and interfaces published to PyPI as `aica-gamelib` | [Gamelib README](gamelib/README.md) |
 | **[orchestration/](orchestration/)** | Agent building, containerized execution, and match orchestration | [Orchestration README](orchestration/README.md) |
 | **[tests/](tests/)** | Cross-component integration tests | [Tests README](tests/README.md) |
@@ -64,7 +58,7 @@ Each component has its own README with detailed setup instructions. See the tabl
 
 **Technology Stack:**
 - Backend: FastAPI, PostgreSQL, SQLModel, Redis, Alembic
-- Frontend: Next.js, React, TypeScript
+- Frontend: React, Vite, TypeScript
 - Gamelib: Python 3.12+, pytest
 - Orchestration: Docker, Python
 - Build Tool: uv (for Python dependencies)

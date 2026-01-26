@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -21,6 +21,10 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  TablePagination,
+  Alert,
+  Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -28,46 +32,76 @@ import {
   CheckCircle as VerifiedIcon,
   Cancel as UnverifiedIcon,
 } from '@mui/icons-material';
+import { usersApi } from '../services/api/users';
 
 interface User {
   id: string;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: string;
   email_verified: boolean;
   created_at: string;
 }
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      username: 'admin',
-      email: 'admin@example.com',
-      role: 'admin',
-      email_verified: true,
-      created_at: '2025-01-01T00:00:00Z',
-    },
-    {
-      id: '2',
-      username: 'aser',
-      email: 'aserhisham21@gmail.com',
-      role: 'user',
-      email_verified: false,
-      created_at: '2025-12-06T10:04:00Z',
-    },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  // Filter state
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [filterVerified, setFilterVerified] = useState<string>('all');
+
+  // Dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editedRole, setEditedRole] = useState<'user' | 'admin'>('user');
-  const [editedVerified, setEditedVerified] = useState(false);
+  const [editedRole, setEditedRole] = useState<string>('user');
+
+  // Feedback state
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await usersApi.listUsers({
+        skip: page * rowsPerPage,
+        limit: rowsPerPage,
+        role: filterRole !== 'all' ? filterRole : undefined,
+        email_verified: filterVerified !== 'all' ? (filterVerified === 'true') : undefined,
+      });
+      setUsers(response.data);
+      setTotalUsers(response.total);
+      setError(null);
+    } catch (err: any) {
+      console.error('Failed to fetch users:', err);
+      setError('Failed to load users. Please ensuring you are an admin.');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, rowsPerPage, filterRole, filterVerified]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const handleEdit = (user: User) => {
     setSelectedUser(user);
     setEditedRole(user.role);
-    setEditedVerified(user.email_verified);
     setEditDialogOpen(true);
   };
 
@@ -76,32 +110,42 @@ export function UserManagement() {
     setDeleteDialogOpen(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (selectedUser) {
-      setUsers(users.map(u =>
-        u.id === selectedUser.id
-          ? { ...u, role: editedRole, email_verified: editedVerified }
-          : u
-      ));
+      try {
+        await usersApi.updateUserRole(selectedUser.id, editedRole);
+        setSnackbarMessage('User role updated successfully');
+        fetchUsers(); // Refresh list
+      } catch (err) {
+        setSnackbarMessage('Failed to update user role');
+      }
     }
     setEditDialogOpen(false);
     setSelectedUser(null);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedUser) {
-      setUsers(users.filter(u => u.id !== selectedUser.id));
+      try {
+        await usersApi.deleteUser(selectedUser.id);
+        setSnackbarMessage('User deleted successfully');
+        fetchUsers(); // Refresh list
+      } catch (err) {
+        setSnackbarMessage('Failed to delete user');
+      }
     }
     setDeleteDialogOpen(false);
     setSelectedUser(null);
   };
 
-  const handleVerifyEmail = (userId: string) => {
-    setUsers(users.map(u =>
-      u.id === userId
-        ? { ...u, email_verified: true }
-        : u
-    ));
+  const handleVerifyEmail = async (userId: string) => {
+    try {
+      await usersApi.verifyUserEmail(userId);
+      setSnackbarMessage('Email verified manually');
+      fetchUsers(); // Refresh list
+    } catch (err) {
+      setSnackbarMessage('Failed to verify email');
+    }
   };
 
   return (
@@ -112,7 +156,55 @@ export function UserManagement() {
         </Typography>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <FormControl size="small" sx={{
+            minWidth: 120,
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.7)' },
+          }}>
+            <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Role</InputLabel>
+            <Select
+              value={filterRole}
+              label="Role"
+              onChange={(e) => {
+                setFilterRole(e.target.value);
+                setPage(0); // Reset to first page on filter change
+              }}
+              sx={{ color: 'white' }}
+            >
+              <MenuItem value="all">All Roles</MenuItem>
+              <MenuItem value="user">User</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="guest">Guest</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{
+            minWidth: 150,
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.7)' },
+          }}>
+            <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Verification</InputLabel>
+            <Select
+              value={filterVerified}
+              label="Verification"
+              onChange={(e) => {
+                setFilterVerified(e.target.value);
+                setPage(0);
+              }}
+              sx={{ color: 'white' }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="true">Verified</MenuItem>
+              <MenuItem value="false">Unverified</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        )}
+
         <TableContainer>
           <Table>
             <TableHead>
@@ -126,106 +218,132 @@ export function UserManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.username}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                      color={user.role === 'admin' ? 'primary' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {user.email_verified ? (
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', color: '#4caf50' }}>
-                        <VerifiedIcon sx={{ fontSize: 18 }} />
-                        <Typography variant="body2">Verified</Typography>
-                      </Box>
-                    ) : (
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', color: '#ff9800' }}>
-                          <UnverifiedIcon sx={{ fontSize: 18 }} />
-                          <Typography variant="body2">Unverified</Typography>
-                        </Box>
-                        <Button
-                          size="small"
-                          variant="text"
-                          onClick={() => handleVerifyEmail(user.id)}
-                          sx={{
-                            fontSize: '0.75rem',
-                            padding: '2px 8px',
-                            minWidth: 'auto',
-                            color: '#888',
-                            backgroundColor: 'transparent !important',
-                            backgroundImage: 'none !important',
-                            '&:hover': {
-                              color: '#fff',
-                              backgroundColor: 'transparent !important',
-                              backgroundImage: 'none !important',
-                            }
-                          }}
-                        >
-                          Verify manually
-                        </Button>
-                      </Box>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEdit(user)}
-                      sx={{
-                        mr: 1,
-                        color: '#ffffff',
-                        backgroundColor: 'transparent !important',
-                        backgroundImage: 'none !important',
-                        '&:hover': {
-                          backgroundColor: 'transparent !important',
-                          backgroundImage: 'none !important',
-                        }
-                      }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(user)}
-                      color="error"
-                      sx={{
-                        backgroundColor: 'transparent !important',
-                        backgroundImage: 'none !important',
-                        '&:hover': {
-                          backgroundColor: 'transparent !important',
-                          backgroundImage: 'none !important',
-                        }
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <CircularProgress />
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">No users found</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        color={user.role === 'admin' ? 'primary' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {user.email_verified ? (
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', color: '#4caf50' }}>
+                          <VerifiedIcon sx={{ fontSize: 18 }} />
+                          <Typography variant="body2">Verified</Typography>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', color: '#ff9800' }}>
+                            <UnverifiedIcon sx={{ fontSize: 18 }} />
+                            <Typography variant="body2">Unverified</Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => handleVerifyEmail(user.id)}
+                            sx={{
+                              fontSize: '0.75rem',
+                              padding: '2px 8px',
+                              minWidth: 'auto',
+                              color: '#888',
+                              backgroundColor: 'transparent !important',
+                              backgroundImage: 'none !important',
+                              '&:hover': {
+                                color: '#fff',
+                                backgroundColor: 'transparent !important',
+                                backgroundImage: 'none !important',
+                                maxWidth: 'fit-content'
+                              }
+                            }}
+                          >
+                            Verify manually
+                          </Button>
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEdit(user)}
+                        sx={{
+                          mr: 1,
+                          color: '#ffffff',
+                          backgroundColor: 'transparent !important',
+                          backgroundImage: 'none !important',
+                          '&:hover': {
+                            backgroundColor: 'transparent !important',
+                            backgroundImage: 'none !important',
+                          }
+                        }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(user)}
+                        color="error"
+                        sx={{
+                          backgroundColor: 'transparent !important',
+                          backgroundImage: 'none !important',
+                          '&:hover': {
+                            backgroundColor: 'transparent !important',
+                            backgroundImage: 'none !important',
+                          }
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
 
-        {users.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color="text.secondary">
-              No users found
-            </Typography>
-          </Box>
-        )}
+        <TablePagination
+          component="div"
+          count={totalUsers}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50, 100]}
+          sx={{
+            color: 'text.secondary',
+            '.MuiTablePagination-select': {
+              color: 'text.primary',
+            },
+            '.MuiTablePagination-selectIcon': {
+              color: 'text.secondary',
+            }
+          }}
+        />
       </Paper>
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit User</DialogTitle>
+        <DialogTitle>Edit User Role</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <TextField
@@ -268,22 +386,12 @@ export function UserManagement() {
               <InputLabel>Role</InputLabel>
               <Select
                 value={editedRole}
-                onChange={(e) => setEditedRole(e.target.value as 'user' | 'admin')}
+                onChange={(e) => setEditedRole(e.target.value)}
                 label="Role"
               >
+                <MenuItem value="guest">Guest</MenuItem>
                 <MenuItem value="user">User</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl sx={{ width: 350 }}>
-              <InputLabel>Email Verified</InputLabel>
-              <Select
-                value={editedVerified ? 'true' : 'false'}
-                onChange={(e) => setEditedVerified(e.target.value === 'true')}
-                label="Email Verified"
-              >
-                <MenuItem value="true">Verified</MenuItem>
-                <MenuItem value="false">Unverified</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -327,6 +435,13 @@ export function UserManagement() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={!!snackbarMessage}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarMessage(null)}
+        message={snackbarMessage}
+      />
     </Box>
   );
 }

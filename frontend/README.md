@@ -5,30 +5,39 @@ The frontend for the AI Game Competition Platform, built with React, Vite, and M
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v16+)
-- npm or yarn
+- [Bun](https://bun.sh) (v1.0+)
 
-### Installation
-1. Navigate to the frontend directory:
+#### Navigate to the frontend directory:
    ```bash
    cd frontend
    ```
-2. Install dependencies:
+
+### Installation
+Install dependencies:
    ```bash
-   npm install
+   bun install
    ```
 
 ### Running Locally
 Start the development server:
 ```bash
-npm run dev
+bun run dev
 ```
-The application will be available at `http://localhost:5173` (default Vite port).
+The application will be available at `http://localhost:3000`.
 
 ### Building for Production
 ```bash
-npm run build
+bun run build
 ```
+
+## Testing
+To run the detailed end-to-end tests using Playwright:
+```bash
+bunx playwright install
+bun run test:e2e
+bun run test:e2e:ui
+```
+
 
 ## Project Structure
 
