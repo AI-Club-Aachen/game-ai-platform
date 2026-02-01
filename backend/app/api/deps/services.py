@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel import Session
 
+from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.api.repositories.user import UserRepository
@@ -38,6 +39,13 @@ def get_match_repository(
     return MatchRepository(session)
 
 
+def get_job_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> JobRepository:
+    """Provide a JobRepository bound to the current DB session."""
+    return JobRepository(session)
+
+
 def get_user_service(
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> UserService:
@@ -47,16 +55,18 @@ def get_user_service(
 
 def get_submission_service(
     repository: Annotated[SubmissionRepository, Depends(get_submission_repository)],
+    job_repository: Annotated[JobRepository, Depends(get_job_repository)],
 ) -> SubmissionService:
     """Provide a SubmissionService with an injected Repository."""
-    return SubmissionService(repository)
+    return SubmissionService(repository, job_repository)
 
 
 def get_match_service(
     repository: Annotated[MatchRepository, Depends(get_match_repository)],
+    job_repository: Annotated[JobRepository, Depends(get_job_repository)],
 ) -> MatchService:
     """Provide a MatchService with an injected Repository."""
-    return MatchService(repository)
+    return MatchService(repository, job_repository)
 
 
 def get_email_client() -> EmailClient:

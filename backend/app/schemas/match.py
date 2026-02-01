@@ -4,10 +4,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.game import GameType
 from app.models.match import MatchStatus
 
 
 class MatchBase(BaseModel):
+    game_type: GameType
     config: dict[str, Any] = {}
 
 
@@ -29,5 +31,18 @@ class MatchRead(MatchBase):
     logs: str | None
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GameInfo(BaseModel):
+    """Schema for returning game information."""
+    game_type: GameType
+    display_name: str
+    description: str
+    icon: str
+    min_players: int
+    max_players: int
+    is_turn_based: bool
 
     model_config = ConfigDict(from_attributes=True)

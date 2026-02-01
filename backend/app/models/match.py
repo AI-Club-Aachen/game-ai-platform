@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from app.models.game import GameType
+
 
 class MatchStatus(str, Enum):
     QUEUED = "queued"
@@ -21,6 +23,9 @@ class Match(SQLModel, table=True):
     __tablename__ = "matches"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
+
+    # Reference to the game type being played
+    game_type: GameType = Field(nullable=False, index=True)
 
     status: MatchStatus = Field(default=MatchStatus.QUEUED, nullable=False)
 
