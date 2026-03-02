@@ -16,7 +16,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from starlette.responses import Response
 
-from app.api.routes import auth, email, jobs, matches, submissions, users
+from app.api.routes import agents, auth, email, jobs, matches, submissions, users
 from app.core.config import settings
 
 
@@ -209,6 +209,7 @@ app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["
 app.include_router(users.router, prefix=f"{settings.API_V1_PREFIX}/users", tags=["Users"])
 app.include_router(email.router, prefix=f"{settings.API_V1_PREFIX}/email", tags=["Email"])
 app.include_router(submissions.router, prefix=f"{settings.API_V1_PREFIX}/submissions", tags=["Submissions"])
+app.include_router(agents.router, prefix=f"{settings.API_V1_PREFIX}/agents", tags=["Agents"])
 app.include_router(matches.router, prefix=f"{settings.API_V1_PREFIX}/matches", tags=["Matches"])
 app.include_router(jobs.router, prefix=f"{settings.API_V1_PREFIX}/jobs", tags=["Jobs"])
 
