@@ -79,7 +79,6 @@ class SubmissionService:
         self,
         submission_id: str,
         status: str,
-        logs: str | None = None,
         image_id: str | None = None,
         image_tag: str | None = None,
     ) -> Submission | None:
@@ -89,8 +88,7 @@ class SubmissionService:
             return None
 
         submission.status = status
-        if logs is not None:
-            submission.logs = logs
+
         if image_id is not None:
             submission.image_id = image_id
         if image_tag is not None:
@@ -112,20 +110,18 @@ class SubmissionService:
             return None
 
         job.status = status
-        if logs is not None:
-            job.logs = logs
+        job.logs += logs + "\n"
         if image_id is not None:
             job.image_id = image_id
         if image_tag is not None:
             job.image_tag = image_tag
-        
+
         job = self._job_repository.save_build_job(job)
 
         # Sync with submission
         self.update_submission(
             str(job.submission_id),
             status,
-            logs,
             image_id,
             image_tag,
         )

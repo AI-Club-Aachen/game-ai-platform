@@ -24,7 +24,7 @@ class MatchService:
         self,
         game_type: GameType,
         config: dict[str, Any],
-        agent_ids: list[Any] = [],
+        agent_ids: list[Any],
     ) -> Match:
         """
         Create a match and queue it for execution.
@@ -53,7 +53,6 @@ class MatchService:
         self,
         match_id: str,
         status: str,
-        logs: str | None = None,
         result: dict[str, Any] | None = None,
     ) -> Match | None:
         """Update match fields (used by workers)."""
@@ -62,8 +61,7 @@ class MatchService:
             return None
 
         match.status = MatchStatus(status)
-        if logs is not None:
-            match.logs = logs
+
         if result is not None:
             match.result = result
 
@@ -82,18 +80,16 @@ class MatchService:
             return None
 
         job.status = status
-        if logs is not None:
-            job.logs = logs
+        job.logs += logs + "\n"
         if result is not None:
             job.result = result
-        
+
         job = self._job_repository.save_match_job(job)
 
         # Sync with match
         self.update_match(
             str(job.match_id),
             status,
-            logs,
             result,
         )
 

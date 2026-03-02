@@ -8,6 +8,7 @@ from app.api.services.agent import AgentNotFoundError, AgentPermissionError, Age
 from app.models.user import User, UserRole
 from app.schemas.agent import AgentCreate, AgentRead, AgentUpdate
 
+
 router = APIRouter()
 
 
@@ -45,9 +46,9 @@ def get_agent(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to view this agent"
             )
-        return agent
+        return agent  # noqa: TRY300
     except AgentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.get("/", response_model=list[AgentRead])
@@ -82,9 +83,9 @@ def update_agent(
             is_admin=current_user.role == UserRole.ADMIN
         )
     except AgentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except AgentPermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
 
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -103,6 +104,6 @@ def delete_agent(
             is_admin=current_user.role == UserRole.ADMIN
         )
     except AgentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except AgentPermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e

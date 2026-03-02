@@ -37,15 +37,13 @@ async def process_build(submission_id: str, zip_path: str, api: BackendAPI):
             status="completed",
             image_id=result["image_id"],
             image_tag=result["tag"],
-            logs="Build successful",
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Build failed for submission {submission_id}")
         await api.update_submission(
             submission_id,
             status="failed",
-            logs=str(e),
         )
 
 

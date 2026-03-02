@@ -34,8 +34,6 @@ class Submission(SQLModel, table=True):
     # Docker Image Tag
     image_tag: str | None = Field(default=None, nullable=True)
 
-    # Build logs or error message
-    logs: str | None = Field(default=None, nullable=True)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

@@ -60,7 +60,6 @@ def update_submission(
     submission = service.update_submission(
         submission_id,
         status=update_data.status.value,
-        logs=update_data.logs,
         image_id=update_data.image_id,
         image_tag=update_data.image_tag,
     )

@@ -58,7 +58,6 @@ def update_match(
     match = service.update_match(
         match_id,
         status=update_data.status.value,
-        logs=update_data.logs,
         result=update_data.result,
     )
     if not match:

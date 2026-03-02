@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.models.job import BuildJob, MatchJob
 

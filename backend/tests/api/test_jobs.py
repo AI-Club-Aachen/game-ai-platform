@@ -3,12 +3,12 @@ from httpx import AsyncClient
 from sqlmodel import Session
 
 from app.api.repositories.job import JobRepository
-from app.api.repositories.submission import SubmissionRepository
 from app.api.repositories.match import MatchRepository
-from app.models.job import BuildJob, JobStatus, MatchJob
-from app.models.submission import Submission
-from app.models.match import Match, MatchStatus
+from app.api.repositories.submission import SubmissionRepository
 from app.models.game import GameType
+from app.models.job import BuildJob, JobStatus, MatchJob
+from app.models.match import Match, MatchStatus
+from app.models.submission import Submission
 from app.models.user import User
 
 
@@ -35,13 +35,13 @@ async def test_build_job_flow(
     db_session: Session,
 ):
     # 1. Setup Data
-    user = User(email="test@example.com", username="testuser", password_hash="hash")
+    user = User(email="test@example.com", username="testuser", password_hash="hash")  # noqa: S106
     db_session.add(user)
     db_session.commit()
-    
+
     submission = Submission(user_id=user.id, object_path="path/to/zip", status="queued")
     submission = submission_repository.save(submission)
-    
+
     job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
     job = job_repository.save_build_job(job)
 
@@ -63,12 +63,11 @@ async def test_build_job_flow(
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
-    assert data["logs"] == "Build successful"
+    assert data["logs"] == "Build successful\n"
 
     # 4. Verify Sync with Submission
     db_session.refresh(submission)
     assert submission.status == "completed"
-    assert submission.logs == "Build successful"
     assert submission.image_id == "sha256:12345"
 
 
@@ -82,7 +81,7 @@ async def test_match_job_flow(
     # 1. Setup Data
     match = Match(game_type=GameType.TICTACTOE, config={"players": []}, status=MatchStatus.QUEUED)
     match = match_repository.save(match)
-    
+
     job = MatchJob(match_id=match.id, status=JobStatus.QUEUED)
     job = job_repository.save_match_job(job)
 
@@ -104,9 +103,9 @@ async def test_match_job_flow(
     data = response.json()
     assert data["status"] == "completed"
     assert data["result"] == {"winner": "player1"}
+    assert data["logs"] == "Match finished\n"
 
     # 4. Verify Sync with Match
     db_session.refresh(match)
     assert match.status == MatchStatus.COMPLETED
-    assert match.logs == "Match finished"
     assert match.result == {"winner": "player1"}

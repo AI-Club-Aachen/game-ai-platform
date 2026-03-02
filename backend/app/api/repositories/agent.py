@@ -5,6 +5,7 @@ from sqlmodel import Session, func, select
 
 from app.models.agent import Agent
 
+
 logger = logging.getLogger(__name__)
 
 

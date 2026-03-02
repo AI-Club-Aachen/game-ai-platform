@@ -38,8 +38,6 @@ class Match(SQLModel, table=True):
     # Result of the match (e.g. scores, winner, replay data)
     result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
-    # Logs from the match execution
-    logs: str | None = Field(default=None, nullable=True)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

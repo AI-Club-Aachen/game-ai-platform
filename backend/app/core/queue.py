@@ -49,7 +49,12 @@ class JobQueue:
         }
         await self._enqueue("queue:builds", payload)
 
-    async def enqueue_match(self, match_id: UUID, config: dict[str, Any], job_id: UUID, agent_ids: list[UUID] = []) -> None:
+    async def enqueue_match(
+        self,
+        match_id: UUID,
+        config: dict[str, Any],
+        job_id: UUID,
+        agent_ids: list[UUID]) -> None:
         """Enqueue a match execution job."""
         payload = {
             "type": "match",

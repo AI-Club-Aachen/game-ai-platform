@@ -104,7 +104,6 @@ class BackendAPI:
         self,
         submission_id: str,
         status: str,
-        logs: str | None = None,
         image_id: str | None = None,
         image_tag: str | None = None,
     ) -> dict[str, Any]:
@@ -114,7 +113,6 @@ class BackendAPI:
         Args:
             submission_id: Submission UUID
             status: New status (queued, building, completed, failed)
-            logs: Optional build logs or error message
             image_id: Optional Docker image ID
             image_tag: Optional Docker image tag
 
@@ -122,8 +120,7 @@ class BackendAPI:
             Updated submission data
         """
         data: dict[str, Any] = {"status": status}
-        if logs is not None:
-            data["logs"] = logs
+
         if image_id is not None:
             data["image_id"] = image_id
         if image_tag is not None:
@@ -149,7 +146,6 @@ class BackendAPI:
         self,
         match_id: str,
         status: str,
-        logs: str | None = None,
         result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -158,15 +154,13 @@ class BackendAPI:
         Args:
             match_id: Match UUID
             status: New status (queued, running, completed, failed)
-            logs: Optional execution logs or error message
             result: Optional match result data (scores, winner, etc.)
 
         Returns:
             Updated match data
         """
         data: dict[str, Any] = {"status": status}
-        if logs is not None:
-            data["logs"] = logs
+
         if result is not None:
             data["result"] = result
 

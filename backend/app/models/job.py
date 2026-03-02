@@ -21,12 +21,12 @@ class BuildJob(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     submission_id: UUID = Field(index=True, nullable=False)
-    
+
     status: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
-    
+
     # Logs from the build process
-    logs: str | None = Field(default=None, nullable=True)
-    
+    logs: str = Field(default="")
+
     # Resulting Docker Image ID and Tag
     image_id: str | None = Field(default=None, nullable=True)
     image_tag: str | None = Field(default=None, nullable=True)
@@ -43,12 +43,12 @@ class MatchJob(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     match_id: UUID = Field(index=True, nullable=False)
-    
+
     status: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
-    
+
     # Logs from the match execution
-    logs: str | None = Field(default=None, nullable=True)
-    
+    logs: str = Field(default="")
+
     # Result of the match (scores, winner, etc.)
     result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 

@@ -17,7 +17,6 @@ class SubmissionCreate(SubmissionBase):
 class SubmissionUpdate(BaseModel):
     """Schema for updating a submission (used by workers)."""
     status: SubmissionStatus
-    logs: str | None = None
     image_id: str | None = None
     image_tag: str | None = None
 
@@ -28,7 +27,6 @@ class SubmissionRead(SubmissionBase):
     status: SubmissionStatus
     image_id: str | None
     image_tag: str | None
-    logs: str | None
     created_at: datetime
     updated_at: datetime
 

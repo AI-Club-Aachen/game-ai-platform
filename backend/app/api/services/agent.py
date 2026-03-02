@@ -6,6 +6,7 @@ from app.api.repositories.agent import AgentRepository, AgentRepositoryError
 from app.models.agent import Agent
 from app.schemas.agent import AgentCreate, AgentUpdate
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,16 +55,22 @@ class AgentService:
             logger.exception("Error listing agents for user %s", user_id)
             raise AgentServiceError("Failed to list agents") from e
 
-    def update_agent(self, agent_id: UUID, agent_update: AgentUpdate, current_user_id: UUID, is_admin: bool = False) -> Agent:
+    def update_agent(
+        self,
+        agent_id: UUID,
+        agent_update: AgentUpdate,
+        current_user_id: UUID,
+        is_admin: bool = False,
+    ) -> Agent:
         """Update an agent."""
         agent = self.get_agent_by_id(agent_id)
-        
+
         if not is_admin and agent.user_id != current_user_id:
             raise AgentPermissionError("Not authorized to update this agent")
 
         if agent_update.active_submission_id is not None:
             agent.active_submission_id = agent_update.active_submission_id
-        
+
         if agent_update.stats is not None:
             agent.stats = agent_update.stats
 
