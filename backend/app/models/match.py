@@ -30,7 +30,7 @@ class Match(SQLModel, table=True):
     status: MatchStatus = Field(default=MatchStatus.QUEUED, nullable=False)
 
     # Agents that participate in the match
-    agent_ids: list[UUID] = Field(default=[], nullable=False)
+    agent_ids: list[UUID] = Field(default=[], sa_column=Column(JSON))
 
     # Configuration for the match (e.g. which agents, game rules, seed)
     config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

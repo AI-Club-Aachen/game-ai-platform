@@ -4,6 +4,7 @@ from typing import Any
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.core.queue import job_queue
+from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
 from app.models.match import Match, MatchStatus
 
@@ -21,12 +22,19 @@ class MatchService:
 
     async def create_match(
         self,
+        game_type: GameType,
         config: dict[str, Any],
+        agent_ids: list[Any] = [],
     ) -> Match:
         """
         Create a match and queue it for execution.
         """
-        match = Match(status=MatchStatus.QUEUED, config=config)
+        match = Match(
+            game_type=game_type,
+            status=MatchStatus.QUEUED,
+            config=config,
+            agent_ids=agent_ids
+        )
         match = self._repository.save(match)
 
         # Create job
@@ -34,7 +42,7 @@ class MatchService:
         job = self._job_repository.save_match_job(job)
 
         # Enqueue job
-        await job_queue.enqueue_match(match.id, match.config, job.id)
+        await job_queue.enqueue_match(match.id, match.config, job.id, match.agent_ids)
 
         return match
 

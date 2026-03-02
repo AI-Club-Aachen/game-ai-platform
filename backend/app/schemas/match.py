@@ -11,6 +11,7 @@ from app.models.match import MatchStatus
 class MatchBase(BaseModel):
     game_type: GameType
     config: dict[str, Any] = {}
+    agent_ids: list[UUID] = []
 
 
 class MatchCreate(MatchBase):
@@ -27,6 +28,7 @@ class MatchUpdate(BaseModel):
 class MatchRead(MatchBase):
     id: UUID
     status: MatchStatus
+    agent_ids: list[UUID]
     result: dict[str, Any] | None
     logs: str | None
     created_at: datetime
