@@ -65,7 +65,7 @@ class AuthService:
 
     # --- Registration ---
 
-    def register(
+    def register(  # noqa: C901
         self,
         user_data: UserCreate,
         background_tasks: BackgroundTasks,
@@ -127,8 +127,15 @@ class AuthService:
                     "Failed to clean up previous registration",
                 ) from e
 
+        bypass_verification = settings.BYPASS_EMAIL_VERIFICATION and not settings.is_production
+
         # Generate verification token
-        plain_token, token_hash, expiry = create_email_verification_token()
+        plain_token = "bypassed"  # noqa: S105
+        token_hash = None
+        expiry = None
+
+        if not bypass_verification:
+            plain_token, token_hash, expiry = create_email_verification_token()
 
         # Create user
         now = datetime.now(UTC)
@@ -137,7 +144,7 @@ class AuthService:
             email=user_data.email,
             password_hash=password_hash,
             role=UserRole.GUEST,
-            email_verified=False,
+            email_verified=bypass_verification,
             email_verification_token_hash=token_hash,
             email_verification_expires_at=expiry,
             created_at=now,
@@ -151,12 +158,15 @@ class AuthService:
             raise AuthServiceError("Failed to create user account") from e
 
         # Send verification email in background
-        background_tasks.add_task(
-            self._emails.send_verification_email,
-            to_email=user.email,
-            username=user.username,
-            token=plain_token,
-        )
+        if not bypass_verification:
+            background_tasks.add_task(
+                self._emails.send_verification_email,
+                to_email=user.email,
+                username=user.username,
+                token=plain_token,
+            )
+        else:
+            logger.info("Skipping email verification for user %s due to dev bypass", user.email)
 
         logger.info("New user registered: %s (ID: %s)", user.email, user.id)
         return user, plain_token

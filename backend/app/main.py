@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter with Redis backend
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri="redis://redis:6379",
+    storage_uri=settings.REDIS_URL,
     default_limits=["200/day", "50/hour"],
 )
 
@@ -41,9 +41,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} in {settings.ENVIRONMENT} mode")
+    if settings.is_production and settings.BYPASS_EMAIL_VERIFICATION:
+        logger.warning("Email verification is enabled in production mode")
     try:
-        redis = aioredis.from_url("redis://redis:6379", encoding="utf8")
-        logger.info("Redis connected for rate limiting")
+        redis = aioredis.from_url(settings.REDIS_URL, encoding="utf8")
+        logger.info(f"Redis connected for rate limiting: {settings.REDIS_URL}")
     except Exception:
         logger.exception("Failed to connect to Redis")
         logger.warning("Rate limiting running with memory backend fallback")

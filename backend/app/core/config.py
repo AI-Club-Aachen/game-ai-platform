@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables with validation"""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str
+    REDIS_URL: str = "redis://redis:6379/0"
 
     # JWT Configuration
     JWT_SECRET_KEY: str
@@ -65,6 +66,12 @@ class Settings(BaseSettings):
     # Email Verification
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60
+
+    # Development Feature Flags
+    BYPASS_EMAIL_VERIFICATION: bool = Field(
+        default=False,
+        description="Bypasses email verification. MUST NOT BE TRUE IN PRODUCTION.",
+    )
 
     @property
     def is_production(self) -> bool:
