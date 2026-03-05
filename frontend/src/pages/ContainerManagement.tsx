@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, CardContent, Chip } from '@mui/material';
 import { Close, Refresh, PlayArrow, Stop, Delete, Lock, Storage, Article } from '@mui/icons-material';
 
-interface Container {
+interface ContainerInfo {
   id: string;
   name: string;
   status: 'running' | 'stopped' | 'error';
@@ -31,7 +31,7 @@ export function ContainerManagement() {
     '[2025-11-01 12:46:17] Game #12345 completed - Victory!',
   ]);
 
-  const containers: Container[] = [
+  const containers: ContainerInfo[] = [
     { id: 'cont_1', name: 'alphabot-v1-2', status: 'running', image: 'python:3.11-slim', created: '2025-11-01 10:30', uptime: '2h 15m', cpu: 45.2, memory: 512, agentName: 'AlphaBot v1.2' },
     { id: 'cont_2', name: 'betaai-v2-0', status: 'running', image: 'node:20-alpine', created: '2025-11-01 09:15', uptime: '3h 30m', cpu: 32.8, memory: 384, agentName: 'BetaAI v2.0' },
     { id: 'cont_3', name: 'gammanet-v1-5', status: 'running', image: 'python:3.11-slim', created: '2025-11-01 11:00', uptime: '1h 45m', cpu: 67.5, memory: 768, agentName: 'GammaNet v1.5' },
@@ -39,7 +39,7 @@ export function ContainerManagement() {
     { id: 'cont_5', name: 'epsilonai-v3-1', status: 'error', image: 'node:18-alpine', created: '2025-11-01 12:00', uptime: '-', cpu: 0, memory: 0, agentName: 'EpsilonAI v3.1' },
   ];
 
-  const getStatusColor = (status: Container['status']) => {
+  const getStatusColor = (status: ContainerInfo['status']) => {
     const colors = { running: 'success' as const, stopped: 'default' as const, error: 'error' as const };
     return colors[status];
   };
@@ -47,7 +47,7 @@ export function ContainerManagement() {
   if (!isAdmin) {
     return (
       <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
-        <Lock sx={{ fontSize: 64, mb: 2, color: 'error.main' }} />
+        <Lock sx={{ fontSize: 56, mb: 2, color: 'error.main' }} />
         <Typography variant="h4" gutterBottom>Access Denied</Typography>
         <Typography color="text.secondary">You need admin privileges to access this page</Typography>
       </Container>
@@ -58,6 +58,14 @@ export function ContainerManagement() {
   const stoppedCount = containers.filter(c => c.status === 'stopped').length;
   const errorCount = containers.filter(c => c.status === 'error').length;
 
+  const statusDotColor = (color: string) => ({
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    backgroundColor: color,
+    flexShrink: 0,
+  });
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -66,36 +74,97 @@ export function ContainerManagement() {
         </Typography>
         <Typography color="text.secondary">Monitor and manage Docker containers for AI agents</Typography>
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 4 }}>
-        <Card><CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}><Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#10b981' }} /><Box><Typography variant="h4">{runningCount}</Typography><Typography variant="body2" color="text.secondary">Running</Typography></Box></CardContent></Card>
-        <Card><CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}><Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#888' }} /><Box><Typography variant="h4">{stoppedCount}</Typography><Typography variant="body2" color="text.secondary">Stopped</Typography></Box></CardContent></Card>
-        <Card><CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}><Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444' }} /><Box><Typography variant="h4">{errorCount}</Typography><Typography variant="body2" color="text.secondary">Error</Typography></Box></CardContent></Card>
+
+      {/* Status Cards */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
+        <Card>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={statusDotColor('#10B981')} />
+            <Box>
+              <Typography variant="h4">{runningCount}</Typography>
+              <Typography variant="body2" color="text.secondary">Running</Typography>
+            </Box>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={statusDotColor('#64748B')} />
+            <Box>
+              <Typography variant="h4">{stoppedCount}</Typography>
+              <Typography variant="body2" color="text.secondary">Stopped</Typography>
+            </Box>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={statusDotColor('#EF4444')} />
+            <Box>
+              <Typography variant="h4">{errorCount}</Typography>
+              <Typography variant="body2" color="text.secondary">Error</Typography>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
+
+      {/* Container Table */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>Active Containers</Typography>
+          <Typography variant="h6" sx={{ mb: 3 }}>Active Containers</Typography>
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow><TableCell>Status</TableCell><TableCell>Container Name</TableCell><TableCell>Agent</TableCell><TableCell>Image</TableCell><TableCell>Created</TableCell><TableCell>Uptime</TableCell><TableCell>CPU %</TableCell><TableCell>Memory (MB)</TableCell><TableCell>Actions</TableCell></TableRow>
+                <TableRow>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Container Name</TableCell>
+                  <TableCell>Agent</TableCell>
+                  <TableCell>Image</TableCell>
+                  <TableCell>Created</TableCell>
+                  <TableCell>Uptime</TableCell>
+                  <TableCell>CPU %</TableCell>
+                  <TableCell>Memory (MB)</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
               </TableHead>
               <TableBody>
                 {containers.map((container) => (
                   <TableRow key={container.id}>
-                    <TableCell><Chip label={container.status} color={getStatusColor(container.status)} size="small" sx={{ borderRadius: 0 }} /></TableCell>
-                    <TableCell><Typography component="code" sx={{ fontSize: '0.875rem', backgroundColor: '#333', px: 1, py: 0.5, borderRadius: 0 }}>{container.name}</Typography></TableCell>
+                    <TableCell>
+                      <Chip label={container.status} color={getStatusColor(container.status)} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: 'rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 1 }}>
+                        {container.name}
+                      </Typography>
+                    </TableCell>
                     <TableCell>{container.agentName}</TableCell>
-                    <TableCell><Typography component="code" sx={{ fontSize: '0.875rem', backgroundColor: '#333', px: 1, py: 0.5, borderRadius: 0 }}>{container.image}</Typography></TableCell>
+                    <TableCell>
+                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: 'rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 1 }}>
+                        {container.image}
+                      </Typography>
+                    </TableCell>
                     <TableCell>{container.created}</TableCell>
                     <TableCell>{container.uptime}</TableCell>
-                    <TableCell><Typography color={container.cpu > 50 ? 'error' : 'inherit'}>{container.cpu}%</Typography></TableCell>
-                    <TableCell><Typography color={container.memory > 500 ? 'error' : 'inherit'}>{container.memory}</Typography></TableCell>
+                    <TableCell>
+                      <Typography color={container.cpu > 50 ? 'error' : 'inherit'}>{container.cpu}%</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography color={container.memory > 500 ? 'error' : 'inherit'}>{container.memory}</Typography>
+                    </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Button variant="gradientBorder" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
-                        {container.status === 'running' && <><Button variant="gradientBorder" size="small"><Refresh fontSize="small" /></Button><Button variant="gradientBorder" size="small" color="error"><Stop fontSize="small" /></Button></>}
-                        {container.status === 'stopped' && <Button variant="gradientBorder" size="small" color="success"><PlayArrow fontSize="small" /></Button>}
-                        {container.status === 'error' && <Button variant="gradientBorder" size="small" color="error"><Delete fontSize="small" /></Button>}
+                        <Button variant="outlined" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
+                        {container.status === 'running' && (
+                          <>
+                            <Button variant="outlined" size="small"><Refresh fontSize="small" /></Button>
+                            <Button variant="outlined" size="small" color="error"><Stop fontSize="small" /></Button>
+                          </>
+                        )}
+                        {container.status === 'stopped' && (
+                          <Button variant="outlined" size="small" color="success"><PlayArrow fontSize="small" /></Button>
+                        )}
+                        {container.status === 'error' && (
+                          <Button variant="outlined" size="small" color="error"><Delete fontSize="small" /></Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -105,6 +174,8 @@ export function ContainerManagement() {
           </TableContainer>
         </CardContent>
       </Card>
+
+      {/* Container Logs */}
       {selectedContainer && (
         <Card>
           <CardContent>
@@ -112,17 +183,28 @@ export function ContainerManagement() {
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Article /> Container Logs
               </Typography>
-              <Button startIcon={<Close />} onClick={() => setSelectedContainer(null)} size="small">Close</Button>
+              <Button startIcon={<Close />} onClick={() => setSelectedContainer(null)} size="small" variant="text">
+                Close
+              </Button>
             </Box>
-            <Box sx={{ backgroundColor: '#0a0a0a', p: 2, borderRadius: 0, maxHeight: 300, overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+            <Box sx={{
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              p: 2,
+              borderRadius: 2,
+              maxHeight: 300,
+              overflowY: 'auto',
+              fontFamily: 'monospace',
+              fontSize: '0.8125rem',
+              lineHeight: 1.6,
+            }}>
               {logs.map((log, index) => (
-                <Box key={index} sx={{ mb: 0.5 }}>{log}</Box>
+                <Box key={index} sx={{ mb: 0.5, color: 'text.secondary' }}>{log}</Box>
               ))}
             </Box>
             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              <Button variant="gradientBorder" size="small">Download Logs</Button>
-              <Button variant="gradientBorder" size="small">Clear</Button>
-              <Button variant="gradientBorder" size="small">Refresh</Button>
+              <Button variant="outlined" size="small">Download Logs</Button>
+              <Button variant="outlined" size="small">Clear</Button>
+              <Button variant="outlined" size="small">Refresh</Button>
             </Box>
           </CardContent>
         </Card>

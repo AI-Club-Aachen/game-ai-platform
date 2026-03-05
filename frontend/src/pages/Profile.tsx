@@ -48,7 +48,6 @@ export function Profile() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Password Validation State
   const [passwordValidations, setPasswordValidations] = useState({
     length: false,
     uppercase: false,
@@ -63,24 +62,19 @@ export function Profile() {
       uppercase: /[A-Z]/.test(newPassword),
       lowercase: /[a-z]/.test(newPassword),
       digit: /[0-9]/.test(newPassword),
-      special: /[!@#$%^&*()_+\-=[\]{}|;:',.<>?/\\`~]/.test(newPassword),
+      special: /[!@#$%^&*()_+\-=[\]{}|;:',./<>?/\\`~]/.test(newPassword),
     });
   }, [newPassword]);
 
   const allRequirementsMet = Object.values(passwordValidations).every(Boolean);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  // Email confirmation state
   const [emailConfirmOpen, setEmailConfirmOpen] = useState(false);
 
-  // Feedback state
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  const handleCloseSnackbar = () => {
-    setSnackbarOpen(false);
-  };
+  const handleCloseSnackbar = () => setSnackbarOpen(false);
 
   const showFeedback = (message: string, severity: 'success' | 'error') => {
     setSnackbarMessage(message);
@@ -99,13 +93,11 @@ export function Profile() {
       return;
     }
 
-    // Check if email has changed
     if (user && email !== user.email) {
       setEmailConfirmOpen(true);
       return;
     }
 
-    // Just username change
     try {
       await usersApi.updateProfile({ username });
       await refreshUser();
@@ -119,8 +111,6 @@ export function Profile() {
     try {
       await usersApi.updateProfile({ username, email });
       setEmailConfirmOpen(false);
-
-      // Email changed, logout user
       logout();
       navigate('/login');
     } catch (error: any) {
@@ -166,13 +156,14 @@ export function Profile() {
       showFeedback(error.message || 'Failed to delete account', 'error');
     }
   };
+
   const ValidationItem = ({ met, text }: { met: boolean; text: string }) => (
     <ListItem dense sx={{ py: 0 }}>
-      <ListItemIcon sx={{ minWidth: 32 }}>
+      <ListItemIcon sx={{ minWidth: 28 }}>
         {met ? (
           <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
         ) : (
-          <Cancel sx={{ fontSize: 16, color: 'error.main' }} />
+          <Cancel sx={{ fontSize: 16, color: 'text.secondary' }} />
         )}
       </ListItemIcon>
       <ListItemText
@@ -197,14 +188,13 @@ export function Profile() {
             src={user ? getAvatarUrl(user.username, user.profile_picture_url) : undefined}
             alt={user?.username}
             sx={{
-              width: 100,
-              height: 100,
+              width: 96,
+              height: 96,
               mb: 2,
-              bgcolor: '#00A6FF',
               fontSize: '2.5rem',
             }}
           >
-            {!user?.profile_picture_url && <PersonIcon sx={{ fontSize: '3rem' }} />}
+            {!user?.profile_picture_url && <PersonIcon sx={{ fontSize: '2.5rem' }} />}
           </Avatar>
           <Typography variant="h5">{username}</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -214,6 +204,7 @@ export function Profile() {
 
         <Divider sx={{ mb: 3 }} />
 
+        {/* Profile Fields */}
         <Box sx={{ mb: 3, maxWidth: 820 }}>
           <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', md: 'row' } }}>
             <TextField
@@ -235,25 +226,14 @@ export function Profile() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
-          <Button
-            variant="gradientBorder"
-            onClick={handleUpdateProfile}
-            sx={{
-              '&:hover': {
-                background: 'transparent', // Clear any background
-                backgroundImage: 'none', // Clear specific gradient image
-                borderColor: '#00D98B',
-                color: '#00D98B'
-              }
-            }}
-          >
+          <Button variant="contained" onClick={handleUpdateProfile}>
             Save Changes
           </Button>
-          {/* Logout moved to Danger Zone */}
         </Box>
 
         <Divider sx={{ mb: 3 }} />
 
+        {/* Change Password */}
         <Typography variant="h6" sx={{ mb: 2 }}>
           Change Password
         </Typography>
@@ -274,7 +254,7 @@ export function Profile() {
                       aria-label="toggle current password visibility"
                       onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                       edge="end"
-                      sx={{ color: 'text.primary' }}
+                      sx={{ color: 'text.secondary' }}
                     >
                       {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
@@ -282,7 +262,6 @@ export function Profile() {
                 ),
               }}
             />
-            {/* Empty spacer to align with the 2-column layout below */}
             <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
           </Box>
 
@@ -301,7 +280,7 @@ export function Profile() {
                       aria-label="toggle new password visibility"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       edge="end"
-                      sx={{ color: 'text.primary' }}
+                      sx={{ color: 'text.secondary' }}
                     >
                       {showNewPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
@@ -323,7 +302,7 @@ export function Profile() {
                       aria-label="toggle confirm password visibility"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       edge="end"
-                      sx={{ color: 'text.primary' }}
+                      sx={{ color: 'text.secondary' }}
                     >
                       {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
@@ -334,7 +313,7 @@ export function Profile() {
           </Box>
 
           <Box sx={{ mb: 2, ml: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 'bold' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 600 }}>
               Password Requirements:
             </Typography>
             <List dense sx={{ pt: 0.5 }}>
@@ -348,7 +327,7 @@ export function Profile() {
         </Box>
 
         <Button
-          variant="gradientBorder"
+          variant="outlined"
           onClick={handleChangePassword}
           disabled={!currentPassword || !newPassword || !confirmPassword}
         >
@@ -357,7 +336,8 @@ export function Profile() {
 
         <Divider sx={{ mb: 3, mt: 4 }} />
 
-        <Typography variant="h6" sx={{ mb: 2, color: '#f44336' }}>
+        {/* Danger Zone */}
+        <Typography variant="h6" sx={{ mb: 2, color: 'error.main' }}>
           Danger Zone
         </Typography>
 
@@ -366,15 +346,11 @@ export function Profile() {
             variant="outlined"
             onClick={handleLogout}
             sx={{
-              color: '#ff9800',
-              borderColor: '#ff9800',
-              background: 'transparent',
-              backgroundImage: 'none',
+              color: 'warning.main',
+              borderColor: 'warning.main',
               '&:hover': {
-                borderColor: '#f57c00',
-                backgroundColor: 'rgba(255, 152, 0, 0.08)',
-                background: 'rgba(255, 152, 0, 0.08)',
-                backgroundImage: 'none',
+                borderColor: 'warning.dark',
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
               }
             }}
           >
@@ -385,16 +361,12 @@ export function Profile() {
             variant="contained"
             onClick={() => setDeleteDialogOpen(true)}
             sx={{
-              bgcolor: '#d32f2f', // MUI red[700]
-              color: 'white',
-              background: '#d32f2f',
-              backgroundImage: 'none',
-              boxShadow: 'none',
+              bgcolor: 'error.main',
               '&:hover': {
-                bgcolor: '#c62828',
-                background: '#c62828',
-                backgroundImage: 'none',
-              }
+                bgcolor: 'error.dark',
+                boxShadow: 'none',
+              },
+              boxShadow: 'none',
             }}
           >
             Delete Account
@@ -411,38 +383,15 @@ export function Profile() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            variant="outlined"
-            sx={{
-              color: 'text.primary',
-              borderColor: 'rgba(0, 0, 0, 0.23)', // Default MUI border color
-              background: 'transparent',
-              backgroundImage: 'none',
-              '&:hover': {
-                borderColor: 'text.primary',
-                bgcolor: 'rgba(0, 0, 0, 0.04)',
-                background: 'rgba(0, 0, 0, 0.04)',
-                backgroundImage: 'none',
-              }
-            }}
-          >
+          <Button onClick={() => setDeleteDialogOpen(false)} variant="outlined">
             Cancel
           </Button>
           <Button
             onClick={handleDeleteAccount}
             variant="contained"
             sx={{
-              bgcolor: '#d32f2f',
-              color: 'white',
-              background: '#d32f2f', // Force solid background
-              backgroundImage: 'none', // Explicitly remove gradient
-              boxShadow: 'none',
-              '&:hover': {
-                bgcolor: '#c62828',
-                background: '#c62828',
-                backgroundImage: 'none',
-              }
+              bgcolor: 'error.main',
+              '&:hover': { bgcolor: 'error.dark' },
             }}
           >
             Delete Account
@@ -457,21 +406,15 @@ export function Profile() {
           <Typography sx={{ mb: 2 }}>
             Changing your email address requires re-verification.
           </Typography>
-          <Typography color="warning.main" sx={{ fontWeight: 'bold' }}>
+          <Typography color="warning.main" sx={{ fontWeight: 600 }}>
             You will be logged out immediately and must verify your new email before logging in again.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setEmailConfirmOpen(false)}
-            variant="outlined"
-          >
+          <Button onClick={() => setEmailConfirmOpen(false)} variant="outlined">
             Cancel
           </Button>
-          <Button
-            onClick={handleConfirmEmailChange}
-            variant="gradientBorder"
-          >
+          <Button onClick={handleConfirmEmailChange} variant="contained">
             Confirm & Logout
           </Button>
         </DialogActions>

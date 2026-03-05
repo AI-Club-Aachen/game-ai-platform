@@ -24,7 +24,6 @@ interface Agent {
 export function Dashboard() {
   const { user, isAdmin } = useAuth();
 
-  // Mock data
   const submissions: Submission[] = [
     { id: '1', agentName: 'AlphaBot', version: 'v1.2', status: 'approved', submittedAt: '2025-10-30', score: 1250 },
     { id: '2', agentName: 'BetaAI', version: 'v2.0', status: 'pending', submittedAt: '2025-11-01' },
@@ -71,12 +70,34 @@ export function Dashboard() {
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Stats Overview */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+          gap: 3
+        }}>
+          {[
+            { value: '3', label: 'Active Agents' },
+            { value: '135', label: 'Total Games' },
+            { value: '68%', label: 'Win Rate' },
+            { value: '#3', label: 'Best Rank' },
+          ].map((stat, i) => (
+            <Card key={i}>
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h3" color="primary" sx={{ fontWeight: 700, mb: 0.5 }}>{stat.value}</Typography>
+                <Typography variant="body2" color="text.secondary">{stat.label}</Typography>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+
         {/* Submissions Section */}
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
-              📤 Recent Submissions
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6">Recent Submissions</Typography>
+              <Button variant="contained" size="small">+ New Submission</Button>
+            </Box>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -94,7 +115,7 @@ export function Dashboard() {
                     <TableRow key={sub.id}>
                       <TableCell>{sub.agentName}</TableCell>
                       <TableCell>
-                        <Typography component="code" sx={{ fontSize: '0.875rem', backgroundColor: '#333', px: 1, py: 0.5, borderRadius: 0 }}>
+                        <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: 'rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 1 }}>
                           {sub.version}
                         </Typography>
                       </TableCell>
@@ -105,7 +126,7 @@ export function Dashboard() {
                       <TableCell>{sub.score || '-'}</TableCell>
                       {isAdmin && (
                         <TableCell>
-                          <Button variant="gradientBorder" size="small">Review</Button>
+                          <Button variant="outlined" size="small">Review</Button>
                         </TableCell>
                       )}
                     </TableRow>
@@ -113,18 +134,13 @@ export function Dashboard() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Box sx={{ mt: 2 }}>
-              <Button variant="contained">+ New Submission</Button>
-            </Box>
           </CardContent>
         </Card>
 
         {/* Agent Tracking Section */}
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
-              🤖 Agent Tracking
-            </Typography>
+            <Typography variant="h6" sx={{ mb: 3 }}>Agent Tracking</Typography>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -143,14 +159,16 @@ export function Dashboard() {
                       <TableCell><strong>{agent.name}</strong></TableCell>
                       <TableCell>{agent.language}</TableCell>
                       <TableCell>
-                        {agent.wins}W / {agent.losses}L
+                        <Typography component="span" sx={{ color: 'success.main' }}>{agent.wins}W</Typography>
+                        {' / '}
+                        <Typography component="span" sx={{ color: 'error.main' }}>{agent.losses}L</Typography>
                       </TableCell>
                       <TableCell>
                         <Chip label={`#${agent.rank}`} color="primary" size="small" />
                       </TableCell>
                       <TableCell>{agent.lastActive}</TableCell>
                       <TableCell>
-                        <Button variant="gradientBorder" size="small">View</Button>
+                        <Button variant="outlined" size="small">View</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -159,39 +177,6 @@ export function Dashboard() {
             </TableContainer>
           </CardContent>
         </Card>
-
-        {/* Stats Overview */}
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              📈 Quick Stats
-            </Typography>
-            <Box sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
-              gap: 3
-            }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" color="primary">3</Typography>
-                <Typography color="text.secondary">Active Agents</Typography>
-              </Box>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" color="primary">135</Typography>
-                <Typography color="text.secondary">Total Games</Typography>
-              </Box>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" color="primary">68%</Typography>
-                <Typography color="text.secondary">Win Rate</Typography>
-              </Box>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" color="primary">#3</Typography>
-                <Typography color="text.secondary">Best Rank</Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-
-
       </Box>
     </Container>
   );

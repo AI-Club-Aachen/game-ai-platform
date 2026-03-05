@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  SportsEsports, 
+import {
+  SportsEsports,
   Dashboard as DashboardIcon,
   SportsEsportsOutlined,
   EmojiEvents,
@@ -40,7 +40,7 @@ export function Sidebar({ onToggle }: SidebarProps) {
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <Link to="/dashboard" className="sidebar-logo">
-          <SportsEsports style={{ fontSize: '2rem', color: '#00A6FF' }} />
+          <SportsEsports style={{ fontSize: '1.75rem', color: '#19B5FF' }} />
           {!isCollapsed && <h2>AICA</h2>}
         </Link>
         <button className="sidebar-toggle" onClick={toggleSidebar}>
@@ -53,17 +53,17 @@ export function Sidebar({ onToggle }: SidebarProps) {
           <DashboardIcon />
           {!isCollapsed && <span>Dashboard</span>}
         </Link>
-        
+
         <Link to="/games" className="sidebar-link">
           <SportsEsportsOutlined />
           {!isCollapsed && <span>Games</span>}
         </Link>
-        
+
         <Link to="/tournaments" className="sidebar-link">
           <EmojiEvents />
           {!isCollapsed && <span>Tournaments</span>}
         </Link>
-        
+
         {user && isAdmin && (
           <>
             <div className="sidebar-divider"></div>

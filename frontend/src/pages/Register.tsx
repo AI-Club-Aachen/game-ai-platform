@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-//import { useAuth } from '../context/AuthContext'; //TODO
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, Checkbox, FormControlLabel, List, ListItem, ListItemIcon, ListItemText, IconButton, InputAdornment } from '@mui/material';
 import { PersonAdd, CheckCircle, Cancel, Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '../services/api/auth';
 
 export function Register() {
   const navigate = useNavigate();
-  //const { login } = useAuth(); //TODO
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -21,7 +19,6 @@ export function Register() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Password Validation State
   const [passwordValidations, setPasswordValidations] = useState({
     length: false,
     uppercase: false,
@@ -37,7 +34,7 @@ export function Register() {
       uppercase: /[A-Z]/.test(password),
       lowercase: /[a-z]/.test(password),
       digit: /[0-9]/.test(password),
-      special: /[!@#$%^&*()_+\-=[\]{}|;:',.<>?/\\`~]/.test(password),
+      special: /[!@#$%^&*()_+\-=[\]{}|;:',./<>?/\\`~]/.test(password),
     });
   }, [formData.password]);
 
@@ -55,7 +52,6 @@ export function Register() {
     setError('');
     setSuccess('');
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -87,7 +83,6 @@ export function Register() {
 
       setSuccess('Registration successful! Please check your email to verify your account.');
 
-      // Clear form
       setFormData({
         username: '',
         email: '',
@@ -96,7 +91,6 @@ export function Register() {
       });
       setAgreedToTerms(false);
 
-      // Redirect to verification page after 3 seconds
       setTimeout(() => {
         navigate('/verify-email', { state: { email: formData.email } });
       }, 3000);
@@ -109,11 +103,11 @@ export function Register() {
 
   const ValidationItem = ({ met, text }: { met: boolean; text: string }) => (
     <ListItem dense sx={{ py: 0 }}>
-      <ListItemIcon sx={{ minWidth: 32 }}>
+      <ListItemIcon sx={{ minWidth: 28 }}>
         {met ? (
           <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
         ) : (
-          <Cancel sx={{ fontSize: 16, color: 'error.main' }} />
+          <Cancel sx={{ fontSize: 16, color: 'text.secondary' }} />
         )}
       </ListItemIcon>
       <ListItemText
@@ -133,15 +127,15 @@ export function Register() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #121212 0%, #1a1a1a 100%)',
+        background: 'radial-gradient(ellipse at 50% 0%, rgba(25, 181, 255, 0.06) 0%, transparent 60%)',
         py: 4,
       }}
     >
       <Container maxWidth="sm">
-        <Card sx={{ p: 2 }}>
+        <Card sx={{ p: { xs: 2, sm: 3 } }}>
           <CardContent>
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <PersonAdd sx={{ fontSize: 48, color: '#00D98B', mb: 2 }} />
+              <PersonAdd sx={{ fontSize: 44, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" gutterBottom>
                 Create Account
               </Typography>
@@ -151,13 +145,13 @@ export function Register() {
             </Box>
 
             {error && (
-              <Alert severity="error" sx={{ mb: 3, borderRadius: 0 }}>
+              <Alert severity="error" sx={{ mb: 3 }}>
                 {error}
               </Alert>
             )}
 
             {success && (
-              <Alert severity="success" sx={{ mb: 3, borderRadius: 0 }}>
+              <Alert severity="success" sx={{ mb: 3 }}>
                 {success}
               </Alert>
             )}
@@ -203,7 +197,7 @@ export function Register() {
                         aria-label="toggle password visibility"
                         onClick={() => setShowPassword(!showPassword)}
                         edge="end"
-                        sx={{ color: 'text.primary' }}
+                        sx={{ color: 'text.secondary' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -213,7 +207,7 @@ export function Register() {
               />
 
               <Box sx={{ mb: 3, ml: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 'bold' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 600 }}>
                   Password Requirements:
                 </Typography>
                 <List dense sx={{ pt: 0.5 }}>
@@ -242,7 +236,7 @@ export function Register() {
                         aria-label="toggle confirm password visibility"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         edge="end"
-                        sx={{ color: 'text.primary' }}
+                        sx={{ color: 'text.secondary' }}
                       >
                         {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -256,12 +250,6 @@ export function Register() {
                   <Checkbox
                     checked={agreedToTerms}
                     onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    sx={{
-                      color: '#00A6FF',
-                      '&.Mui-checked': {
-                        color: '#00A6FF',
-                      },
-                    }}
                   />
                 }
                 label={
@@ -270,7 +258,7 @@ export function Register() {
                     <Link
                       to="/terms"
                       style={{
-                        color: '#00A6FF',
+                        color: '#19B5FF',
                         textDecoration: 'none',
                       }}
                     >
@@ -291,14 +279,13 @@ export function Register() {
                 {loading ? 'Creating account...' : 'Create Account'}
               </Button>
 
-
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   Already have an account?{' '}
                   <Link
                     to="/login"
                     style={{
-                      color: '#00A6FF',
+                      color: '#19B5FF',
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}

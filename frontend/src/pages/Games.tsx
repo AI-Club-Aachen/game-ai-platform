@@ -6,14 +6,14 @@ import { SportsEsports, Casino, Close, Circle, Album, PanoramaFishEye } from '@m
 const iconMap: Record<string, React.ReactNode> = {
   chess: '♟',
   tictactoe: (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 64 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 56 }}>
       <Close sx={{ fontSize: 'inherit' }} />
       <PanoramaFishEye sx={{ fontSize: 'inherit' }} />
     </Box>
   ),
-  circle: <Circle sx={{ fontSize: 64 }} />,
-  album: <Album sx={{ fontSize: 64 }} />,
-  casino: <Casino sx={{ fontSize: 64 }} />,
+  circle: <Circle sx={{ fontSize: 56 }} />,
+  album: <Album sx={{ fontSize: 56 }} />,
+  casino: <Casino sx={{ fontSize: 56 }} />,
 };
 
 export function Games() {
@@ -22,10 +22,10 @@ export function Games() {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'easy': return '#10b981';
-      case 'medium': return '#f59e0b';
-      case 'hard': return '#ef4444';
-      default: return '#888';
+      case 'easy': return '#10B981';
+      case 'medium': return '#F59E0B';
+      case 'hard': return '#EF4444';
+      default: return '#64748B';
     }
   };
 
@@ -33,57 +33,52 @@ export function Games() {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SportsEsports sx={{ fontSize: 36 }} /> Available Games
+          <SportsEsports sx={{ fontSize: 32 }} /> Available Games
         </Typography>
         <Typography color="text.secondary">
           Choose a game to view details and start competing
         </Typography>
       </Box>
-      
+
       <Box sx={{ mb: 6 }}>
-        <Typography variant="h5" gutterBottom>
+        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
           Active Games
         </Typography>
-        <Box sx={{ 
-          display: 'grid', 
+        <Box sx={{
+          display: 'grid',
           gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-          gap: 3 
+          gap: 3,
         }}>
           {activeGames.map((game) => (
-            <Card key={game.id} sx={{ 
-              height: '100%',
+            <Card key={game.id} sx={{
               display: 'flex',
               flexDirection: 'column',
-              transition: 'transform 0.3s',
-              '&:hover': {
-                transform: 'translateY(-8px)',
-              }
             }}>
               <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
+                <Box sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
                   alignItems: 'center',
-                  mb: 2, 
-                  fontSize: 64, 
-                  color: '#00A6FF',
-                  minHeight: 80
+                  mb: 2,
+                  fontSize: 56,
+                  color: 'primary.main',
+                  minHeight: 72,
                 }}>
                   {iconMap[game.icon] || game.icon}
                 </Box>
                 <Typography variant="h6" gutterBottom>
                   {game.name}
                 </Typography>
-                <Typography color="text.secondary" sx={{ mb: 2, flexGrow: 1 }}>
+                <Typography color="text.secondary" sx={{ mb: 2, flexGrow: 1, fontSize: '0.8125rem' }}>
                   {game.description}
                 </Typography>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Players:</Typography>
                     <Typography variant="body2">
-                      {game.minPlayers === game.maxPlayers 
-                        ? game.maxPlayers 
+                      {game.minPlayers === game.maxPlayers
+                        ? game.maxPlayers
                         : `${game.minPlayers}-${game.maxPlayers}`}
                     </Typography>
                   </Box>
@@ -93,32 +88,31 @@ export function Games() {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" color="text.secondary">Difficulty:</Typography>
-                    <Chip 
-                      label={game.difficulty} 
+                    <Chip
+                      label={game.difficulty}
                       size="small"
-                      sx={{ 
-                        backgroundColor: `${getDifficultyColor(game.difficulty)}22`, 
+                      sx={{
+                        backgroundColor: `${getDifficultyColor(game.difficulty)}18`,
                         color: getDifficultyColor(game.difficulty),
-                        borderRadius: 0
                       }}
                     />
                   </Box>
                 </Box>
 
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button 
-                    component={Link} 
-                    to={`/leaderboard?game=${game.id}`} 
-                    variant="gradientBorder"
+                  <Button
+                    component={Link}
+                    to={`/leaderboard?game=${game.id}`}
+                    variant="outlined"
                     size="small"
                     fullWidth
                   >
                     Leaderboard
                   </Button>
-                  <Button 
-                    component={Link} 
-                    to={`/games/live?game=${game.id}`} 
-                    variant="gradientBorder"
+                  <Button
+                    component={Link}
+                    to={`/games/live?game=${game.id}`}
+                    variant="outlined"
                     size="small"
                     fullWidth
                   >
@@ -133,47 +127,50 @@ export function Games() {
 
       {inactiveGames.length > 0 && (
         <Box>
-          <Typography variant="h5" gutterBottom>
+          <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
             Coming Soon
           </Typography>
-          <Box sx={{ 
-            display: 'grid', 
+          <Box sx={{
+            display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-            gap: 3 
+            gap: 3,
           }}>
             {inactiveGames.map((game) => (
-              <Card key={game.id} sx={{ 
-                height: '100%',
+              <Card key={game.id} sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                opacity: 0.6,
-                position: 'relative'
+                opacity: 0.5,
+                position: 'relative',
+                '&:hover': {
+                  borderColor: 'divider',
+                  boxShadow: 'none',
+                },
               }}>
                 <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
                     alignItems: 'center',
-                    mb: 2, 
-                    fontSize: 64, 
-                    color: '#888',
-                    minHeight: 80
+                    mb: 2,
+                    fontSize: 56,
+                    color: 'text.secondary',
+                    minHeight: 72,
                   }}>
                     {iconMap[game.icon] || game.icon}
                   </Box>
                   <Typography variant="h6" gutterBottom>
                     {game.name}
                   </Typography>
-                  <Typography color="text.secondary" sx={{ mb: 2, flexGrow: 1 }}>
+                  <Typography color="text.secondary" sx={{ mb: 2, flexGrow: 1, fontSize: '0.8125rem' }}>
                     {game.description}
                   </Typography>
-                  
+
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2" color="text.secondary">Players:</Typography>
                       <Typography variant="body2">
-                        {game.minPlayers === game.maxPlayers 
-                          ? game.maxPlayers 
+                        {game.minPlayers === game.maxPlayers
+                          ? game.maxPlayers
                           : `${game.minPlayers}-${game.maxPlayers}`}
                       </Typography>
                     </Box>
@@ -183,26 +180,24 @@ export function Games() {
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="body2" color="text.secondary">Difficulty:</Typography>
-                      <Chip 
-                        label={game.difficulty} 
+                      <Chip
+                        label={game.difficulty}
                         size="small"
-                        sx={{ 
-                          backgroundColor: `${getDifficultyColor(game.difficulty)}22`, 
+                        sx={{
+                          backgroundColor: `${getDifficultyColor(game.difficulty)}18`,
                           color: getDifficultyColor(game.difficulty),
-                          borderRadius: 0
                         }}
                       />
                     </Box>
                   </Box>
 
-                  <Chip 
-                    label="Coming Soon" 
-                    color="default"
-                    sx={{ 
+                  <Chip
+                    label="Coming Soon"
+                    size="small"
+                    sx={{
                       position: 'absolute',
                       top: 16,
                       right: 16,
-                      borderRadius: 0
                     }}
                   />
                 </CardContent>

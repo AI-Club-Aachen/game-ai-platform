@@ -38,15 +38,15 @@ export function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #121212 0%, #1a1a1a 100%)',
+        background: 'radial-gradient(ellipse at 50% 0%, rgba(25, 181, 255, 0.06) 0%, transparent 60%)',
         py: 4,
       }}
     >
       <Container maxWidth="sm">
-        <Card sx={{ p: 2 }}>
+        <Card sx={{ p: { xs: 2, sm: 3 } }}>
           <CardContent>
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <LoginIcon sx={{ fontSize: 48, color: '#00A6FF', mb: 2 }} />
+              <LoginIcon sx={{ fontSize: 44, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" gutterBottom>
                 Welcome Back
               </Typography>
@@ -56,7 +56,7 @@ export function Login() {
             </Box>
 
             {error && (
-              <Alert severity="error" sx={{ mb: 3, borderRadius: 0 }}>
+              <Alert severity="error" sx={{ mb: 3 }}>
                 {error.toLowerCase().includes('not verified') ? (
                   <span>
                     Email not verified. Check your inbox for verification link or{' '}
@@ -105,7 +105,7 @@ export function Login() {
                         aria-label="toggle password visibility"
                         onClick={() => setShowPassword(!showPassword)}
                         edge="end"
-                        sx={{ color: 'text.primary' }}
+                        sx={{ color: 'text.secondary' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -124,15 +124,13 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-
-
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   Don't have an account?{' '}
                   <Link
                     to="/register"
                     style={{
-                      color: '#00A6FF',
+                      color: '#19B5FF',
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -143,8 +141,8 @@ export function Login() {
               </Box>
             </form>
 
-            <Box sx={{ mt: 3, p: 2, backgroundColor: '#0a0a0a', borderRadius: 0 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            <Box sx={{ mt: 3, p: 2, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                 Note: You must register first or use existing credentials
               </Typography>
               <Typography variant="caption" component="div" color="text.secondary">

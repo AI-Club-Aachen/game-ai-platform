@@ -4,16 +4,8 @@ import { Visibility, ArrowBack, PlayCircle, Videocam, History, EmojiEvents, Play
 
 interface LiveGame {
   id: string;
-  player1: {
-    name: string;
-    agent: string;
-    score: number;
-  };
-  player2: {
-    name: string;
-    agent: string;
-    score: number;
-  };
+  player1: { name: string; agent: string; score: number };
+  player2: { name: string; agent: string; score: number };
   gameType: string;
   startedAt: string;
   viewers: number;
@@ -81,7 +73,7 @@ export function LiveGames() {
   if (selectedGame && selectedGameData) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => setSelectedGame(null)} sx={{ mb: 3 }}>
+        <Button startIcon={<ArrowBack />} onClick={() => setSelectedGame(null)} sx={{ mb: 3 }} variant="text">
           Back to Live Games
         </Button>
         <Card sx={{ mb: 3 }}>
@@ -105,16 +97,16 @@ export function LiveGames() {
         </Card>
         <Card sx={{ mb: 3, minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CardContent sx={{ textAlign: 'center' }}>
-            <Videocam sx={{ fontSize: 64, mb: 2, color: 'primary.main' }} />
+            <Videocam sx={{ fontSize: 56, mb: 2, color: 'primary.main' }} />
             <Typography variant="h4" gutterBottom>Game Visualization</Typography>
             <Typography variant="h6" color="text.secondary" gutterBottom>Round {selectedGameData.round} of {selectedGameData.maxRounds}</Typography>
             <Chip label="LIVE" color="error" sx={{ mt: 2 }} />
           </CardContent>
         </Card>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 3 }}>
           <Card><CardContent><Typography variant="body2" color="text.secondary">Game Type</Typography><Typography variant="h6">{selectedGameData.gameType}</Typography></CardContent></Card>
           <Card><CardContent><Typography variant="body2" color="text.secondary">Started</Typography><Typography variant="h6">{selectedGameData.startedAt}</Typography></CardContent></Card>
-          <Card><CardContent><Typography variant="body2" color="text.secondary">Viewers</Typography><Typography variant="h6"><Visibility sx={{ fontSize: 20, mr: 0.5, verticalAlign: 'middle' }} />{selectedGameData.viewers}</Typography></CardContent></Card>
+          <Card><CardContent><Typography variant="body2" color="text.secondary">Viewers</Typography><Typography variant="h6"><Visibility sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} />{selectedGameData.viewers}</Typography></CardContent></Card>
         </Box>
       </Container>
     );
@@ -124,7 +116,7 @@ export function LiveGames() {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PlayCircle sx={{ fontSize: 36 }} /> Games
+          <PlayCircle sx={{ fontSize: 32 }} /> Games
         </Typography>
         <Typography color="text.secondary">Watch live games or review past matches</Typography>
       </Box>
@@ -133,11 +125,18 @@ export function LiveGames() {
       <Box sx={{ mb: 6 }}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Videocam sx={{ fontSize: 28 }} /> Live Games
+            <Videocam sx={{ fontSize: 24 }} /> Live Games
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite', '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } } }} />
-            <Typography color="text.secondary">{liveGames.length} games currently in progress</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              backgroundColor: '#EF4444',
+              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
+            }} />
+            <Typography variant="body2" color="text.secondary">{liveGames.length} games currently in progress</Typography>
           </Box>
         </Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 3 }}>
@@ -145,17 +144,26 @@ export function LiveGames() {
             <Card key={game.id}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Chip label={game.gameType} size="small" sx={{ borderRadius: 0 }} />
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Visibility sx={{ fontSize: 16 }} /><Typography variant="body2">{game.viewers}</Typography></Box>
+                  <Chip label={game.gameType} size="small" />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                    <Visibility sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">{game.viewers}</Typography>
+                  </Box>
                 </Box>
                 <Box sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Box><Typography variant="body2" fontWeight="bold">{game.player1.name}</Typography><Typography variant="caption" color="text.secondary">{game.player1.agent}</Typography></Box>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>{game.player1.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{game.player1.agent}</Typography>
+                    </Box>
                     <Typography variant="h5" color="primary">{game.player1.score}</Typography>
                   </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', my: 1 }}>VS</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', my: 0.5 }}>VS</Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box><Typography variant="body2" fontWeight="bold">{game.player2.name}</Typography><Typography variant="caption" color="text.secondary">{game.player2.agent}</Typography></Box>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>{game.player2.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{game.player2.agent}</Typography>
+                    </Box>
                     <Typography variant="h5" color="primary">{game.player2.score}</Typography>
                   </Box>
                 </Box>
@@ -164,9 +172,9 @@ export function LiveGames() {
                     <Typography variant="caption">Round {game.round} / {game.maxRounds}</Typography>
                     <Typography variant="caption">{game.startedAt}</Typography>
                   </Box>
-                  <LinearProgress variant="determinate" value={(game.round / game.maxRounds) * 100} sx={{ height: 6, borderRadius: 0, backgroundColor: '#333', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #00D98B 0%, #00A6FF 100%)' } }} />
+                  <LinearProgress variant="determinate" value={(game.round / game.maxRounds) * 100} sx={{ height: 4 }} />
                 </Box>
-                <Button variant="gradientBorder" fullWidth onClick={() => setSelectedGame(game.id)}>Watch Game</Button>
+                <Button variant="outlined" fullWidth onClick={() => setSelectedGame(game.id)}>Watch Game</Button>
               </CardContent>
             </Card>
           ))}
@@ -177,66 +185,68 @@ export function LiveGames() {
       <Box>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <History sx={{ fontSize: 28 }} /> Past Games
+            <History sx={{ fontSize: 24 }} /> Past Games
           </Typography>
-          <Typography color="text.secondary">Review and analyze previous matches</Typography>
+          <Typography variant="body2" color="text.secondary">Review and analyze previous matches</Typography>
         </Box>
-        <TableContainer component={Card}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Players</TableCell>
-                <TableCell>Game Type</TableCell>
-                <TableCell>Winner</TableCell>
-                <TableCell>Score</TableCell>
-                <TableCell>Duration</TableCell>
-                <TableCell>Played At</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pastGames.map((game) => (
-                <TableRow key={game.id} sx={{ '&:hover': { backgroundColor: '#2a2a2a' } }}>
-                  <TableCell>
-                    <Box>
-                      <Typography variant="body2" fontWeight="bold">{game.player1.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{game.player1.agent}</Typography>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ my: 0.5 }}>vs</Typography>
-                    <Box>
-                      <Typography variant="body2" fontWeight="bold">{game.player2.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{game.player2.agent}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={game.gameType} size="small" sx={{ borderRadius: 0 }} />
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <EmojiEvents sx={{ fontSize: 16, color: '#f59e0b' }} />
-                      <Typography>{game.winner}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography>{game.player1.score} - {game.player2.score}</Typography>
-                  </TableCell>
-                  <TableCell>{game.duration}</TableCell>
-                  <TableCell>{game.playedAt}</TableCell>
-                  <TableCell align="right">
-                    <Button 
-                      size="small" 
-                      startIcon={<PlayArrow />}
-                      variant="gradientBorder"
-                      onClick={() => setSelectedGame(game.id)}
-                    >
-                      Replay
-                    </Button>
-                  </TableCell>
+        <Card>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Players</TableCell>
+                  <TableCell>Game Type</TableCell>
+                  <TableCell>Winner</TableCell>
+                  <TableCell>Score</TableCell>
+                  <TableCell>Duration</TableCell>
+                  <TableCell>Played At</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {pastGames.map((game) => (
+                  <TableRow key={game.id}>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>{game.player1.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{game.player1.agent}</Typography>
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ my: 0.5 }}>vs</Typography>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>{game.player2.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{game.player2.agent}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={game.gameType} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <EmojiEvents sx={{ fontSize: 16, color: '#F59E0B' }} />
+                        <Typography>{game.winner}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography>{game.player1.score} - {game.player2.score}</Typography>
+                    </TableCell>
+                    <TableCell>{game.duration}</TableCell>
+                    <TableCell>{game.playedAt}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        startIcon={<PlayArrow />}
+                        variant="outlined"
+                        onClick={() => setSelectedGame(game.id)}
+                      >
+                        Replay
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
       </Box>
     </Container>
   );

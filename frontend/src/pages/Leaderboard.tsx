@@ -1,6 +1,5 @@
 import { useState } from 'react';
-//import { getGameById } from '../config/games'; //TODO
-import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress } from '@mui/material';
+import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card } from '@mui/material';
 import { EmojiEvents } from '@mui/icons-material';
 
 interface LeaderboardEntry {
@@ -38,90 +37,83 @@ export function Leaderboard() {
     return `#${rank}`;
   };
 
-  //const currentGame = getGameById(selectedGame); //TODO
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <EmojiEvents sx={{ fontSize: 36 }} /> Leaderboard
+          <EmojiEvents sx={{ fontSize: 32 }} /> Leaderboard
         </Typography>
         <Typography color="text.secondary">
           Top performing AI agents across all games
         </Typography>
       </Box>
 
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Rank</TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>Agent</TableCell>
-              <TableCell>Language</TableCell>
-              <TableCell align="right">Score</TableCell>
-              <TableCell align="right">Wins</TableCell>
-              <TableCell align="right">Losses</TableCell>
-              <TableCell>Win Rate</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {entries.map((entry) => (
-              <TableRow
-                key={entry.rank}
-                sx={{
-                  backgroundColor: entry.rank <= 3 ? 'rgba(0, 217, 139, 0.1)' : 'inherit'
-                }}
-              >
-                <TableCell>
-                  <Typography variant="h6">
-                    {getRankBadge(entry.rank)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <strong>{entry.username}</strong>
-                </TableCell>
-                <TableCell>{entry.agentName}</TableCell>
-                <TableCell>
-                  <Chip label={entry.language} size="small" sx={{ borderRadius: 0 }} />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography color="primary" fontWeight="bold">
-                    {entry.score}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right" sx={{ color: '#10b981' }}>
-                  {entry.wins}
-                </TableCell>
-                <TableCell align="right" sx={{ color: '#ef4444' }}>
-                  {entry.losses}
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={entry.winRate}
-                        sx={{
-                          height: 8,
-                          borderRadius: 0,
-                          backgroundColor: '#333',
-                          '& .MuiLinearProgress-bar': {
-                            background: 'linear-gradient(90deg, #00D98B 0%, #00A6FF 100%)'
-                          }
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="body2" sx={{ minWidth: 50 }}>
-                      {entry.winRate.toFixed(1)}%
-                    </Typography>
-                  </Box>
-                </TableCell>
+      <Card>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Rank</TableCell>
+                <TableCell>User</TableCell>
+                <TableCell>Agent</TableCell>
+                <TableCell>Language</TableCell>
+                <TableCell align="right">Score</TableCell>
+                <TableCell align="right">Wins</TableCell>
+                <TableCell align="right">Losses</TableCell>
+                <TableCell>Win Rate</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {entries.map((entry) => (
+                <TableRow
+                  key={entry.rank}
+                  sx={{
+                    backgroundColor: entry.rank <= 3 ? 'rgba(25, 181, 255, 0.04)' : 'inherit'
+                  }}
+                >
+                  <TableCell>
+                    <Typography variant="h6" sx={{ fontSize: '1rem' }}>
+                      {getRankBadge(entry.rank)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <strong>{entry.username}</strong>
+                  </TableCell>
+                  <TableCell>{entry.agentName}</TableCell>
+                  <TableCell>
+                    <Chip label={entry.language} size="small" />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography color="primary" fontWeight="bold">
+                      {entry.score}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: 'success.main' }}>
+                    {entry.wins}
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: 'error.main' }}>
+                    {entry.losses}
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={entry.winRate}
+                          sx={{ height: 6 }}
+                        />
+                      </Box>
+                      <Typography variant="body2" sx={{ minWidth: 50 }}>
+                        {entry.winRate.toFixed(1)}%
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Card>
     </Container>
   );
 }
