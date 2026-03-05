@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir --prefix=/install -r base_requirements.txt && \
     find /install -type f -name "*.h" -delete && \
     find /install -name "*.so" -exec strip --strip-unneeded {} + || true
 
+# log disk usage of packages
+RUN du -sh /install/lib/python3.12/site-packages/* | sort -rh
+
 # Create non-root user in builder stage (since runtime has no shell)
 RUN useradd -u 10001 -m runner
 
