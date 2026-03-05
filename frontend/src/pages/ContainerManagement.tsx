@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, CardContent, Chip } from '@mui/material';
 import { Close, Refresh, PlayArrow, Stop, Delete, Lock, Storage, Article } from '@mui/icons-material';
+import { palette, overlays } from '../theme';
 
 interface ContainerInfo {
   id: string;
@@ -79,7 +80,7 @@ export function ContainerManagement() {
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
         <Card>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={statusDotColor('#10B981')} />
+            <Box sx={statusDotColor(palette.success)} />
             <Box>
               <Typography variant="h4">{runningCount}</Typography>
               <Typography variant="body2" color="text.secondary">Running</Typography>
@@ -88,7 +89,7 @@ export function ContainerManagement() {
         </Card>
         <Card>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={statusDotColor('#64748B')} />
+            <Box sx={statusDotColor(palette.textMuted)} />
             <Box>
               <Typography variant="h4">{stoppedCount}</Typography>
               <Typography variant="body2" color="text.secondary">Stopped</Typography>
@@ -97,7 +98,7 @@ export function ContainerManagement() {
         </Card>
         <Card>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={statusDotColor('#EF4444')} />
+            <Box sx={statusDotColor(palette.error)} />
             <Box>
               <Typography variant="h4">{errorCount}</Typography>
               <Typography variant="body2" color="text.secondary">Error</Typography>
@@ -132,13 +133,13 @@ export function ContainerManagement() {
                       <Chip label={container.status} color={getStatusColor(container.status)} size="small" />
                     </TableCell>
                     <TableCell>
-                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: 'rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
                         {container.name}
                       </Typography>
                     </TableCell>
                     <TableCell>{container.agentName}</TableCell>
                     <TableCell>
-                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: 'rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
                         {container.image}
                       </Typography>
                     </TableCell>
@@ -188,7 +189,7 @@ export function ContainerManagement() {
               </Button>
             </Box>
             <Box sx={{
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              backgroundColor: overlays.overlayDark,
               p: 2,
               borderRadius: 2,
               maxHeight: 300,

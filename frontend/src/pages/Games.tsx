@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { GAMES, getActiveGames } from '../config/games';
 import { Box, Container, Typography, Button, Card, CardContent, Chip } from '@mui/material';
 import { SportsEsports, Casino, Close, Circle, Album, PanoramaFishEye } from '@mui/icons-material';
+import { palette } from '../theme';
 
 const iconMap: Record<string, React.ReactNode> = {
   chess: '♟',
@@ -22,10 +23,10 @@ export function Games() {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'easy': return '#10B981';
-      case 'medium': return '#F59E0B';
-      case 'hard': return '#EF4444';
-      default: return '#64748B';
+      case 'easy': return palette.success;
+      case 'medium': return palette.warning;
+      case 'hard': return palette.error;
+      default: return palette.textMuted;
     }
   };
 

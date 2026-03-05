@@ -1,6 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { AdminPanelSettings, Dashboard as DashboardIcon } from '@mui/icons-material';
+import { overlays } from '../theme';
 
 interface Submission {
   id: string;
@@ -115,7 +116,7 @@ export function Dashboard() {
                     <TableRow key={sub.id}>
                       <TableCell>{sub.agentName}</TableCell>
                       <TableCell>
-                        <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: 'rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 1 }}>
+                        <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
                           {sub.version}
                         </Typography>
                       </TableCell>

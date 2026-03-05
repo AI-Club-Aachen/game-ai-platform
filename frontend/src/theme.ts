@@ -1,21 +1,34 @@
 import { createTheme, alpha } from '@mui/material/styles';
 
 // ─── Design Tokens ────────────────────────────────────────────────
-const palette = {
-    primary: '#19B5FF',
-    secondary: '#1984CD',
-    bgBase: '#0B0F1A',
-    bgSurface: '#111827',
-    bgElevated: '#1A2332',
-    textPrimary: '#F1F5F9',
-    textSecondary: '#94A3B8',
-    textMuted: '#64748B',
-    border: 'rgba(148, 163, 184, 0.08)',
-    borderHover: 'rgba(148, 163, 184, 0.16)',
-    success: '#10B981',
-    warning: '#F59E0B',
+export const palette = {
+    primary: '#3B82F6',
+    secondary: '#2563EB',
+    bgBase: '#09090B',
+    bgSurface: '#0F1117',
+    bgElevated: '#181B25',
+    textPrimary: '#F8FAFC',
+    textSecondary: '#A1A1AA',
+    textMuted: '#71717A',
+    border: 'rgba(161, 161, 170, 0.10)',
+    borderHover: 'rgba(161, 161, 170, 0.20)',
+    success: '#22C55E',
+    warning: '#EAB308',
     error: '#EF4444',
-    info: '#19B5FF',
+    info: '#3B82F6',
+};
+
+// ─── Semantic Overlays ────────────────────────────────────────────
+// Use these instead of hardcoding rgba() in components
+export const overlays = {
+    primaryGlow: alpha(palette.primary, 0.08),
+    primaryGlowSubtle: alpha(palette.primary, 0.06),
+    primaryGlowFaint: alpha(palette.primary, 0.04),
+    overlayLight: 'rgba(255, 255, 255, 0.06)',
+    overlayDark: 'rgba(0, 0, 0, 0.3)',
+    warningSubtle: alpha(palette.warning, 0.08),
+    heroGradient: `radial-gradient(ellipse at 50% 0%, ${alpha(palette.primary, 0.08)} 0%, transparent 70%)`,
+    heroGradientSubtle: `radial-gradient(ellipse at 50% 0%, ${alpha(palette.primary, 0.06)} 0%, transparent 60%)`,
 };
 
 const radius = {
@@ -32,7 +45,7 @@ const theme = createTheme({
         mode: 'dark',
         primary: {
             main: palette.primary,
-            light: '#47C5FF',
+            light: '#60A5FA',
             dark: palette.secondary,
         },
         secondary: {

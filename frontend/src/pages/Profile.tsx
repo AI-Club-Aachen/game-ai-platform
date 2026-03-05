@@ -26,6 +26,7 @@ import { Person as PersonIcon, CheckCircle, Cancel, Visibility, VisibilityOff } 
 import { getAvatarUrl } from '../utils/avatar';
 import { usersApi } from '../services/api/users';
 import { useEffect } from 'react';
+import { overlays } from '../theme';
 
 export function Profile() {
   const { user, refreshUser, logout } = useAuth();
@@ -350,7 +351,7 @@ export function Profile() {
               borderColor: 'warning.main',
               '&:hover': {
                 borderColor: 'warning.dark',
-                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                backgroundColor: overlays.warningSubtle,
               }
             }}
           >

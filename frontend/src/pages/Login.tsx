@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, IconButton, InputAdornment } from '@mui/material';
 import { Login as LoginIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '../services/api/auth';
+import { overlays, palette } from '../theme';
 
 export function Login() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(25, 181, 255, 0.06) 0%, transparent 60%)',
+        background: overlays.heroGradientSubtle,
         py: 4,
       }}
     >
@@ -130,7 +131,7 @@ export function Login() {
                   <Link
                     to="/register"
                     style={{
-                      color: '#19B5FF',
+                      color: palette.primary,
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -141,7 +142,7 @@ export function Login() {
               </Box>
             </form>
 
-            <Box sx={{ mt: 3, p: 2, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 2 }}>
+            <Box sx={{ mt: 3, p: 2, backgroundColor: overlays.overlayLight, borderRadius: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                 Note: You must register first or use existing credentials
               </Typography>

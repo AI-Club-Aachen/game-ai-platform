@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link, useLocation } from 'react-router-do
 import { Box, Container, Typography, Card, CardContent, CircularProgress, Alert, Button, TextField, Divider } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon, MarkEmailRead, Send } from '@mui/icons-material';
 import { emailApi } from '../services/api/email';
+import { overlays } from '../theme';
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -74,7 +75,7 @@ export function VerifyEmail() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(25, 181, 255, 0.06) 0%, transparent 60%)',
+        background: overlays.heroGradientSubtle,
         py: 4,
       }}
     >

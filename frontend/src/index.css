@@ -1,18 +1,26 @@
 /* ─── Design Tokens (CSS Custom Properties) ───────────────────── */
 :root {
-  --color-primary: #19B5FF;
-  --color-secondary: #1984CD;
-  --color-bg-base: #0B0F1A;
-  --color-bg-surface: #111827;
-  --color-bg-elevated: #1A2332;
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
-  --color-border: rgba(148, 163, 184, 0.08);
-  --color-border-hover: rgba(148, 163, 184, 0.16);
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
+  --color-primary: #3B82F6;
+  --color-secondary: #2563EB;
+  --color-bg-base: #09090B;
+  --color-bg-surface: #0F1117;
+  --color-bg-elevated: #181B25;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #71717A;
+  --color-border: rgba(161, 161, 170, 0.10);
+  --color-border-hover: rgba(161, 161, 170, 0.20);
+  --color-success: #22C55E;
+  --color-warning: #EAB308;
   --color-error: #EF4444;
+
+  /* Semantic alpha overlays */
+  --color-primary-glow: rgba(59, 130, 246, 0.08);
+  --color-primary-glow-subtle: rgba(59, 130, 246, 0.06);
+  --color-primary-glow-faint: rgba(59, 130, 246, 0.04);
+  --color-overlay-light: rgba(255, 255, 255, 0.06);
+  --color-overlay-dark: rgba(0, 0, 0, 0.3);
+  --color-hover-neutral: rgba(161, 161, 170, 0.06);
 
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -163,6 +171,6 @@ hr {
 
 /* ─── Selection ────────────────────────────────────────────────── */
 ::selection {
-  background-color: rgba(25, 181, 255, 0.25);
+  background-color: rgba(59, 130, 246, 0.25);
   color: var(--color-text-primary);
 }

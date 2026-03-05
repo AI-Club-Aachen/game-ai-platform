@@ -67,7 +67,7 @@
 }
 
 .sidebar-toggle:hover {
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -109,12 +109,12 @@
 }
 
 .sidebar-link:hover {
-  background: rgba(148, 163, 184, 0.06);
+  background: var(--color-hover-neutral);
   color: var(--color-text-primary);
 }
 
 .sidebar-link.active {
-  background: rgba(25, 181, 255, 0.08);
+  background: var(--color-primary-glow);
   color: var(--color-primary);
 }
 
@@ -211,7 +211,7 @@
 }
 
 .sidebar-logout:hover {
-  background: rgba(148, 163, 184, 0.06);
+  background: var(--color-hover-neutral);
   border-color: var(--color-border-hover);
   color: var(--color-text-primary);
 }
@@ -242,12 +242,12 @@
 
 .sidebar-btn-primary {
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-text-primary);
 }
 
 .sidebar-btn-primary:hover {
   background: var(--color-secondary);
-  color: #ffffff;
+  color: var(--color-text-primary);
   transform: translateY(-1px);
 }
 
@@ -263,7 +263,7 @@
 }
 
 .sidebar-btn-secondary:hover {
-  background: rgba(148, 163, 184, 0.06);
+  background: var(--color-hover-neutral);
   border-color: var(--color-border-hover);
   color: var(--color-text-primary);
 }

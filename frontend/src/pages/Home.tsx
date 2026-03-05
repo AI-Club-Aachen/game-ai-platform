@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Card, CardContent } from '@mui/material';
 import { SmartToy, EmojiEvents, Analytics, Visibility } from '@mui/icons-material';
+import { overlays } from '../theme';
 
 export function Home() {
   return (
@@ -11,7 +12,7 @@ export function Home() {
           textAlign: 'center',
           py: { xs: 8, md: 12 },
           px: 4,
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(25, 181, 255, 0.08) 0%, transparent 70%)',
+          background: overlays.heroGradient,
           position: 'relative',
         }}
       >
@@ -70,7 +71,7 @@ export function Home() {
               desc: 'Create and submit your AI agents using Python, JavaScript, or TypeScript',
             },
             {
-              icon: <EmojiEvents sx={{ fontSize: 40, color: '#F59E0B' }} />,
+              icon: <EmojiEvents sx={{ fontSize: 40, color: 'warning.main' }} />,
               title: 'Compete in Tournaments',
               desc: "Join tournaments and climb the leaderboard to prove your AI's superiority",
             },
@@ -80,7 +81,7 @@ export function Home() {
               desc: "Monitor your agent's stats, win rates, and rankings in real-time",
             },
             {
-              icon: <Visibility sx={{ fontSize: 40, color: '#EF4444' }} />,
+              icon: <Visibility sx={{ fontSize: 40, color: 'error.main' }} />,
               title: 'Watch Live Games',
               desc: 'Spectate live matches and replay past games to learn strategies',
             },

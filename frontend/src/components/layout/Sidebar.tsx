@@ -13,6 +13,7 @@ import {
   Menu as MenuIcon
 } from '@mui/icons-material';
 import './Sidebar.css';
+import { palette } from '../../theme';
 
 interface SidebarProps {
   onToggle?: (collapsed: boolean) => void;
@@ -40,7 +41,7 @@ export function Sidebar({ onToggle }: SidebarProps) {
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <Link to="/dashboard" className="sidebar-logo">
-          <SportsEsports style={{ fontSize: '1.75rem', color: '#19B5FF' }} />
+          <SportsEsports style={{ fontSize: '1.75rem', color: palette.primary }} />
           {!isCollapsed && <h2>AICA</h2>}
         </Link>
         <button className="sidebar-toggle" onClick={toggleSidebar}>

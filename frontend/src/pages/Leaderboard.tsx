@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card } from '@mui/material';
 import { EmojiEvents } from '@mui/icons-material';
+import { overlays } from '../theme';
 
 interface LeaderboardEntry {
   rank: number;
@@ -68,7 +69,7 @@ export function Leaderboard() {
                 <TableRow
                   key={entry.rank}
                   sx={{
-                    backgroundColor: entry.rank <= 3 ? 'rgba(25, 181, 255, 0.04)' : 'inherit'
+                    backgroundColor: entry.rank <= 3 ? overlays.primaryGlowFaint : 'inherit'
                   }}
                 >
                   <TableCell>

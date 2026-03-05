@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, Checkbox, FormControlLabel, List, ListItem, ListItemIcon, ListItemText, IconButton, InputAdornment } from '@mui/material';
 import { PersonAdd, CheckCircle, Cancel, Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '../services/api/auth';
+import { overlays, palette } from '../theme';
 
 export function Register() {
   const navigate = useNavigate();
@@ -127,7 +128,7 @@ export function Register() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(25, 181, 255, 0.06) 0%, transparent 60%)',
+        background: overlays.heroGradientSubtle,
         py: 4,
       }}
     >
@@ -258,7 +259,7 @@ export function Register() {
                     <Link
                       to="/terms"
                       style={{
-                        color: '#19B5FF',
+                        color: palette.primary,
                         textDecoration: 'none',
                       }}
                     >
@@ -285,7 +286,7 @@ export function Register() {
                   <Link
                     to="/login"
                     style={{
-                      color: '#19B5FF',
+                      color: palette.primary,
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}

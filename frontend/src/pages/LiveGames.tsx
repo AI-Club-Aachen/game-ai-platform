@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, Container, Typography, Card, CardContent, Button, Chip, LinearProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Visibility, ArrowBack, PlayCircle, Videocam, History, EmojiEvents, PlayArrow } from '@mui/icons-material';
+import { palette } from '../theme';
 
 interface LiveGame {
   id: string;
@@ -132,7 +133,7 @@ export function LiveGames() {
               width: 10,
               height: 10,
               borderRadius: '50%',
-              backgroundColor: '#EF4444',
+              backgroundColor: palette.error,
               animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
             }} />
@@ -222,7 +223,7 @@ export function LiveGames() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <EmojiEvents sx={{ fontSize: 16, color: '#F59E0B' }} />
+                        <EmojiEvents sx={{ fontSize: 16, color: 'warning.main' }} />
                         <Typography>{game.winner}</Typography>
                       </Box>
                     </TableCell>
