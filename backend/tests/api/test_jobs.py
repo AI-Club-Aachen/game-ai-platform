@@ -39,7 +39,7 @@ async def test_build_job_flow(
     db_session.add(user)
     db_session.commit()
 
-    submission = Submission(user_id=user.id, object_path="path/to/zip", status="queued")
+    submission = Submission(user_id=user.id, object_path="path/to/zip")
     submission = submission_repository.save(submission)
 
     job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
@@ -65,10 +65,10 @@ async def test_build_job_flow(
     assert data["status"] == "completed"
     assert data["logs"] == "Build successful\n"
 
-    # 4. Verify Sync with Submission
-    db_session.refresh(submission)
-    assert submission.status == "completed"
-    assert submission.image_id == "sha256:12345"
+    # 4. Verify Update Job
+    db_session.refresh(job)
+    assert job.status == "completed"
+    assert job.image_id == "sha256:12345"
 
 
 @pytest.mark.anyio

@@ -95,9 +95,7 @@ class SubmissionService:
         if image_tag is not None:
             job.image_tag = image_tag
 
-        job = self._job_repository.save_build_job(job)
-
-        return job
+        return self._job_repository.save_build_job(job)
 
     def list_user_submissions(
         self,

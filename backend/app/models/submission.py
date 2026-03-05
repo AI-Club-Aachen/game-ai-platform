@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
+
 if TYPE_CHECKING:
     from app.models.job import BuildJob
 
