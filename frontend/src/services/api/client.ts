@@ -21,13 +21,16 @@ export class ApiError extends Error {
  */
 export async function apiRequest<T>(
     endpoint: string,
-    options: RequestInit & { skipAuth?: boolean } = {}
+    options: RequestInit & { skipAuth?: boolean; skipContentType?: boolean } = {}
 ): Promise<T> {
     const token = localStorage.getItem('access_token');
 
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-    };
+    const headers: Record<string, string> = {};
+
+    // Only set application/json if we're not skipping it and the body is not FormData
+    if (!options.skipContentType && !(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     // Merge custom headers from options
     if (options.headers) {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Card, CardContent, Chip, LinearProgress } from '@mui/material';
 import { EmojiEvents, CalendarToday, PlayArrow, CheckCircle } from '@mui/icons-material';
 
@@ -134,13 +135,13 @@ export function Tournaments() {
 
                 <Box>
                   {tournament.status === 'upcoming' && (
-                    <Button variant="contained" fullWidth>Register</Button>
+                    <Button component={Link} to={`/tournaments/${tournament.id}`} variant="contained" fullWidth>Register</Button>
                   )}
                   {tournament.status === 'active' && (
-                    <Button variant="outlined" fullWidth>View Bracket</Button>
+                    <Button component={Link} to={`/tournaments/${tournament.id}`} variant="outlined" fullWidth>View Bracket</Button>
                   )}
                   {tournament.status === 'completed' && (
-                    <Button variant="outlined" fullWidth>View Results</Button>
+                    <Button component={Link} to={`/tournaments/${tournament.id}`} variant="outlined" fullWidth>View Results</Button>
                   )}
                 </Box>
               </CardContent>

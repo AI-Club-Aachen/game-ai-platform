@@ -16,6 +16,10 @@ import { LiveGames } from './pages/LiveGames';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { VerifyEmail } from './pages/VerifyEmail';
+import { NewSubmission } from './pages/NewSubmission';
+import { AgentDetails } from './pages/AgentDetails';
+import { SubmissionDetails } from './pages/SubmissionDetails';
+import { TournamentDetails } from './pages/TournamentDetails';
 import theme from './theme';
 import './App.css';
 
@@ -40,9 +44,13 @@ function App() {
               <Route path="games/live" element={<LiveGames />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="tournaments" element={<Tournaments />} />
+              <Route path="tournaments/:id" element={<TournamentDetails />} />
               <Route path="profile" element={<Profile />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="containers" element={<ContainerManagement />} />
+              <Route path="submissions/new" element={<NewSubmission />} />
+              <Route path="submissions/:id" element={<SubmissionDetails />} />
+              <Route path="agents/:id" element={<AgentDetails />} />
             </Route>
           </Routes>
         </BrowserRouter>
