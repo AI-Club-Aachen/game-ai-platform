@@ -108,6 +108,19 @@ uv run checks-all
 
 **Database Migrations**: See [Database & Migrations](#database--migrations) for more info.
 
+**Seed Database (Test Data)**:
+The database can be automatically seeded on backend startup by setting the `SEED_DB` environment variable to `"true"`.
+
+```bash
+# Using Docker Compose
+# Add SEED_DB=true to your .env file or run:
+SEED_DB=true docker-compose up db redis backend
+
+# Locally (with uv and active venv)
+# Note: Windows users might need to set the var first: `$env:SEED_DB="true"; uv run uvicorn app.main:app`
+SEED_DB=true uv run python scripts/seed_db.py
+```
+
 ### Configuration
 
 Create `.env` from `.env.example` and set:

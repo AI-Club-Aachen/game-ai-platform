@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -41,6 +42,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} in {settings.ENVIRONMENT} mode")
+
+    if os.getenv("SEED_DB") == "true":
+        logger.info("SEED_DB is set to true. Running database seed script...")
+        import asyncio
+        from scripts.seed_db import seed
+        await asyncio.to_thread(seed)
+
     if settings.is_production and settings.BYPASS_EMAIL_VERIFICATION:
         logger.warning("Email verification is enabled in production mode")
     try:
