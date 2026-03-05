@@ -85,6 +85,7 @@ allowed_hosts = [
     "localhost",
     "127.0.0.1",
     "::1",  # IPv6 localhost
+    "backend",  # Allow docker internal networking
 ]
 
 for origin in settings.ALLOW_ORIGINS:

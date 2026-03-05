@@ -1,9 +1,12 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from app.models.submission import Submission
 
 
 class JobStatus(str, Enum):
@@ -20,7 +23,9 @@ class BuildJob(SQLModel, table=True):
     __tablename__ = "build_jobs"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
-    submission_id: UUID = Field(index=True, nullable=False)
+    submission_id: UUID = Field(foreign_key="submissions.id", index=True, nullable=False)
+
+    submission: Optional["Submission"] = Relationship(back_populates="build_jobs")
 
     status: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
 

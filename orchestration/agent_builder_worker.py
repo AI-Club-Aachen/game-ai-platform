@@ -11,12 +11,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_builder_worker")
 
 
-async def process_build(submission_id: str, zip_path: str, api: BackendAPI):
-    logger.info(f"Processing build for submission {submission_id}")
+async def process_build(submission_id: str, job_id: str, zip_path: str, api: BackendAPI):
+    logger.info(f"Processing build for job {job_id} (submission {submission_id})")
 
     try:
-        # Update status to BUILDING
-        await api.update_submission(submission_id, status="building")
+        # Update status to RUNNING
+        await api.update_build_job(job_id, status="running", logs="Starting build...\n")
 
         zip_p = Path(zip_path)
         if not zip_p.exists():
@@ -32,18 +32,20 @@ async def process_build(submission_id: str, zip_path: str, api: BackendAPI):
         logger.info(f"Build success! Image ID: {result['image_id']}")
 
         # Update status to COMPLETED with image details
-        await api.update_submission(
-            submission_id,
+        await api.update_build_job(
+            job_id,
             status="completed",
+            logs="Build success!\n",
             image_id=result["image_id"],
             image_tag=result["tag"],
         )
 
-    except Exception:
-        logger.exception(f"Build failed for submission {submission_id}")
-        await api.update_submission(
-            submission_id,
+    except Exception as e:
+        logger.exception(f"Build failed for job {job_id}: {e}")
+        await api.update_build_job(
+            job_id,
             status="failed",
+            logs=f"Build failed: {e}\n",
         )
 
 
@@ -65,7 +67,7 @@ async def worker_loop():
                 logger.info(f"Received job: {job_data}")
 
                 if job_data.get("type") == "build":
-                    await process_build(job_data["submission_id"], job_data["zip_path"], api)
+                    await process_build(job_data["submission_id"], job_data["job_id"], job_data["zip_path"], api)
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")
 

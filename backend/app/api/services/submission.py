@@ -45,7 +45,7 @@ class SubmissionService:
             raise SubmissionServiceError("Only .zip files are allowed.")
 
         # 1. Create initial record
-        submission = Submission(user_id=user_id, object_path="pending", status="queued")
+        submission = Submission(user_id=user_id, object_path="pending")
         submission = self._repository.save(submission)
 
         # 2. Save file
@@ -75,27 +75,6 @@ class SubmissionService:
     def get_submission(self, submission_id: str) -> Submission | None:
         return self._repository.get_by_id(submission_id)
 
-    def update_submission(
-        self,
-        submission_id: str,
-        status: str,
-        image_id: str | None = None,
-        image_tag: str | None = None,
-    ) -> Submission | None:
-        """Update submission fields (used by workers)."""
-        submission = self._repository.get_by_id(submission_id)
-        if not submission:
-            return None
-
-        submission.status = status
-
-        if image_id is not None:
-            submission.image_id = image_id
-        if image_tag is not None:
-            submission.image_tag = image_tag
-
-        return self._repository.save(submission)
-
     def update_build_job(
         self,
         job_id: str,
@@ -117,14 +96,6 @@ class SubmissionService:
             job.image_tag = image_tag
 
         job = self._job_repository.save_build_job(job)
-
-        # Sync with submission
-        self.update_submission(
-            str(job.submission_id),
-            status,
-            image_id,
-            image_tag,
-        )
 
         return job
 

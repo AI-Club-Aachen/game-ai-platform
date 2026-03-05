@@ -46,6 +46,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: ${DATABASE_URL}
+      DB_ECHO: ${DB_ECHO}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:-24}
@@ -83,7 +84,7 @@ services:
     working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
-      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
     depends_on:
       - backend
@@ -104,7 +105,7 @@ services:
     working_dir: /orchestration
     command: python match_runner_worker.py
     environment:
-      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
     depends_on:
       - backend

@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.submission import SubmissionStatus
+from app.schemas.job import BuildJobRead
 
 
 class SubmissionBase(BaseModel):
@@ -14,20 +14,11 @@ class SubmissionCreate(SubmissionBase):
     pass  # We don't take JSON body for create, likely just a file upload
 
 
-class SubmissionUpdate(BaseModel):
-    """Schema for updating a submission (used by workers)."""
-    status: SubmissionStatus
-    image_id: str | None = None
-    image_tag: str | None = None
-
-
 class SubmissionRead(SubmissionBase):
     id: UUID
     user_id: UUID
-    status: SubmissionStatus
-    image_id: str | None
-    image_tag: str | None
     created_at: datetime
     updated_at: datetime
+    build_jobs: list[BuildJobRead] = []
 
     model_config = ConfigDict(from_attributes=True)

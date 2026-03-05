@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str
+    DB_ECHO: bool | None = Field(
+        default=None,
+        description="Override default DB SQL echoing behavior. Defaults to True in dev environment, False otherwise.",
+    )
     REDIS_URL: str = "redis://redis:6379/0"
 
     # JWT Configuration

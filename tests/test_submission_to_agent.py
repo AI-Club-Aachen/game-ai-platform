@@ -30,7 +30,9 @@ def test_submission_to_agent(auth_headers, api_base_url):
         print(f"Created submission: {sub_id}")
 
         # check if build job is created
-        assert submission["status"] == "queued", f"Expected initially 'queued', got {submission['status']}"
+        assert "build_jobs" in submission and len(submission["build_jobs"]) > 0, "No build jobs returned"
+        build_job = submission["build_jobs"][0]
+        assert build_job["status"] == "queued", f"Expected initially 'queued', got {build_job['status']}"
 
         # monitor build worker & wait for build to complete
         max_retries = 30
@@ -39,12 +41,15 @@ def test_submission_to_agent(auth_headers, api_base_url):
             poll_res = requests.get(f"{api_base_url}/submissions/{sub_id}", headers=headers)
             assert poll_res.status_code == 200
             poll_sub = poll_res.json()
-            status = poll_sub["status"]
+            assert "build_jobs" in poll_sub and len(poll_sub["build_jobs"]) > 0
+            build_job = poll_sub["build_jobs"][0]
+            status = build_job["status"]
             print(f"Poll {i+1}: Build status is '{status}'")
             
             if status in ["completed", "failed"]:
                 final_status = status
                 submission = poll_sub
+                final_job = build_job
                 break
                 
             time.sleep(2)
@@ -52,9 +57,9 @@ def test_submission_to_agent(auth_headers, api_base_url):
         assert final_status == "completed", f"Build failed or timed out. Final status: {final_status}"
 
         # check if image was created correctly
-        assert submission.get("image_id") is not None, "image_id was not set on successful build"
-        assert submission.get("image_tag") is not None, "image_tag was not set on successful build"
-        print(f"Image created successfully with tag: {submission['image_tag']}")
+        assert final_job.get("image_id") is not None, "image_id was not set on successful build"
+        assert final_job.get("image_tag") is not None, "image_tag was not set on successful build"
+        print(f"Image created successfully with tag: {final_job['image_tag']}")
 
         print("Test passed successfully.")
     finally:
