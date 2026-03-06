@@ -44,6 +44,34 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+[data-theme='light'] {
+  --color-primary: #3B82F6;
+  --color-secondary: #2563EB;
+  --color-bg-base: #F8FAFC;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #F1F5F9;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+  --color-border: rgba(15, 23, 42, 0.10);
+  --color-border-hover: rgba(15, 23, 42, 0.20);
+  --color-success: #16A34A;
+  --color-warning: #CA8A04;
+  --color-error: #DC2626;
+
+  /* Semantic alpha overlays */
+  --color-primary-glow: rgba(59, 130, 246, 0.08);
+  --color-primary-glow-subtle: rgba(59, 130, 246, 0.06);
+  --color-primary-glow-faint: rgba(59, 130, 246, 0.04);
+  --color-overlay-light: rgba(15, 23, 42, 0.06);
+  --color-overlay-dark: rgba(255, 255, 255, 0.3);
+  --color-hover-neutral: rgba(15, 23, 42, 0.06);
+
+  color-scheme: light;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-base);
+}
+
 /* ─── Reset ────────────────────────────────────────────────────── */
 *,
 *::before,

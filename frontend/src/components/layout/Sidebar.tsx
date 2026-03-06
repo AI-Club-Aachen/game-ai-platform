@@ -10,8 +10,11 @@ import {
   People,
   Person,
   ChevronLeft,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  LightMode,
+  DarkMode
 } from '@mui/icons-material';
+import { useAppTheme } from '../../context/ThemeContext';
 import './Sidebar.css';
 import { palette } from '../../theme';
 
@@ -21,6 +24,7 @@ interface SidebarProps {
 
 export function Sidebar({ onToggle }: SidebarProps) {
   const { user, isAdmin } = useAuth();
+  const { mode, toggleTheme } = useAppTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const toggleSidebar = () => {
@@ -82,6 +86,15 @@ export function Sidebar({ onToggle }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
+        <button
+          onClick={toggleTheme}
+          className="sidebar-link"
+          style={{ width: '100%', marginBottom: '1rem', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'flex-start' }}
+        >
+          {mode === 'dark' ? <LightMode /> : <DarkMode />}
+          {!isCollapsed && <span>{mode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
+
         {user ? (
           <>
             {!isCollapsed && (

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { ThemeProvider } from '@mui/material/styles';
+import { AppThemeProvider } from './context/ThemeContext';
 import { CssBaseline } from '@mui/material';
 import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/layout/Layout';
@@ -20,12 +20,11 @@ import { NewSubmission } from './pages/NewSubmission';
 import { AgentDetails } from './pages/AgentDetails';
 import { SubmissionDetails } from './pages/SubmissionDetails';
 import { TournamentDetails } from './pages/TournamentDetails';
-import theme from './theme';
 import './App.css';
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <AppThemeProvider>
       <CssBaseline />
       <AuthProvider>
         <BrowserRouter>
@@ -55,7 +54,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </ThemeProvider>
+    </AppThemeProvider>
   );
 }
 
