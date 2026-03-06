@@ -1,9 +1,10 @@
 """FastAPI application with comprehensive security configuration and rate limiting"""
 
+import asyncio
 import logging
+import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-import os
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -19,6 +20,7 @@ from starlette.responses import Response
 
 from app.api.routes import agents, auth, email, jobs, matches, submissions, users
 from app.core.config import settings
+from scripts.seed_db import seed
 
 
 # Configure logging
@@ -45,8 +47,6 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
     if os.getenv("SEED_DB") == "true":
         logger.info("SEED_DB is set to true. Running database seed script...")
-        import asyncio
-        from scripts.seed_db import seed
         await asyncio.to_thread(seed)
 
     if settings.is_production and settings.BYPASS_EMAIL_VERIFICATION:
