@@ -16,7 +16,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from starlette.responses import Response
 
-from app.api.routes import auth, email, matches, submissions, users
+from app.api.routes import agents, auth, email, jobs, matches, submissions, users
 from app.core.config import settings
 
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter with Redis backend
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri="redis://redis:6379",
+    storage_uri=settings.REDIS_URL,
     default_limits=["200/day", "50/hour"],
 )
 
@@ -41,9 +41,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} in {settings.ENVIRONMENT} mode")
+    if settings.is_production and settings.BYPASS_EMAIL_VERIFICATION:
+        logger.warning("Email verification is enabled in production mode")
     try:
-        redis = aioredis.from_url("redis://redis:6379", encoding="utf8")
-        logger.info("Redis connected for rate limiting")
+        redis = aioredis.from_url(settings.REDIS_URL, encoding="utf8")
+        logger.info(f"Redis connected for rate limiting: {settings.REDIS_URL}")
     except Exception:
         logger.exception("Failed to connect to Redis")
         logger.warning("Rate limiting running with memory backend fallback")
@@ -83,6 +85,7 @@ allowed_hosts = [
     "localhost",
     "127.0.0.1",
     "::1",  # IPv6 localhost
+    "backend",  # Allow docker internal networking
 ]
 
 for origin in settings.ALLOW_ORIGINS:
@@ -209,7 +212,9 @@ app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["
 app.include_router(users.router, prefix=f"{settings.API_V1_PREFIX}/users", tags=["Users"])
 app.include_router(email.router, prefix=f"{settings.API_V1_PREFIX}/email", tags=["Email"])
 app.include_router(submissions.router, prefix=f"{settings.API_V1_PREFIX}/submissions", tags=["Submissions"])
+app.include_router(agents.router, prefix=f"{settings.API_V1_PREFIX}/agents", tags=["Agents"])
 app.include_router(matches.router, prefix=f"{settings.API_V1_PREFIX}/matches", tags=["Matches"])
+app.include_router(jobs.router, prefix=f"{settings.API_V1_PREFIX}/jobs", tags=["Jobs"])
 
 
 # Health check endpoint

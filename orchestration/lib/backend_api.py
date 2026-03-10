@@ -100,28 +100,29 @@ class BackendAPI:
 
     # Submission methods
 
-    async def update_submission(
+    async def update_build_job(
         self,
-        submission_id: str,
+        job_id: str,
         status: str,
         logs: str | None = None,
         image_id: str | None = None,
         image_tag: str | None = None,
     ) -> dict[str, Any]:
         """
-        Update a submission's status and related fields.
+        Update a build job's status and related fields.
 
         Args:
-            submission_id: Submission UUID
-            status: New status (queued, building, completed, failed)
-            logs: Optional build logs or error message
+            job_id: Build Job UUID
+            status: New status (queued, running, completed, failed)
+            logs: Build logs
             image_id: Optional Docker image ID
             image_tag: Optional Docker image tag
 
         Returns:
-            Updated submission data
+            Updated build job data
         """
         data: dict[str, Any] = {"status": status}
+
         if logs is not None:
             data["logs"] = logs
         if image_id is not None:
@@ -129,7 +130,7 @@ class BackendAPI:
         if image_tag is not None:
             data["image_tag"] = image_tag
 
-        return await self._patch(f"/submissions/{submission_id}", data)
+        return await self._patch(f"/jobs/build/{job_id}", data)
 
     async def get_submission(self, submission_id: str) -> dict[str, Any]:
         """
@@ -149,7 +150,6 @@ class BackendAPI:
         self,
         match_id: str,
         status: str,
-        logs: str | None = None,
         result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -158,15 +158,13 @@ class BackendAPI:
         Args:
             match_id: Match UUID
             status: New status (queued, running, completed, failed)
-            logs: Optional execution logs or error message
             result: Optional match result data (scores, winner, etc.)
 
         Returns:
             Updated match data
         """
         data: dict[str, Any] = {"status": status}
-        if logs is not None:
-            data["logs"] = logs
+
         if result is not None:
             data["result"] = result
 

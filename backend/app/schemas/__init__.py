@@ -6,6 +6,9 @@ from app.schemas.auth import LoginRequest, LoginResponse
 # Email schemas
 from app.schemas.email import EmailVerificationRequest
 
+# Match schemas
+from app.schemas.match import GameInfo, MatchCreate, MatchRead, MatchUpdate
+
 # User schemas
 from app.schemas.user import (
     PasswordChangeRequest,
@@ -18,8 +21,12 @@ from app.schemas.user import (
 
 __all__ = [
     "EmailVerificationRequest",
+    "GameInfo",
     "LoginRequest",
     "LoginResponse",
+    "MatchCreate",
+    "MatchRead",
+    "MatchUpdate",
     "PasswordChangeRequest",
     "UserCreate",
     "UserResponse",

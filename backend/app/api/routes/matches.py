@@ -21,7 +21,11 @@ async def create_match(
     """
     Create a new match request.
     """
-    return await service.create_match(match_in.config)
+    return await service.create_match(
+        match_in.game_type,
+        match_in.config,
+        match_in.agent_ids
+    )
 
 
 # GET /api/v1/matches/{match_id}
@@ -54,7 +58,6 @@ def update_match(
     match = service.update_match(
         match_id,
         status=update_data.status.value,
-        logs=update_data.logs,
         result=update_data.result,
     )
     if not match:

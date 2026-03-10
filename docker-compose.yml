@@ -46,6 +46,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: ${DATABASE_URL}
+      DB_ECHO: ${DB_ECHO}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:-24}
@@ -60,8 +61,10 @@ services:
       SMTP_USE_TLS: ${SMTP_USE_TLS}
       EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: ${EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS}
       PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: ${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES}
+      BYPASS_EMAIL_VERIFICATION: ${BYPASS_EMAIL_VERIFICATION:-False}
       ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:3000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       db:
@@ -81,7 +84,7 @@ services:
     working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
-      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
     depends_on:
       - backend
@@ -102,7 +105,7 @@ services:
     working_dir: /orchestration
     command: python match_runner_worker.py
     environment:
-      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
     depends_on:
       - backend

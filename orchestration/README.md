@@ -45,6 +45,8 @@ docker build -f orchestration/Dockerfile.base -t ghcr.io/aiclub-aachen/game-ai-p
 
 The base imaged is used as the foundation for building Agent images in `Dockerfile.agent`.
 
+The image is pushed to GHCR automatically on changes using GitHub Actions.
+
 ### Workers
 
 Workers use `Dockerfile.worker` and run either `agent_builder_worker.py` or `match_runner_worker.py`.

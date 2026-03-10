@@ -4,8 +4,10 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
+from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.core.queue import job_queue
+from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 
 
@@ -16,8 +18,13 @@ class SubmissionServiceError(Exception):
 class SubmissionService:
     """Service for managing submissions."""
 
-    def __init__(self, submission_repository: SubmissionRepository) -> None:
+    def __init__(
+        self,
+        submission_repository: SubmissionRepository,
+        job_repository: JobRepository,
+    ) -> None:
         self._repository = submission_repository
+        self._job_repository = job_repository
         # Directory to store uploaded zips temporarily or permanently
         # Ideally this path should come from config settings
         self._upload_dir = Path("uploads/submissions")
@@ -38,7 +45,7 @@ class SubmissionService:
             raise SubmissionServiceError("Only .zip files are allowed.")
 
         # 1. Create initial record
-        submission = Submission(user_id=user_id, object_path="pending", status="queued")
+        submission = Submission(user_id=user_id, object_path="pending")
         submission = self._repository.save(submission)
 
         # 2. Save file
@@ -56,36 +63,39 @@ class SubmissionService:
         submission.object_path = str(file_path.absolute())
         self._repository.save(submission)
 
-        # 3. Enqueue job
-        await job_queue.enqueue_build(submission.id, submission.object_path)
+        # 3. Create job record
+        job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
+        job = self._job_repository.save_build_job(job)
+
+        # 4. Enqueue job
+        await job_queue.enqueue_build(submission.id, submission.object_path, job.id)
 
         return submission
 
     def get_submission(self, submission_id: str) -> Submission | None:
         return self._repository.get_by_id(submission_id)
 
-    def update_submission(
+    def update_build_job(
         self,
-        submission_id: str,
+        job_id: str,
         status: str,
         logs: str | None = None,
         image_id: str | None = None,
         image_tag: str | None = None,
-    ) -> Submission | None:
-        """Update submission fields (used by workers)."""
-        submission = self._repository.get_by_id(submission_id)
-        if not submission:
+    ) -> BuildJob | None:
+        """Update build job and sync status to submission."""
+        job = self._job_repository.get_build_job(job_id)
+        if not job:
             return None
 
-        submission.status = status
-        if logs is not None:
-            submission.logs = logs
+        job.status = status
+        job.logs += logs + "\n"
         if image_id is not None:
-            submission.image_id = image_id
+            job.image_id = image_id
         if image_tag is not None:
-            submission.image_tag = image_tag
+            job.image_tag = image_tag
 
-        return self._repository.save(submission)
+        return self._job_repository.save_build_job(job)
 
     def list_user_submissions(
         self,

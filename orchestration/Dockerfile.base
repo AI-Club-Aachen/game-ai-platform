@@ -4,8 +4,18 @@ FROM dhi.io/python:3.12-debian12-dev AS builder
 WORKDIR /build
 
 COPY base_requirements.txt .
-# Install dependencies into /install
-RUN pip install --no-cache-dir --prefix=/install -r base_requirements.txt
+# Install dependencies into /install and prune unnecessary files to save space
+RUN pip install --no-cache-dir --prefix=/install -r base_requirements.txt && \
+    find /install -type d -name "tests" -exec rm -rf {} + && \
+    find /install -type d -name "test" -exec rm -rf {} + && \
+    find /install -type f -name "*.c" -delete && \
+    find /install -type f -name "*.cpp" -delete && \
+    find /install -type f -name "*.pyx" -delete && \
+    find /install -type f -name "*.h" -delete && \
+    find /install -name "*.so" -exec strip --strip-unneeded {} + || true
+
+# log disk usage of packages
+RUN du -sh /install/lib/python3.12/site-packages/* | sort -rh
 
 # Create non-root user in builder stage (since runtime has no shell)
 RUN useradd -u 10001 -m runner

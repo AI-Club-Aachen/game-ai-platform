@@ -1,8 +1,11 @@
 from collections.abc import Sequence
 from typing import Any
 
+from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.core.queue import job_queue
+from app.models.game import GameType
+from app.models.job import JobStatus, MatchJob
 from app.models.match import Match, MatchStatus
 
 
@@ -13,21 +16,33 @@ class MatchServiceError(Exception):
 class MatchService:
     """Service for managing matches."""
 
-    def __init__(self, match_repository: MatchRepository) -> None:
+    def __init__(self, match_repository: MatchRepository, job_repository: JobRepository) -> None:
         self._repository = match_repository
+        self._job_repository = job_repository
 
     async def create_match(
         self,
+        game_type: GameType,
         config: dict[str, Any],
+        agent_ids: list[Any],
     ) -> Match:
         """
         Create a match and queue it for execution.
         """
-        match = Match(status=MatchStatus.QUEUED, config=config)
+        match = Match(
+            game_type=game_type,
+            status=MatchStatus.QUEUED,
+            config=config,
+            agent_ids=agent_ids
+        )
         match = self._repository.save(match)
 
+        # Create job
+        job = MatchJob(match_id=match.id, status=JobStatus.QUEUED)
+        job = self._job_repository.save_match_job(job)
+
         # Enqueue job
-        await job_queue.enqueue_match(match.id, match.config)
+        await job_queue.enqueue_match(match.id, match.config, job.id, match.agent_ids)
 
         return match
 
@@ -38,7 +53,6 @@ class MatchService:
         self,
         match_id: str,
         status: str,
-        logs: str | None = None,
         result: dict[str, Any] | None = None,
     ) -> Match | None:
         """Update match fields (used by workers)."""
@@ -47,12 +61,39 @@ class MatchService:
             return None
 
         match.status = MatchStatus(status)
-        if logs is not None:
-            match.logs = logs
+
         if result is not None:
             match.result = result
 
         return self._repository.save(match)
+
+    def update_match_job(
+        self,
+        job_id: str,
+        status: str,
+        logs: str | None = None,
+        result: dict[str, Any] | None = None,
+    ) -> MatchJob | None:
+        """Update match job and sync status to match."""
+        job = self._job_repository.get_match_job(job_id)
+        if not job:
+            return None
+
+        job.status = status
+        job.logs += logs + "\n"
+        if result is not None:
+            job.result = result
+
+        job = self._job_repository.save_match_job(job)
+
+        # Sync with match
+        self.update_match(
+            str(job.match_id),
+            status,
+            result,
+        )
+
+        return job
 
     def list_matches(
         self,

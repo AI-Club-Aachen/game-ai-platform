@@ -41,15 +41,13 @@ async def process_match(match_id: str, config: dict, api: BackendAPI):
             match_id,
             status="completed",
             result=result,
-            logs="Match completed successfully.",
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Match execution failed for {match_id}")
         await api.update_match(
             match_id,
             status="failed",
-            logs=str(e),
         )
 
 

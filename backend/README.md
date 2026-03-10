@@ -18,6 +18,7 @@ Secure backend for an AI game competition platform, built with FastAPI, PostgreS
 - [User Roles](#user-roles)
 - [Email Verification & Password Reset](#email-verification--password-reset)
 - [Testing](#testing)
+- [Database & Migrations](#database--migrations)
 - [Security Notes](#security-notes)
 - [Project Structure](#project-structure)
 
@@ -105,17 +106,7 @@ uv run type-check
 uv run checks-all
 ```
 
-**Database Migrations**:
-```bash
-# Generate migration
-docker-compose exec backend alembic revision --autogenerate -m "description"
-
-# Apply migrations
-docker-compose exec backend alembic upgrade head
-
-# Rollback
-docker-compose exec backend alembic downgrade -1
-```
+**Database Migrations**: See [Database & Migrations](#database--migrations) for more info.
 
 ### Configuration
 
@@ -251,6 +242,45 @@ The test suite:
 - Uses `tests/utils.py` for generating random test data (users, emails, strong passwords) to ensure robust and independent test cases.
 
 Test environment variables are configured in `pytest.ini`.
+
+### Database & Migrations
+
+The project uses [Alembic](https://alembic.sqlalchemy.org/) for schema versioning and [SQLModel](https://sqlmodel.tiangolo.com/) as the ORM.
+
+#### Model Discovery
+
+For Alembic's `--autogenerate` to detect your model changes, every model class MUST be imported in `backend/app/db/base.py`. This ensures that when `alembic/env.py` imports `SQLModel.metadata`, it contains all your table definitions.
+
+#### Generating Migrations
+
+When you modify models in `backend/app/models/`:
+
+1. **Verify Imports**: Check that your model is imported in `app/db/base.py`.
+2. **Create Revision**:
+   ```bash
+   # Using Docker
+   docker-compose exec backend alembic revision --autogenerate -m "description of changes"
+   
+   # Locally (with uv and active venv)
+   alembic revision --autogenerate -m "description of changes"
+   ```
+3. **Review**: Check the new file in `backend/alembic/versions/` to ensure it captures exactly what you intended.
+
+#### Applying Migrations
+
+- **Bring database to latest version**:
+  ```bash
+  docker-compose exec backend alembic upgrade head
+  ```
+- **Roll back a single version**:
+  ```bash
+  docker-compose exec backend alembic downgrade -1
+  ```
+
+#### Configuration Details
+
+- **Environment aware**: `alembic/env.py` uses the standard application `settings` (from `app.core.config`), meaning it automatically uses the `DATABASE_URL` defined in your `.env`.
+- **Async support**: The migration environment is configured to work with the `postgresql+asyncpg` driver used by the application.
 
 ### Security Notes
 
