@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, TextField, Button, Card, CardContent, Alert, IconButton, InputAdornment } from '@mui/material';
 import { Login as LoginIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { authApi } from '../services/api/auth';
+import { overlays, palette } from '../theme';
 
 export function Login() {
   const navigate = useNavigate();
@@ -38,15 +39,15 @@ export function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #121212 0%, #1a1a1a 100%)',
+        background: overlays.heroGradientSubtle,
         py: 4,
       }}
     >
       <Container maxWidth="sm">
-        <Card sx={{ p: 2 }}>
+        <Card sx={{ p: { xs: 2, sm: 3 } }}>
           <CardContent>
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <LoginIcon sx={{ fontSize: 48, color: '#00A6FF', mb: 2 }} />
+              <LoginIcon sx={{ fontSize: 44, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" gutterBottom>
                 Welcome Back
               </Typography>
@@ -56,7 +57,7 @@ export function Login() {
             </Box>
 
             {error && (
-              <Alert severity="error" sx={{ mb: 3, borderRadius: 0 }}>
+              <Alert severity="error" sx={{ mb: 3 }}>
                 {error.toLowerCase().includes('not verified') ? (
                   <span>
                     Email not verified. Check your inbox for verification link or{' '}
@@ -105,7 +106,7 @@ export function Login() {
                         aria-label="toggle password visibility"
                         onClick={() => setShowPassword(!showPassword)}
                         edge="end"
-                        sx={{ color: 'text.primary' }}
+                        sx={{ color: 'text.secondary' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -124,15 +125,13 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-
-
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   Don't have an account?{' '}
                   <Link
                     to="/register"
                     style={{
-                      color: '#00A6FF',
+                      color: palette.primary,
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -143,8 +142,8 @@ export function Login() {
               </Box>
             </form>
 
-            <Box sx={{ mt: 3, p: 2, backgroundColor: '#0a0a0a', borderRadius: 0 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            <Box sx={{ mt: 3, p: 2, backgroundColor: overlays.overlayLight, borderRadius: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                 Note: You must register first or use existing credentials
               </Typography>
               <Typography variant="caption" component="div" color="text.secondary">

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { ThemeProvider } from '@mui/material/styles';
+import { AppThemeProvider } from './context/ThemeContext';
 import { CssBaseline } from '@mui/material';
 import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/layout/Layout';
@@ -16,12 +16,15 @@ import { LiveGames } from './pages/LiveGames';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { VerifyEmail } from './pages/VerifyEmail';
-import theme from './theme';
+import { NewSubmission } from './pages/NewSubmission';
+import { AgentDetails } from './pages/AgentDetails';
+import { SubmissionDetails } from './pages/SubmissionDetails';
+import { TournamentDetails } from './pages/TournamentDetails';
 import './App.css';
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <AppThemeProvider>
       <CssBaseline />
       <AuthProvider>
         <BrowserRouter>
@@ -40,14 +43,18 @@ function App() {
               <Route path="games/live" element={<LiveGames />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="tournaments" element={<Tournaments />} />
+              <Route path="tournaments/:id" element={<TournamentDetails />} />
               <Route path="profile" element={<Profile />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="containers" element={<ContainerManagement />} />
+              <Route path="submissions/new" element={<NewSubmission />} />
+              <Route path="submissions/:id" element={<SubmissionDetails />} />
+              <Route path="agents/:id" element={<AgentDetails />} />
             </Route>
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </ThemeProvider>
+    </AppThemeProvider>
   );
 }
 

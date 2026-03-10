@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link, useLocation } from 'react-router-do
 import { Box, Container, Typography, Card, CardContent, CircularProgress, Alert, Button, TextField, Divider } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon, MarkEmailRead, Send } from '@mui/icons-material';
 import { emailApi } from '../services/api/email';
+import { overlays } from '../theme';
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -10,17 +11,14 @@ export function VerifyEmail() {
   const location = useLocation();
   const urlToken = searchParams.get('token');
 
-  // Verification State
   const [token, setToken] = useState(urlToken || '');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
-  // Resend State
   const [email, setEmail] = useState(location.state?.email || '');
   const [resendStatus, setResendStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [resendMessage, setResendMessage] = useState('');
 
-  // Prevent double execution in React Strict Mode
   const verificationAttempted = useRef(false);
 
   useEffect(() => {
@@ -77,16 +75,15 @@ export function VerifyEmail() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #121212 0%, #1a1a1a 100%)',
+        background: overlays.heroGradientSubtle,
         py: 4,
       }}
     >
       <Container maxWidth="sm">
-        <Card sx={{ p: 2 }}>
+        <Card sx={{ p: { xs: 2, sm: 3 } }}>
           <CardContent>
-            {/* Header Section */}
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <MarkEmailRead sx={{ fontSize: 48, color: '#00D98B', mb: 2 }} />
+              <MarkEmailRead sx={{ fontSize: 44, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" gutterBottom>
                 Verify Email
               </Typography>
@@ -97,7 +94,6 @@ export function VerifyEmail() {
               </Typography>
             </Box>
 
-            {/* Status Messages */}
             {status === 'loading' && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                 <CircularProgress />
@@ -106,19 +102,18 @@ export function VerifyEmail() {
 
             {status === 'success' && (
               <Box sx={{ textAlign: 'center', mb: 3 }}>
-                <CheckCircle sx={{ fontSize: 64, color: '#00D98B', mb: 2 }} />
+                <CheckCircle sx={{ fontSize: 56, color: 'success.main', mb: 2 }} />
                 <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>
               </Box>
             )}
 
             {status === 'error' && (
               <Box sx={{ textAlign: 'center', mb: 3 }}>
-                <ErrorIcon sx={{ fontSize: 64, color: '#ff4444', mb: 2 }} />
+                <ErrorIcon sx={{ fontSize: 56, color: 'error.main', mb: 2 }} />
                 <Alert severity="error" sx={{ mb: 2 }}>{message}</Alert>
               </Box>
             )}
 
-            {/* Manual Verification Form */}
             {status !== 'success' && (
               <form onSubmit={handleManualVerify}>
                 <TextField
@@ -144,7 +139,6 @@ export function VerifyEmail() {
 
             {status !== 'success' && <Divider sx={{ my: 4 }}>OR</Divider>}
 
-            {/* Resend Verification Section */}
             {status !== 'success' && (
               <Box>
                 <Typography variant="h6" gutterBottom>
@@ -187,15 +181,14 @@ export function VerifyEmail() {
 
             <Box sx={{ textAlign: 'center', mt: 4 }}>
               <Link to="/login" style={{ textDecoration: 'none' }}>
-                <Typography color="primary" sx={{ cursor: 'pointer' }}>
+                <Typography color="primary" sx={{ cursor: 'pointer', fontWeight: 500 }}>
                   Back to Login
                 </Typography>
               </Link>
             </Box>
-
           </CardContent>
         </Card>
       </Container>
-    </Box >
+    </Box>
   );
 }

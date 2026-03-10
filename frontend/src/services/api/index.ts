@@ -5,5 +5,6 @@ export * from './email';
 export * from './games';
 export * from './matches';
 export * from './submissions';
+export * from './agents';
 export * from './leaderboard';
 export * from './tournaments';
