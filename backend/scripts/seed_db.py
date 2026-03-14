@@ -29,7 +29,7 @@ def _get_or_create_seed_user(session: Session) -> User:
             username="seeduser",
             email="seeduser@example.com",
             password_hash=real_hash,
-            role=UserRole.USER,
+            role=UserRole.ADMIN,
             email_verified=True,
         )
         session.add(user)
