@@ -23,7 +23,7 @@ def load_secure_defaults() -> dict[str, Any]:
 def build_docker_run_args() -> list[str]:
     settings = load_secure_defaults()
     args = []
-    
+
     if "cap_drop" in settings:
         for cap in settings["cap_drop"]:
             args.extend(["--cap-drop", cap])
@@ -46,7 +46,7 @@ def build_docker_run_args() -> list[str]:
         args.extend(["--cpus", str(settings["nano_cpus"] / 1_000_000_000)])
     if "network_mode" in settings:
         args.extend(["--network", settings["network_mode"]])
-    
+
     return args
 
 class AgentProcess:
@@ -68,10 +68,10 @@ class AgentProcess:
     async def start(self) -> None:
         cmd_args = ["run", "-i", "--rm"]
         cmd_args.extend(build_docker_run_args())
-        
+
         # Environment to indicate to agent it is running in online mode
         cmd_args.extend(["-e", "AGENT_ONLINE=1"])
-        
+
         cmd_args.append(self.image_tag)
 
         try:
@@ -100,7 +100,7 @@ class AgentProcess:
     async def get_move(self) -> str:
         if not self.process or not self.process.stdout:
             raise AgentCommunicationError("Process not started or stdout not available.")
-        
+
         try:
             # We enforce a timeout for each move
             line = await asyncio.wait_for(self.process.stdout.readline(), timeout=30.0)

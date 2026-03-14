@@ -19,7 +19,7 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
 
         logger.info("Starting Match execution...")
         result = await run_match(match_id, config, agent_ids, api)
-        
+
         if result.get("status") == "error":
             logger.error(f"Match execution returned error: {result.get('reason')}")
             await api.update_match(

@@ -2,8 +2,8 @@ import importlib
 import logging
 from typing import Any
 
+from lib.agent_communication import AgentCommunicationError, AgentProcess
 from lib.backend_api import BackendAPI
-from lib.agent_communication import AgentProcess, AgentCommunicationError
 
 logger = logging.getLogger(__name__)
 
@@ -14,17 +14,17 @@ async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[s
             submission = await api.get_submission(agent_id)
         except Exception as e:
             raise AgentCommunicationError(f"Could not retrieve agent metadata for {agent_id}: {e}")
-            
+
         build_jobs = submission.get("build_jobs", [])
         tag = None
         for job in build_jobs:
             if job.get("status") == "completed" and job.get("image_tag"):
                 tag = job["image_tag"]
                 break
-                
+
         if not tag:
             raise AgentCommunicationError(f"No valid Docker image tag found for agent {agent_id}")
-            
+
         image_tags.append(tag)
     return image_tags
 
@@ -106,7 +106,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 await agent.cleanup()
 
         game_status = engine.get_status(state)
-        
+
         if winner_id == -1:
             if game_status >= 0:
                 winner_id = game_status

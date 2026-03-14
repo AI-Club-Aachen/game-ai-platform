@@ -1,17 +1,16 @@
 """Authentication dependencies for JWT validation and user extraction"""
 
 import logging
+import secrets
 from typing import Annotated
 from uuid import UUID
 
-import secrets
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
-from app.core.config import settings
-
 from app.api.deps.services import get_user_repository
 from app.api.repositories.user import UserRepository
+from app.core.config import settings
 from app.core.security import decode_access_token
 from app.models.user import User, UserRole
 
@@ -57,7 +56,7 @@ def get_current_user(
     """
     if is_worker:
         return User(
-            id=UUID('00000000-0000-0000-0000-000000000000'),
+            id=UUID("00000000-0000-0000-0000-000000000000"),
             username="worker",
             email="worker@system.local",
             password_hash="",
