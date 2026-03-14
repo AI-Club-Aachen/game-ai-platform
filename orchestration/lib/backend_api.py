@@ -37,7 +37,13 @@ class BackendAPI:
 
         # Remove trailing slash for consistent URL construction
         self.backend_url = backend_url.rstrip("/")
-        self._client = httpx.AsyncClient(timeout=30.0)
+
+        headers = {}
+        worker_api_key = os.getenv("WORKER_API_KEY")
+        if worker_api_key:
+            headers["x-api-key"] = worker_api_key
+
+        self._client = httpx.AsyncClient(timeout=30.0, headers=headers)
 
     async def close(self) -> None:
         """Close HTTP client connection."""

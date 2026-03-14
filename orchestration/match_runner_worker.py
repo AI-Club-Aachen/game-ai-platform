@@ -4,28 +4,13 @@ import logging
 
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
+from lib.match_manager import run_match
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("match_runner_worker")
 
 
-async def run_match_simulation(config: dict) -> dict:
-    """
-    Placeholder for actual match execution logic.
-    For now, it sleeps and returns a dummy result.
-    In the future, this will use docker-py to spin up agent containers and a game engine.
-    """
-    await asyncio.sleep(2)  # Simulate work
-
-    # Mock result
-    return {
-        "winner": "agent_1" if hash(str(config)) % 2 == 0 else "agent_2",
-        "scores": {"agent_1": 10, "agent_2": 5},
-        "reason": "Turn limit reached",
-    }
-
-
-async def process_match(match_id: str, config: dict, api: BackendAPI):
+async def process_match(match_id: str, config: dict, agent_ids: list[str], api: BackendAPI):
     logger.info(f"Processing match {match_id}")
 
     try:
@@ -33,7 +18,16 @@ async def process_match(match_id: str, config: dict, api: BackendAPI):
         await api.update_match(match_id, status="running")
 
         logger.info("Starting Match execution...")
-        result = await run_match_simulation(config)
+        result = await run_match(match_id, config, agent_ids, api)
+
+        if result.get("status") == "error":
+            logger.error(f"Match execution returned error: {result.get('reason')}")
+            await api.update_match(
+                match_id,
+                status="failed",
+                result=result,
+            )
+            return
 
         logger.info("Match finished.")
         # Update status to COMPLETED with result
@@ -69,7 +63,12 @@ async def worker_loop():
                 logger.info(f"Received job: {job_data}")
 
                 if job_data.get("type") == "match":
-                    await process_match(job_data["match_id"], job_data["config"], api)
+                    await process_match(
+                        job_data["match_id"],
+                        job_data["config"],
+                        job_data.get("agent_ids", []),
+                        api
+                    )
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")
 

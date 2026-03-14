@@ -33,7 +33,7 @@ class MatchService:
             game_type=game_type,
             status=MatchStatus.QUEUED,
             config=config,
-            agent_ids=agent_ids
+            agent_ids=[str(i) for i in agent_ids]
         )
         match = self._repository.save(match)
 
