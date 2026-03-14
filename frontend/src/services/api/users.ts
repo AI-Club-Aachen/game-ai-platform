@@ -69,7 +69,7 @@ export const usersApi = {
         if (params?.email_verified !== undefined) queryParams.append('email_verified', params.email_verified.toString());
 
         const queryString = queryParams.toString();
-        const endpoint = queryString ? `/users/?${queryString}` : '/users';
+        const endpoint = queryString ? `/users?${queryString}` : '/users';
 
         return apiRequest<{
             data: Array<{
