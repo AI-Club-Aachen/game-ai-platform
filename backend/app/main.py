@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=settings.REDIS_URL,
-    default_limits=["200/day", "50/hour"],
+    default_limits=["500/hour", "30/minute"],
 )
 
 
