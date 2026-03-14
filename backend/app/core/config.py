@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Game Competition Platform"
+    WORKER_API_KEY: str = "dev-worker-key-12345"
 
     # CORS/Security
     ALLOW_ORIGINS: list[str] = Field(

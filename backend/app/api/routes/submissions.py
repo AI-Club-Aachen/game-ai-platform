@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from app.api.deps import get_current_user, get_optional_current_user, get_submission_service
+from app.api.deps import get_current_user, get_submission_service
 from app.api.services.submission import SubmissionService
 from app.models.user import User
 from app.schemas.submission import SubmissionRead
@@ -28,7 +28,7 @@ async def create_submission(
 @router.get("/{submission_id}", response_model=SubmissionRead)
 def get_submission(
     submission_id: str,  # UUID
-    current_user: Annotated[User | None, Depends(get_optional_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
 ) -> SubmissionRead:
     """
@@ -38,10 +38,9 @@ def get_submission(
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
 
-    # Ideally check if user owns submission or is admin
-    if current_user is not None:
-        if submission.user_id != current_user.id and getattr(current_user, "role", "") != "admin":  # assuming role logic
-            raise HTTPException(status_code=403, detail="Not authorized to view this submission")
+    # Check if user owns submission or is admin
+    if submission.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view this submission")
 
     return submission
 
