@@ -113,6 +113,8 @@ services:
       - redis
     volumes:
       - ./orchestration:/orchestration:z
+      - /var/run/docker.sock:/var/run/docker.sock
+    user: root
     networks:
       - app-network
     restart: unless-stopped

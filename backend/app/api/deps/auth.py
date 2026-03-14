@@ -15,7 +15,7 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
@@ -35,6 +35,13 @@ def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     token = credentials.credentials
 
     # Decode token with validation
