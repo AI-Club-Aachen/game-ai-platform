@@ -38,7 +38,7 @@ async def test_role_enforcement_flow(api_client, fake_email_client, db_session):
 
     # 3. User tries to access admin endpoint (List Users) -> Expect 403
     response = await api_client.get(
-        f"{API_PREFIX}/users/?skip=0&limit=1",
+        f"{API_PREFIX}/users?skip=0&limit=1",
         headers={"Authorization": user_token},
     )
     assert response.status_code == 403
@@ -53,7 +53,7 @@ async def test_role_enforcement_flow(api_client, fake_email_client, db_session):
 
     # 5. User tries to access admin endpoint -> Expect 200
     response = await api_client.get(
-        f"{API_PREFIX}/users/?skip=0&limit=1",
+        f"{API_PREFIX}/users?skip=0&limit=1",
         headers={"Authorization": user_token},
     )
     assert response.status_code == 200
@@ -75,7 +75,7 @@ async def test_role_enforcement_flow(api_client, fake_email_client, db_session):
 
     # 8. User tries to access admin endpoint -> Expect 403
     response = await api_client.get(
-        f"{API_PREFIX}/users/?skip=0&limit=1",
+        f"{API_PREFIX}/users?skip=0&limit=1",
         headers={"Authorization": user_token},
     )
     assert response.status_code == 403
