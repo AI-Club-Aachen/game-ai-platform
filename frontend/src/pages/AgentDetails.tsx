@@ -1,37 +1,56 @@
 import { useState, useEffect } from 'react';
-import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { agentsApi, Agent } from '../services/api/agents';
 import { getActiveGames } from '../config/games';
+import { submissionsApi, Submission } from '../services/api/submissions';
+import { useAuth } from '../context/AuthContext';
+import { overlays } from '../theme';
 
 export function AgentDetails() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { isAdmin } = useAuth();
 
     const [agent, setAgent] = useState<Agent | null>(null);
+    const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!id) return;
 
-        const fetchAgent = async () => {
+        const fetchData = async () => {
             try {
                 setLoading(true);
-                const data = await agentsApi.getAgent(id);
-                setAgent(data);
+                const [agentData, submissionsData] = await Promise.all([
+                    agentsApi.getAgent(id),
+                    submissionsApi.getSubmissions(0, 100)
+                ]);
+                setAgent(agentData);
+                setSubmissions(submissionsData.filter(sub => sub.agent_id === id));
                 setError(null);
             } catch (err: any) {
-                console.error('Failed to fetch agent details:', err);
+                console.error('Failed to fetch details:', err);
                 setError('Failed to load agent details. Please try again.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchAgent();
+        fetchData();
     }, [id]);
+
+    const getStatusColor = (status?: string) => {
+        switch (status) {
+            case 'completed': return 'success';
+            case 'running': return 'info';
+            case 'queued': return 'warning';
+            case 'failed': return 'error';
+            default: return 'default';
+        }
+    };
 
     if (loading) {
         return (
@@ -87,8 +106,8 @@ export function AgentDetails() {
                 </Button>
             </Box>
 
-            <Grid container spacing={4}>
-                <Grid item xs={12} md={8}>
+            <Grid container spacing={4} sx={{ mb: 4 }}>
+                <Grid size={{ xs: 12, md: 7 }}>
                     <Card sx={{ height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
@@ -134,7 +153,7 @@ export function AgentDetails() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 5 }}>
                     <Card sx={{ height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
@@ -162,6 +181,59 @@ export function AgentDetails() {
                                     </Typography>
                                 </Box>
                             </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid size={12}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ mb: 3 }}>Agent Submissions</Typography>
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Submission ID</TableCell>
+                                            <TableCell>Status</TableCell>
+                                            <TableCell>Submitted</TableCell>
+                                            {isAdmin && <TableCell>Actions</TableCell>}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {submissions.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={isAdmin ? 4 : 3} align="center">
+                                                    <Typography color="text.secondary">No submissions found for this agent</Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            submissions.map(sub => {
+                                                const status = sub.build_jobs && sub.build_jobs.length > 0
+                                                    ? sub.build_jobs[0].status
+                                                    : 'unknown';
+
+                                                return (
+                                                    <TableRow key={sub.id}>
+                                                        <TableCell>
+                                                            <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
+                                                                {sub.id.substring(0, 8)}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip label={status} color={getStatusColor(status) as any} size="small" />
+                                                        </TableCell>
+                                                        <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
+                                                        {isAdmin && (
+                                                            <TableCell>
+                                                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">Review</Button>
+                                                            </TableCell>
+                                                        )}
+                                                    </TableRow>
+                                                );
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
                         </CardContent>
                     </Card>
                 </Grid>

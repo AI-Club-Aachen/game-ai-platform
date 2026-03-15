@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+import uuid
 
 
 # Add the parent directory to sys.path so we can import the app module
@@ -54,7 +55,7 @@ def _create_build_logs(status: JobStatus, sub_id: int) -> str:
     return logs
 
 
-def _create_submissions_and_jobs(session: Session, user: User) -> int | None:
+def _create_submissions_and_jobs(session: Session, user: User, passed_agent_id: uuid.UUID) -> uuid.UUID | None:
     """Creates test submissions and jobs. Returns the ID of a completed submission if any."""
     existing_submissions = session.exec(select(Submission).where(Submission.user_id == user.id)).all()
     if existing_submissions:
@@ -68,6 +69,10 @@ def _create_submissions_and_jobs(session: Session, user: User) -> int | None:
         ).first()
         return completed.id if completed else None
 
+    agent_id = passed_agent_id
+    active_sub_id = None
+    completed_sub_id = uuid.uuid4() # Pre-allocate one id for the completed submission
+
     statuses = [
         JobStatus.QUEUED,
         JobStatus.RUNNING,
@@ -78,8 +83,11 @@ def _create_submissions_and_jobs(session: Session, user: User) -> int | None:
     active_sub_id = None
 
     for i, status in enumerate(statuses):
+        sub_id = completed_sub_id if status == JobStatus.COMPLETED else uuid.uuid4()
         sub = Submission(
+            id=sub_id,
             user_id=user.id,
+            agent_id=agent_id,
             object_path=f"seeded/submissions/agent_v{i}.zip"
         )
         session.add(sub)
@@ -104,18 +112,21 @@ def _create_submissions_and_jobs(session: Session, user: User) -> int | None:
     return active_sub_id
 
 
-def _create_seed_agent(session: Session, user: User, active_sub_id: int) -> None:
-    """Creates a seed agent for the user if they don't have one."""
+def _get_or_create_seed_agent(session: Session, user: User) -> Agent:
+    """Creates a seed agent without an active submission for the user if they don't have one."""
     agent = session.exec(select(Agent).where(Agent.user_id == user.id)).first()
     if not agent:
         agent = Agent(
+            id=uuid.uuid4(),
             user_id=user.id,
-            active_submission_id=active_sub_id,
+            active_submission_id=None,
             stats={"rating": 1500, "matches_played": 0}
         )
         session.add(agent)
         session.commit()
+        session.refresh(agent)
         print(f"Created Agent {agent.id}")
+    return agent
 
 
 def seed() -> None:
@@ -133,10 +144,15 @@ def seed() -> None:
 
     with Session(engine) as session:
         user = _get_or_create_seed_user(session)
-        active_sub_id = _create_submissions_and_jobs(session, user)
+        agent = _get_or_create_seed_agent(session, user)
 
-        if active_sub_id:
-            _create_seed_agent(session, user, active_sub_id)
+        # Try to create submissions
+        active_sub_id = _create_submissions_and_jobs(session, user, agent.id)
+
+        if active_sub_id and agent.active_submission_id is None:
+            agent.active_submission_id = active_sub_id
+            session.add(agent)
+            session.commit()
 
         print("Database seeding complete.")
 

@@ -14,6 +14,7 @@ export interface BuildJob {
 export interface Submission {
     id: string;
     user_id: string;
+    agent_id: string;
     created_at: string;
     updated_at: string;
     build_jobs: BuildJob[];

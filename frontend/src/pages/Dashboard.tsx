@@ -22,7 +22,7 @@ export function Dashboard() {
       try {
         setLoading(true);
         const [fetchedSubmissions, fetchedAgents] = await Promise.all([
-          submissionsApi.getSubmissions(),
+          submissionsApi.getSubmissions(0, 3),
           agentsApi.getAgents()
         ]);
         setSubmissions(fetchedSubmissions);
@@ -111,62 +111,6 @@ export function Dashboard() {
             ))}
           </Box>
 
-          {/* Submissions Section */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6">Recent Submissions</Typography>
-                <Button component={Link} to="/submissions/new" variant="contained" size="small">+ New Submission</Button>
-              </Box>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Submission ID</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Submitted</TableCell>
-                      {isAdmin && <TableCell>Actions</TableCell>}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {submissions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={isAdmin ? 4 : 3} align="center">
-                          <Typography color="text.secondary">No submissions found</Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      submissions.map(sub => {
-                        const status = sub.build_jobs && sub.build_jobs.length > 0
-                          ? sub.build_jobs[0].status
-                          : 'unknown';
-
-                        return (
-                          <TableRow key={sub.id}>
-                            <TableCell>
-                              <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
-                                {sub.id.substring(0, 8)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip label={status} color={getStatusColor(status) as any} size="small" />
-                            </TableCell>
-                            <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
-                            {isAdmin && (
-                              <TableCell>
-                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">Review</Button>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-
           {/* Agent Tracking Section */}
           <Card>
             <CardContent>
@@ -211,6 +155,61 @@ export function Dashboard() {
                           </TableCell>
                         </TableRow>
                       ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
+
+          {/* Submissions Section */}
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6">Recent Submissions</Typography>
+              </Box>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Submission ID</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Submitted</TableCell>
+                      {isAdmin && <TableCell>Actions</TableCell>}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {submissions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={isAdmin ? 4 : 3} align="center">
+                          <Typography color="text.secondary">No submissions found</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      submissions.slice(-3).map(sub => {
+                        const status = sub.build_jobs && sub.build_jobs.length > 0
+                          ? sub.build_jobs[0].status
+                          : 'unknown';
+
+                        return (
+                          <TableRow key={sub.id}>
+                            <TableCell>
+                              <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
+                                {sub.id.substring(0, 8)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={status} color={getStatusColor(status) as any} size="small" />
+                            </TableCell>
+                            <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
+                            {isAdmin && (
+                              <TableCell>
+                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">Review</Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>

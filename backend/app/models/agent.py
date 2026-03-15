@@ -16,7 +16,7 @@ class Agent(SQLModel, table=True):
 
     user_id: UUID = Field(index=True, nullable=False)
 
-    active_submission_id: UUID = Field(nullable=False)
+    active_submission_id: UUID = Field(nullable=True)
 
     stats: dict[str, Any] = Field(default={}, sa_column=Column(JSON))  # TODO: change from freeform json
 

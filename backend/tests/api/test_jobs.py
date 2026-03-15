@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
+from uuid import uuid4
 
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
@@ -39,7 +40,8 @@ async def test_build_job_flow(
     db_session.add(user)
     db_session.commit()
 
-    submission = Submission(user_id=user.id, object_path="path/to/zip")
+    agent_id = uuid4()
+    submission = Submission(user_id=user.id, agent_id=agent_id, object_path="path/to/zip")
     submission = submission_repository.save(submission)
 
     job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
