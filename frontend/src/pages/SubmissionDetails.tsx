@@ -30,16 +30,19 @@ export function SubmissionDetails() {
 
     useEffect(() => {
         fetchSubmission();
+    }, [id]);
+
+    useEffect(() => {
+        const hasActiveJobs = submission?.build_jobs?.some(job => job.status === 'queued' || job.status === 'running');
+        if (!hasActiveJobs) return;
 
         // Auto-refresh if the submission might still be building
         const intervalId = setInterval(() => {
-            if (submission?.build_jobs?.some(job => job.status === 'queued' || job.status === 'running')) {
-                fetchSubmission();
-            }
+            fetchSubmission();
         }, 5000);
 
         return () => clearInterval(intervalId);
-    }, [id, submission?.build_jobs]);
+    }, [id, submission]);
 
     if (loading && !submission) {
         return (

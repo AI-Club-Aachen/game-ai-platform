@@ -185,7 +185,7 @@ async def test_admin_list_get_update_role_delete_user_success(api_client, fake_e
 
     # 1) Admin list users.
     list_response = await api_client.get(
-        f"{API_PREFIX}/users/?skip=0&limit=10",
+        f"{API_PREFIX}/users?skip=0&limit=10",
         headers={"Authorization": admin_token},
     )
     assert list_response.status_code == 200
@@ -277,7 +277,7 @@ async def test_non_admin_cannot_use_admin_endpoints(api_client, fake_email_clien
 
     # 1) List users (admin-only).
     list_response = await api_client.get(
-        f"{API_PREFIX}/users/?skip=0&limit=10",
+        f"{API_PREFIX}/users?skip=0&limit=10",
         headers={"Authorization": user_token},
     )
     assert list_response.status_code == 403
