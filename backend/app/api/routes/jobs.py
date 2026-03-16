@@ -86,6 +86,7 @@ def update_match_job(
         update.status,
         update.logs,
         update.result,
+        update.game_state,
     )
     if not job:
         raise HTTPException(

@@ -89,6 +89,7 @@ services:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
       - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
     depends_on:
       - backend
       - redis
@@ -111,6 +112,7 @@ services:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
       - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
     depends_on:
       - backend
       - redis

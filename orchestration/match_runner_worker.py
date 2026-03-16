@@ -1,13 +1,20 @@
 # ruff: noqa: E402
 import asyncio
 import logging
+import os
 
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
 from lib.match_manager import run_match
 
-logging.basicConfig(level=logging.INFO)
+_log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
+logging.basicConfig(
+    level=_log_level,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 logger = logging.getLogger("match_runner_worker")
+logger.info(f"Log level set to {_log_level_name}")
 
 
 async def process_match(match_id: str, config: dict, agent_ids: list[str], api: BackendAPI):

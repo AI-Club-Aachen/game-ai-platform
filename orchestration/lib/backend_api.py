@@ -157,6 +157,7 @@ class BackendAPI:
         match_id: str,
         status: str,
         result: dict[str, Any] | None = None,
+        game_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Update a match's status and related fields.
@@ -165,6 +166,7 @@ class BackendAPI:
             match_id: Match UUID
             status: New status (queued, running, completed, failed)
             result: Optional match result data (scores, winner, etc.)
+            game_state: Optional current game state dictionary
 
         Returns:
             Updated match data
@@ -173,6 +175,9 @@ class BackendAPI:
 
         if result is not None:
             data["result"] = result
+
+        if game_state is not None:
+            data["game_state"] = game_state
 
         return await self._patch(f"/matches/{match_id}", data)
 

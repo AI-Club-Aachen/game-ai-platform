@@ -54,6 +54,7 @@ class MatchService:
         match_id: str,
         status: str,
         result: dict[str, Any] | None = None,
+        game_state: dict[str, Any] | None = None,
     ) -> Match | None:
         """Update match fields (used by workers)."""
         match = self._repository.get_by_id(match_id)
@@ -65,6 +66,9 @@ class MatchService:
         if result is not None:
             match.result = result
 
+        if game_state is not None:
+            match.game_state = game_state
+
         return self._repository.save(match)
 
     def update_match_job(
@@ -73,6 +77,7 @@ class MatchService:
         status: str,
         logs: str | None = None,
         result: dict[str, Any] | None = None,
+        game_state: dict[str, Any] | None = None,
     ) -> MatchJob | None:
         """Update match job and sync status to match."""
         job = self._job_repository.get_match_job(job_id)
@@ -90,7 +95,8 @@ class MatchService:
         self.update_match(
             str(job.match_id),
             status,
-            result,
+            result=result,
+            game_state=game_state,
         )
 
         return job
