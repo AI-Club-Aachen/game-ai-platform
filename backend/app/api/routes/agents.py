@@ -12,7 +12,7 @@ from app.schemas.agent import AgentCreate, AgentRead, AgentUpdate
 router = APIRouter()
 
 
-@router.post("/", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
 def create_agent(
     agent_create: AgentCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -51,7 +51,7 @@ def get_agent(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
-@router.get("/", response_model=list[AgentRead])
+@router.get("", response_model=list[AgentRead])
 def list_agents(
     current_user: Annotated[User, Depends(get_current_user)],
     service: AgentService = Depends(get_agent_service),

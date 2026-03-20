@@ -129,7 +129,7 @@ async def change_password(
 
 # Admin endpoints with higher rate limits (1000/hour)
 # GET /api/v1/users/
-@router.get("/", response_model=UserListResponse, status_code=status.HTTP_200_OK)
+@router.get("", response_model=UserListResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("1000/hour")
 async def list_users(
     request: Request,  # noqa: ARG001

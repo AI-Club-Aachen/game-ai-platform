@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 # POST /api/v1/matches/
-@router.post("/", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
 async def create_match(
     match_in: MatchCreate,
     _current_user: Annotated[User, Depends(get_current_user)],
@@ -67,7 +67,7 @@ def update_match(
 
 
 # GET /api/v1/matches/
-@router.get("/", response_model=list[MatchRead])
+@router.get("", response_model=list[MatchRead])
 def list_matches(
     service: MatchService = Depends(get_match_service),
     skip: int = 0,

@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 # POST /api/v1/submissions/
-@router.post("/", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
 async def create_submission(
     file: Annotated[UploadFile, File(...)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -46,7 +46,7 @@ def get_submission(
 
 
 # GET /api/v1/submissions/
-@router.get("/", response_model=list[SubmissionRead])
+@router.get("", response_model=list[SubmissionRead])
 def list_submissions(
     current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
