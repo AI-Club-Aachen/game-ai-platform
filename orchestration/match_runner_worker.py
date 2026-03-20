@@ -37,10 +37,15 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
             return
 
         logger.info("Match finished.")
-        # Update status to COMPLETED with result
+        status = "completed"
+        valid_reasons = ["Game finished", "Draw", "Turn limit reached"]
+        if result.get("reason") not in valid_reasons:
+            status = "client_error"
+
+        # Update status to COMPLETED or CLIENT_ERROR with result
         await api.update_match(
             match_id,
-            status="completed",
+            status=status,
             result=result,
         )
 

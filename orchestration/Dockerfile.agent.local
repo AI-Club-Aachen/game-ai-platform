@@ -1,0 +1,11 @@
+FROM agent-base:latest
+
+WORKDIR /home/runner/app
+COPY . .
+
+ARG AGENT_FILE=agent.py
+ENV AGENT_FILE=${AGENT_FILE}
+ENV PYTHONUNBUFFERED=1
+ENV AGENT_ONLINE=1
+
+CMD ["python", "-u", "-c", "import os, runpy; runpy.run_path(os.environ.get('AGENT_FILE', 'agent.py'), run_name='__main__')"]

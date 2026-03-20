@@ -13,6 +13,7 @@ class MatchStatus(str, Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    CLIENT_ERROR = "client_error"
 
 
 class Match(SQLModel, table=True):

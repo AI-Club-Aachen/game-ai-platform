@@ -105,10 +105,23 @@ class AgentProcess:
             # We enforce a timeout for each move
             line = await asyncio.wait_for(self.process.stdout.readline(), timeout=30.0)
             if not line:
-                raise AgentCommunicationError("Agent process disconnected unexpectedly.")
+                err_out = ""
+                if getattr(self.process, "stderr", None):
+                    try:
+                        err_bytes = await asyncio.wait_for(self.process.stderr.read(), timeout=2.0)
+                        if err_bytes:
+                            err_out = err_bytes.decode("utf-8", errors="replace").strip()
+                    except Exception:
+                        pass
+                msg = "Agent process disconnected unexpectedly."
+                if err_out:
+                    msg += f" Stderr: {err_out}"
+                raise AgentCommunicationError(msg)
             return line.decode("utf-8").strip()
         except asyncio.TimeoutError:
             raise AgentCommunicationError("Timeout waiting for agent move.")
+        except AgentCommunicationError:
+            raise
         except BaseException as e:
             raise AgentCommunicationError(f"Error reading move: {e}")
 

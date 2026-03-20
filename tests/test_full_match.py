@@ -20,7 +20,7 @@ def upload_agent_and_wait_for_build(api_base_url, headers, zip_path):
     assert build_job["status"] == "queued", f"Expected initially 'queued', got {build_job['status']}"
 
     # monitor build worker & wait for build to complete
-    max_retries = 30
+    max_retries = 60
     final_status = None
     for i in range(max_retries):
         poll_res = requests.get(f"{api_base_url}/submissions/{sub_id}", headers=headers)
@@ -78,7 +78,7 @@ def test_full_match(auth_headers, api_base_url):
         match_id = match["id"]
         print(f"Created match: {match_id}")
 
-        max_retries = 30
+        max_retries = 60
         final_status = None
         final_match = None
         for i in range(max_retries):
@@ -88,14 +88,19 @@ def test_full_match(auth_headers, api_base_url):
             status = poll_match["status"]
             print(f"Poll {i+1}: Match status is '{status}'")
             
-            if status in ["completed", "failed"]:
+            if status in ["completed", "failed", "client_error"]:
                 final_status = status
                 final_match = poll_match
                 break
                 
-            time.sleep(3)
+            time.sleep(5)
 
-        assert final_status == "completed", f"Match failed or timed out. Final status: {final_status}"
+        result = final_match.get("result", {})
+        error_msg = f"Match failed or timed out. Final status: {final_status}"
+        if final_status == "client_error":
+            error_msg = f"Match failed with client error. Reason: {result.get('reason')}"
+            
+        assert final_status == "completed", error_msg
         assert final_match.get("result") is not None, "Match result was not set"
         
         result = final_match["result"]

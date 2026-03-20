@@ -1,6 +1,7 @@
 import hashlib
 import io
 import logging
+import os
 import shutil
 import tempfile
 import zipfile
@@ -73,19 +74,85 @@ def build_from_zip(
     """Uses orchestration/Dockerfile to build a Docker image from the ZIP contents."""
     client = docker.from_env()
     project_root = Path(__file__).resolve().parent.parent  # orchestration/
-    dockerfile_path = project_root / "Dockerfile.agent"
+
+    build_local_base = os.environ.get("BUILD_LOCAL_BASE_IMAGE", "False").lower() in ("true", "1", "yes")
+
+    if build_local_base:
+        base_image = "agent-base:latest"
+
+        logger.info("BUILD_LOCAL_BASE_IMAGE is enabled. Building base image locally...")
+        dockerfile_base_path = project_root / "Dockerfile.base"
+        if not dockerfile_base_path.exists():
+            raise BuildError(f"{dockerfile_base_path} not found.")
+
+        gamelib_src = project_root.parent / "gamelib"
+        use_local_gamelib = gamelib_src.exists()
+
+        try:
+            if not use_local_gamelib:
+                client.images.build(
+                    path=str(project_root),
+                    dockerfile=str(dockerfile_base_path),
+                    tag=base_image,
+                    rm=True,
+                )
+            else:
+                logger.info("Local gamelib found, injecting into base image build context...")
+                with tempfile.TemporaryDirectory(prefix="base-build-context-") as td:
+                    build_ctx = Path(td)
+
+                    # Copy context files, preserving timestamps for Docker cache
+                    shutil.copy2(dockerfile_base_path, build_ctx / "Dockerfile.base")
+                    shutil.copy2(project_root / "base_requirements.txt", build_ctx / "base_requirements.txt")
+
+                    # Copy gamelib source
+                    shutil.copytree(gamelib_src, build_ctx / "gamelib")
+
+                    # Inject local package installation into the builder stage of Dockerfile
+                    df_lines = (build_ctx / "Dockerfile.base").read_text().splitlines()
+                    new_df = []
+                    injected = False
+                    for line in df_lines:
+                        if not injected and (line.startswith("# Stage 2") or (line.startswith("FROM") and "builder" not in line)):
+                            new_df.append("COPY gamelib /gamelib_local")
+                            new_df.append("RUN pip install --no-cache-dir --prefix=/install /gamelib_local")
+                            injected = True
+                        new_df.append(line)
+                    
+                    if not injected:
+                        new_df.append("COPY gamelib /gamelib_local")
+                        new_df.append("RUN pip install --no-cache-dir --prefix=/install /gamelib_local")
+                        
+                    (build_ctx / "Dockerfile.base").write_text("\n".join(new_df))
+
+                    client.images.build(
+                        path=str(build_ctx),
+                        dockerfile="Dockerfile.base",
+                        tag=base_image,
+                        rm=True,
+                    )
+
+            logger.info(f"Successfully built local base image: {base_image}")
+        except Exception as e:
+            raise BuildError(f"Failed to build local base image: {e}")
+    else:
+        base_image = "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
+
+        # Pull the latest base image to ensure we are up to date
+        try:
+            logger.info(f"Pulling base image: {base_image}...")
+            client.images.pull(base_image)
+        except docker.errors.APIError as e:
+            logger.warning(f"Failed to pull base image {base_image}: {e}")
+            logger.info("Proceeding with local image if available...")
+
+    if build_local_base:
+        dockerfile_path = project_root / "Dockerfile.agent.local"
+    else:
+        dockerfile_path = project_root / "Dockerfile.agent"
 
     if not dockerfile_path.exists():
-        raise BuildError(str(Path(__file__).resolve().parent.parent) + "/Dockerfile.agent not found.")
-
-    # Pull the latest base image to ensure we are up to date
-    try:
-        base_image = "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
-        logger.info(f"Pulling base image: {base_image}...")
-        client.images.pull(base_image)
-    except docker.errors.APIError as e:
-        logger.warning(f"Failed to pull base image {base_image}: {e}")
-        logger.info("Proceeding with local image if available...")
+        raise BuildError(str(Path(__file__).resolve().parent.parent) + f"/{dockerfile_path.name} not found.")
 
     with tempfile.TemporaryDirectory(prefix="agent-build-") as td:
         ctx = Path(td)
@@ -128,6 +195,27 @@ def build_from_zip(
             buildargs={"AGENT_FILE": entry_file},
             network_mode="default",  # allow this for the build, but not for the containers later
         )
+
+        try:
+            client.containers.run(
+                image.id,
+                command=["python", "-c", f"with open('{entry_file}', 'rb') as f: compile(f.read(), '{entry_file}', 'exec')"],
+                remove=True
+            )
+        except docker.errors.ContainerError as e:
+            err_msg = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
+            try:
+                client.images.remove(image.id, force=True)
+            except Exception:
+                pass
+            raise BuildError(f"Agent code has syntax errors:\n{err_msg}")
+        except docker.errors.APIError as e:
+            try:
+                client.images.remove(image.id, force=True)
+            except Exception:
+                pass
+            raise BuildError(f"Failed to verify agent code: {e}")
+
     return {
         "image_id": image.id,
         "tag": full_tag,
