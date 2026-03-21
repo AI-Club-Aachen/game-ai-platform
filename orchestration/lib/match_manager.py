@@ -47,7 +47,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             Engine = importlib.import_module(f"gamelib.{game_type}.engine").Engine
             State = importlib.import_module(f"gamelib.{game_type}.gamestate").GameState
             Move = importlib.import_module(f"gamelib.{game_type}.move").Move
-            logger.debug(f"[{match_id}] Imported Engine={Engine.__name__}, State={State.__name__}, Move={Move.__name__}")
+            logger.debug(f"[{match_id}] Imported Engine={Engine.__name__}, State={State.__name__}, Move={Move.__name__}")  # noqa: E501
         except ImportError as e:
             logger.error(f"[{match_id}] Failed to import game modules for type {game_type!r}: {e}")
             return {"status": "error", "reason": f"Game type {game_type} not supported: {e}"}
@@ -112,7 +112,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
                     await cur_agent.send_state(state_json)
                     move_json = await cur_agent.get_move()
-                    logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {move_json!r}")
+                    logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {move_json!r}")  # noqa: E501
                     move = Move.from_json(move_json)
                 except Exception as e:
                     reason = f"Player {current_player} failed to communicate or generated invalid output: {e}"

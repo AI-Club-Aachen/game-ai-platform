@@ -1,8 +1,10 @@
-import os
 import io
-import zipfile
+import os
 import sys
+import zipfile
+
 import docker
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from lib.agent_builder import build_from_zip
@@ -19,7 +21,7 @@ print("Starting build...")
 try:
     result = build_from_zip(zip_bytes, owner_id="test_local_gamelib")
     print("Build successful:", result)
-    
+
     # Run a container from the image to see if it imports gamelib
     client = docker.from_env()
     container = client.containers.run(

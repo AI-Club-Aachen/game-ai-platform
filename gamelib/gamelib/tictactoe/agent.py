@@ -2,8 +2,8 @@
 Base Tic-Tac-Toe Agent Implementation.
 """
 
-from typing import override
 import json
+from typing import override
 
 from gamelib.agent_base import AgentBase
 from gamelib.tictactoe.gamestate import GameState as State

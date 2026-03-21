@@ -113,16 +113,16 @@ def build_from_zip(
                     new_df = []
                     injected = False
                     for line in df_lines:
-                        if not injected and (line.startswith("# Stage 2") or (line.startswith("FROM") and "builder" not in line)):
+                        if not injected and (line.startswith("# Stage 2") or (line.startswith("FROM") and "builder" not in line)):  # noqa: E501
                             new_df.append("COPY gamelib /gamelib_local")
                             new_df.append("RUN pip install --no-cache-dir --prefix=/install /gamelib_local")
                             injected = True
                         new_df.append(line)
-                    
+
                     if not injected:
                         new_df.append("COPY gamelib /gamelib_local")
                         new_df.append("RUN pip install --no-cache-dir --prefix=/install /gamelib_local")
-                        
+
                     (build_ctx / "Dockerfile.base").write_text("\n".join(new_df))
 
                     client.images.build(
@@ -199,7 +199,7 @@ def build_from_zip(
         try:
             client.containers.run(
                 image.id,
-                command=["python", "-c", f"with open('{entry_file}', 'rb') as f: compile(f.read(), '{entry_file}', 'exec')"],
+                command=["python", "-c", f"with open('{entry_file}', 'rb') as f: compile(f.read(), '{entry_file}', 'exec')"],  # noqa: E501
                 remove=True
             )
         except docker.errors.ContainerError as e:
