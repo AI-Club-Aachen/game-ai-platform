@@ -19,6 +19,7 @@ class Submission(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     user_id: UUID = Field(index=True, nullable=False)  # Foreign key to User, but loose coupling for now
+    agent_id: UUID = Field(index=True, nullable=False)
 
     # Path to the uploaded zip file
     object_path: str = Field(nullable=False)

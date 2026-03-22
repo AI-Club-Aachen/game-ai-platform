@@ -12,7 +12,8 @@ import { ContainerManagement } from './pages/ContainerManagement';
 import { UserManagement } from './pages/UserManagement';
 import { Profile } from './pages/Profile';
 import { Leaderboard } from './pages/Leaderboard';
-import { LiveGames } from './pages/LiveGames';
+import { Matches } from './pages/Matches';
+import { LiveMatch } from './pages/LiveMatch';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { VerifyEmail } from './pages/VerifyEmail';
@@ -20,6 +21,7 @@ import { NewSubmission } from './pages/NewSubmission';
 import { AgentDetails } from './pages/AgentDetails';
 import { SubmissionDetails } from './pages/SubmissionDetails';
 import { TournamentDetails } from './pages/TournamentDetails';
+import { GameDetails } from './pages/GameDetails';
 import './App.css';
 
 function App() {
@@ -40,7 +42,9 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="games" element={<Games />} />
-              <Route path="games/live" element={<LiveGames />} />
+              <Route path="games/:gameId" element={<GameDetails />} />
+              <Route path="games/matches" element={<Matches />} />
+              <Route path="games/live/:matchId" element={<LiveMatch />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="tournaments" element={<Tournaments />} />
               <Route path="tournaments/:id" element={<TournamentDetails />} />
