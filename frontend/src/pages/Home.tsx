@@ -82,8 +82,8 @@ export function Home() {
             },
             {
               icon: <Visibility sx={{ fontSize: 40, color: 'error.main' }} />,
-              title: 'Watch Live Games',
-              desc: 'Spectate live matches and replay past games to learn strategies',
+              title: 'Watch Live Matches',
+              desc: 'Spectate live matches and replay past matches to learn strategies',
             },
           ].map((feature, i) => (
             <Card

@@ -299,7 +299,7 @@ export function GameDetails() {
                         <SectionHeader
                             icon={<Videocam sx={{ fontSize: 22 }} />}
                             title="Matches"
-                            linkTo={`/games/live?game=${gameId}`}
+                            linkTo={`/games/matches?game=${gameId}`}
                             linkLabel="See all matches"
                         />
 
@@ -340,7 +340,7 @@ export function GameDetails() {
                                                             </Box>
                                                             <Button
                                                                 component={Link}
-                                                                to={`/games/live?game=${gameId}`}
+                                                                to={`/games/live/${match.id}`}
                                                                 variant="outlined"
                                                                 size="small"
                                                                 startIcon={<Videocam sx={{ fontSize: 16 }} />}
@@ -409,7 +409,7 @@ export function GameDetails() {
                                                                 <TableCell align="right">
                                                                     <Button
                                                                         component={Link}
-                                                                        to={`/games/live?game=${gameId}`}
+                                                                        to={`/games/live/${match.id}`}
                                                                         size="small"
                                                                         variant="text"
                                                                     >
