@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card } from '@mui/material';
-import { EmojiEvents } from '@mui/icons-material';
+import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card, Button } from '@mui/material';
+import { EmojiEvents, ArrowBack } from '@mui/icons-material';
 import { overlays } from '../theme';
+import { useSmartBack } from '../hooks/use-smart-back';
 
 interface LeaderboardEntry {
   rank: number;
@@ -17,6 +18,7 @@ interface LeaderboardEntry {
 
 export function Leaderboard() {
   const [selectedGame] = useState<string>('chess');
+  const goBack = useSmartBack('/dashboard');
 
   const entries: LeaderboardEntry[] = [
     { rank: 1, username: 'AImaster', agentName: 'GammaNet', score: 2450, wins: 52, losses: 8, winRate: 86.7, language: 'Python', gameId: selectedGame },
@@ -40,6 +42,9 @@ export function Leaderboard() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+        Back
+      </Button>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <EmojiEvents sx={{ fontSize: 32 }} /> Leaderboard

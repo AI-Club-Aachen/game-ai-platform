@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Box, Container, Typography, Card, CardContent, Button, Chip, LinearProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Visibility, ArrowBack, PlayCircle, Videocam, History, EmojiEvents, PlayArrow } from '@mui/icons-material';
 import { palette } from '../theme';
+import { useSmartBack } from '../hooks/use-smart-back';
 
 interface LiveGame {
   id: string;
@@ -27,6 +28,7 @@ interface PastGame {
 
 export function LiveGames() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const goBack = useSmartBack('/games');
 
   const liveGames: LiveGame[] = [
     {
@@ -115,6 +117,9 @@ export function LiveGames() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+        Back
+      </Button>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PlayCircle sx={{ fontSize: 32 }} /> Games

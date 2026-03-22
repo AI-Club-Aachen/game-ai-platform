@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../hooks/use-smart-back';
 import {
     Box, Container, Typography, Button, Card, CardContent, Chip,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -140,6 +141,7 @@ function SectionError({ message }: { message: string }) {
 export function GameDetails() {
     const { gameId } = useParams<{ gameId: string }>();
     const navigate = useNavigate();
+    const goBack = useSmartBack('/games');
     const game = getGameById(gameId ?? '');
 
     // Data state
@@ -184,7 +186,7 @@ export function GameDetails() {
                 <Alert severity="error">Game "{gameId}" not found.</Alert>
                 <Button
                     startIcon={<ArrowBack />}
-                    onClick={() => navigate('/games')}
+                    onClick={goBack}
                     sx={{ mt: 2 }}
                 >
                     Back to Games
@@ -202,7 +204,7 @@ export function GameDetails() {
             {/* ── Back button ─────────────────────────────────── */}
             <Button
                 startIcon={<ArrowBack />}
-                onClick={() => navigate('/games')}
+                onClick={goBack}
                 variant="text"
                 sx={{ mb: 3 }}
             >

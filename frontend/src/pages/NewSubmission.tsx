@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert } from '@mui/material';
 import { ArrowBack, CloudUpload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../hooks/use-smart-back';
 import { submissionsApi } from '../services/api/submissions';
 import { overlays, palette } from '../theme';
 
 export function NewSubmission() {
     const navigate = useNavigate();
+    const goBack = useSmartBack('/dashboard');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,8 +41,8 @@ export function NewSubmission() {
 
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
-            <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')} sx={{ mb: 2 }}>
-                Back to Dashboard
+            <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+                Back
             </Button>
             <Typography variant="h4" gutterBottom>
                 New Submission

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Chip, Divider, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { ArrowBack, EmojiEvents, CalendarToday, People } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useSmartBack } from '../hooks/use-smart-back';
 import { tournamentsApi } from '../services/api/tournaments';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { palette } from '../theme';
 
 export function TournamentDetails() {
-    const navigate = useNavigate();
+    const goBack = useSmartBack('/tournaments');
     const { id } = useParams<{ id: string }>();
     const { user } = useAuth();
 
@@ -81,7 +82,7 @@ export function TournamentDetails() {
     if (error || !tournament) {
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
-                <Button startIcon={<ArrowBack />} onClick={() => navigate('/tournaments')} sx={{ mb: 2 }}>
+                <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
                     Back to Tournaments
                 </Button>
                 <Alert severity="error">{error || 'Tournament not found'}</Alert>
@@ -96,7 +97,7 @@ export function TournamentDetails() {
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Button startIcon={<ArrowBack />} onClick={() => navigate('/tournaments')} sx={{ mb: 2 }}>
+            <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
                 Back to Tournaments
             </Button>
 

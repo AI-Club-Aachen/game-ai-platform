@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useSmartBack } from '../hooks/use-smart-back';
 import { agentsApi, Agent } from '../services/api/agents';
 import { getActiveGames } from '../config/games';
 import { submissionsApi, Submission } from '../services/api/submissions';
@@ -10,6 +11,7 @@ import { overlays } from '../theme';
 
 export function AgentDetails() {
     const navigate = useNavigate();
+    const goBack = useSmartBack('/dashboard');
     const { id } = useParams<{ id: string }>();
     const { isAdmin } = useAuth();
 
@@ -63,8 +65,8 @@ export function AgentDetails() {
     if (error || !agent) {
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
-                <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')} sx={{ mb: 2 }}>
-                    Back to Dashboard
+                <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+                    Back
                 </Button>
                 <Alert severity="error">{error || 'Agent not found'}</Alert>
             </Container>
@@ -84,8 +86,8 @@ export function AgentDetails() {
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')} sx={{ mb: 2 }}>
-                Back to Dashboard
+            <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+                Back
             </Button>
 
             <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
