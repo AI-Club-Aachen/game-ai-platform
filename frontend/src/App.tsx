@@ -20,6 +20,7 @@ import { NewSubmission } from './pages/NewSubmission';
 import { AgentDetails } from './pages/AgentDetails';
 import { SubmissionDetails } from './pages/SubmissionDetails';
 import { TournamentDetails } from './pages/TournamentDetails';
+import { GameDetails } from './pages/GameDetails';
 import './App.css';
 
 function App() {
@@ -40,6 +41,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="games" element={<Games />} />
+              <Route path="games/:gameId" element={<GameDetails />} />
               <Route path="games/live" element={<LiveGames />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="tournaments" element={<Tournaments />} />
