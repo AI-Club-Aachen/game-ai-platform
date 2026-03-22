@@ -67,6 +67,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-key-12345}
     depends_on:
       db:
         condition: service_healthy
@@ -87,6 +88,9 @@ services:
     environment:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
+      - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
+      - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:-False}
     depends_on:
       - backend
       - redis
@@ -94,6 +98,7 @@ services:
       - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
       - ./backend/uploads:/app/uploads:z
+      - ./gamelib:/gamelib:z
     user: root
     networks:
       - app-network
@@ -108,11 +113,15 @@ services:
     environment:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
       - REDIS_URL=${REDIS_URL}
+      - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
     depends_on:
       - backend
       - redis
     volumes:
       - ./orchestration:/orchestration:z
+      - /var/run/docker.sock:/var/run/docker.sock
+    user: root
     networks:
       - app-network
     restart: unless-stopped

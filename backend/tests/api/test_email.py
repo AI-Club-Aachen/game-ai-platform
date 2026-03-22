@@ -235,8 +235,8 @@ async def test_resend_verification_fails_for_already_verified_user(api_client, f
 @pytest.mark.anyio
 async def test_verification_status_unauthenticated_fails(api_client):
     response = await api_client.get(f"{API_PREFIX}/email/verification-status")
-    # HTTPBearer returns 403 when Authorization header is missing.
-    assert response.status_code == 403
+    # HTTPBearer returns 401 when Authorization header is missing.
+    assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
