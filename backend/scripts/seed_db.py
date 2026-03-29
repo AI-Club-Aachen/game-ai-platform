@@ -1,7 +1,7 @@
 import os
 import sys
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 
 # Add the parent directory to sys.path so we can import the app module
@@ -71,24 +71,16 @@ def _create_submissions_and_jobs(session: Session, user: User, passed_agent_id: 
 
     agent_id = passed_agent_id
     active_sub_id = None
-    completed_sub_id = uuid.uuid4() # Pre-allocate one id for the completed submission
+    completed_sub_id = uuid.uuid4()  # Pre-allocate one id for the completed submission
 
-    statuses = [
-        JobStatus.QUEUED,
-        JobStatus.RUNNING,
-        JobStatus.COMPLETED,
-        JobStatus.FAILED
-    ]
+    statuses = [JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.COMPLETED, JobStatus.FAILED]
 
     active_sub_id = None
 
     for i, status in enumerate(statuses):
         sub_id = completed_sub_id if status == JobStatus.COMPLETED else uuid.uuid4()
         sub = Submission(
-            id=sub_id,
-            user_id=user.id,
-            agent_id=agent_id,
-            object_path=f"seeded/submissions/agent_v{i}.zip"
+            id=sub_id, user_id=user.id, agent_id=agent_id, object_path=f"seeded/submissions/agent_v{i}.zip"
         )
         session.add(sub)
         session.commit()
@@ -103,7 +95,7 @@ def _create_submissions_and_jobs(session: Session, user: User, passed_agent_id: 
             status=status,
             logs=_create_build_logs(status, sub.id),
             image_id=f"seeded-image-{sub.id}" if status == JobStatus.COMPLETED else None,
-            image_tag="latest" if status == JobStatus.COMPLETED else None
+            image_tag="latest" if status == JobStatus.COMPLETED else None,
         )
         session.add(job)
         session.commit()
@@ -117,10 +109,7 @@ def _get_or_create_seed_agent(session: Session, user: User) -> Agent:
     agent = session.exec(select(Agent).where(Agent.user_id == user.id)).first()
     if not agent:
         agent = Agent(
-            id=uuid.uuid4(),
-            user_id=user.id,
-            active_submission_id=None,
-            stats={"rating": 1500, "matches_played": 0}
+            id=uuid.uuid4(), user_id=user.id, active_submission_id=None, stats={"rating": 1500, "matches_played": 0}
         )
         session.add(agent)
         session.commit()
@@ -159,4 +148,3 @@ def seed() -> None:
 
 if __name__ == "__main__":
     seed()
-

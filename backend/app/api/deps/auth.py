@@ -20,11 +20,13 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 worker_api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
+
 def verify_worker_api_key(api_key: str | None = Security(worker_api_key_header)) -> bool:
     """Verify worker API key dependency."""
     if not api_key:
         return False
     return secrets.compare_digest(api_key, settings.WORKER_API_KEY)
+
 
 def require_worker_api_key(api_key: str | None = Security(worker_api_key_header)) -> bool:
     """Require worker API key dependency (raises 403 if invalid)."""

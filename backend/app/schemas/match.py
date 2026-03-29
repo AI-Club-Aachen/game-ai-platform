@@ -20,6 +20,7 @@ class MatchCreate(MatchBase):
 
 class MatchUpdate(BaseModel):
     """Schema for updating a match (used by workers)."""
+
     status: MatchStatus
     result: dict[str, Any] | None = None
     game_state: dict[str, Any] | None = None
@@ -39,6 +40,7 @@ class MatchRead(MatchBase):
 
 class GameInfo(BaseModel):
     """Schema for returning game information."""
+
     game_type: GameType
     display_name: str
     description: str

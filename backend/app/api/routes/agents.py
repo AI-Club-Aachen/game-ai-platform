@@ -23,10 +23,7 @@ def create_agent(
     Note: In production, consider validating that user_id matches current_user.id.
     """
     if agent_create.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot create agent for another user"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot create agent for another user")
     return service.create_agent(agent_create)
 
 
@@ -42,10 +39,7 @@ def get_agent(
     try:
         agent = service.get_agent_by_id(agent_id)
         if agent.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to view this agent"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this agent")
         return agent  # noqa: TRY300
     except AgentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -77,10 +71,7 @@ def update_agent(
     """
     try:
         return service.update_agent(
-            agent_id,
-            agent_update,
-            current_user.id,
-            is_admin=current_user.role == UserRole.ADMIN
+            agent_id, agent_update, current_user.id, is_admin=current_user.role == UserRole.ADMIN
         )
     except AgentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -98,11 +89,7 @@ def delete_agent(
     Delete an agent.
     """
     try:
-        service.delete_agent(
-            agent_id,
-            current_user.id,
-            is_admin=current_user.role == UserRole.ADMIN
-        )
+        service.delete_agent(agent_id, current_user.id, is_admin=current_user.role == UserRole.ADMIN)
     except AgentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except AgentPermissionError as e:

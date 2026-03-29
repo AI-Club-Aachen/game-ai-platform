@@ -3,9 +3,9 @@
 import asyncio
 import logging
 import os
-from pathlib import Path
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -81,10 +81,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         submissions_dir = Path(settings.SUBMISSIONS_DIR)
         submissions_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Submissions directory ensured: {submissions_dir.absolute()}")
-    except Exception as e:
-        logger.error(f"Failed to create submissions directory '{settings.SUBMISSIONS_DIR}': {e}")
-        if isinstance(e, PermissionError):
-            logger.critical("PERMISSION DENIED when creating upload directories. Check filesystem permissions.")
+    except PermissionError:
+        logger.exception(f"Failed to create submissions directory '{settings.SUBMISSIONS_DIR}'")
 
     try:
         yield

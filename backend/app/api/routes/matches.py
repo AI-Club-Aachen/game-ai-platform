@@ -21,11 +21,7 @@ async def create_match(
     """
     Create a new match request.
     """
-    return await service.create_match(
-        match_in.game_type,
-        match_in.config,
-        match_in.agent_ids
-    )
+    return await service.create_match(match_in.game_type, match_in.config, match_in.agent_ids)
 
 
 # GET /api/v1/matches/{match_id}

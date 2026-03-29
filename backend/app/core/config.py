@@ -48,8 +48,6 @@ class Settings(BaseSettings):
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
     SUBMISSIONS_DIR: str = "uploads/submissions"
-    UPLOAD_DIR: str = "uploads"
-    SUBMISSIONS_DIR: str = "uploads/submissions"
 
     # CORS/Security
     ALLOW_ORIGINS: list[str] = Field(
