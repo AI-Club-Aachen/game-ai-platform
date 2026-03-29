@@ -80,7 +80,7 @@ jobs:
     - name: Wait for Backend
       run: |
         echo "Waiting for backend health check..."
-        timeout 60s bash -c 'until curl -s http://localhost:8000/api/v1/health; do sleep 5; done'
+        timeout 60s bash -c 'until curl -fsS http://localhost:8000/health; do sleep 5; done'
 
     - name: Run Playwright tests
       working-directory: ./frontend
