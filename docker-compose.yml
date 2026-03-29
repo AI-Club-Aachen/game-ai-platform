@@ -73,7 +73,7 @@ services:
     volumes:
       - ./backend/app:/app/app:z
       - ./backend/alembic:/app/alembic:z
-      - ./backend/uploads:/app/uploads:z
+      - uploads_data:/app/uploads
     networks:
       - app-network
     restart: unless-stopped
@@ -93,7 +93,7 @@ services:
     volumes:
       - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend/uploads:/app/uploads:z
+      - uploads_data:/app/uploads
     user: root
     networks:
       - app-network
@@ -123,3 +123,4 @@ networks:
 
 volumes:
   postgres_data:
+  uploads_data:
