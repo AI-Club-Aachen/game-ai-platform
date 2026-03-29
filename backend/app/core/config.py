@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Game Competition Platform"
 
+    # Filesystem Paths
+    UPLOAD_DIR: str = "uploads"
+    SUBMISSIONS_DIR: str = "uploads/submissions"
+    UPLOAD_DIR: str = "uploads"
+    SUBMISSIONS_DIR: str = "uploads/submissions"
+
     # CORS/Security
     ALLOW_ORIGINS: list[str] = Field(
         default=["http://localhost:3000"],

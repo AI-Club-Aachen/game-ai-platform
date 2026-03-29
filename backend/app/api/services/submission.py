@@ -7,6 +7,7 @@ from fastapi import UploadFile
 from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository
+from app.core.config import settings
 from app.core.queue import job_queue
 from app.models.agent import Agent
 from app.models.job import BuildJob, JobStatus
@@ -30,9 +31,7 @@ class SubmissionService:
         self._job_repository = job_repository
         self._agent_repository = agent_repository
         # Directory to store uploaded zips temporarily or permanently
-        # Ideally this path should come from config settings
-        self._upload_dir = Path("uploads/submissions")
-        self._upload_dir.mkdir(parents=True, exist_ok=True)
+        self._upload_dir = Path(settings.SUBMISSIONS_DIR)
 
     async def create_submission(
         self,

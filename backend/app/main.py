@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+from pathlib import Path
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
@@ -58,6 +59,16 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         logger.exception("Failed to connect to Redis")
         logger.warning("Rate limiting running with memory backend fallback")
         redis = None
+
+    # Ensure upload directories exist
+    try:
+        submissions_dir = Path(settings.SUBMISSIONS_DIR)
+        submissions_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Submissions directory ensured: {submissions_dir.absolute()}")
+    except Exception as e:
+        logger.error(f"Failed to create submissions directory '{settings.SUBMISSIONS_DIR}': {e}")
+        if isinstance(e, PermissionError):
+            logger.critical("PERMISSION DENIED when creating upload directories. Check filesystem permissions.")
 
     try:
         yield
