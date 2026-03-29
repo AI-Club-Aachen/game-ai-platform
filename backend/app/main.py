@@ -40,6 +40,22 @@ limiter = Limiter(
 )
 
 
+def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONResponse:
+    """Mirror CORS headers on error responses so browsers can read backend failures."""
+    origin = request.headers.get("origin")
+    if not origin:
+        return response
+
+    if "*" in settings.ALLOW_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    elif origin in settings.ALLOW_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
@@ -189,10 +205,11 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
     """Handle rate limit exceeded errors"""
     client_host = request.client.host if request.client is not None else "unknown"  # [web:106][web:113]
     logger.warning(f"Rate limit exceeded for {client_host}: {exc.detail}")
-    return JSONResponse(
+    response = JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"detail": "Too many requests. Please try again later."},
     )
+    return _apply_cors_headers(request, response)
 
 
 @app.exception_handler(RequestValidationError)
@@ -201,29 +218,33 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     if settings.is_production:
         client_host = request.client.host if request.client is not None else "unknown"  # [web:106][web:113]
         logger.warning(f"Validation error from {client_host}: {exc}")
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": "Invalid request data"},
         )
-    return JSONResponse(
+        return _apply_cors_headers(request, response)
+    response = JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={"detail": exc.errors()},
     )
+    return _apply_cors_headers(request, response)
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors"""
     logger.exception(f"Unhandled exception: {exc}")
     if settings.is_production:
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"},
         )
-    return JSONResponse(
+        return _apply_cors_headers(request, response)
+    response = JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": str(exc)},
     )
+    return _apply_cors_headers(request, response)
 
 
 # Include routers
