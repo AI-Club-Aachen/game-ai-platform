@@ -238,8 +238,8 @@ async def test_admin_list_get_update_role_delete_user_success(api_client, fake_e
 @pytest.mark.anyio
 async def test_get_current_user_profile_unauthenticated_fails(api_client):
     response = await api_client.get(f"{API_PREFIX}/users/me")
-    # HTTPBearer raises 403 when Authorization header is missing.
-    assert response.status_code == 403
+    # HTTPBearer raises 401 when Authorization header is missing.
+    assert response.status_code == 401
 
 
 @pytest.mark.anyio
@@ -248,7 +248,7 @@ async def test_update_current_user_profile_unauthenticated_fails(api_client):
         f"{API_PREFIX}/users/me",
         json={"username": "should_not_work"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.anyio
@@ -257,7 +257,7 @@ async def test_change_password_unauthenticated_fails(api_client):
         f"{API_PREFIX}/users/change-password",
         json={"current_password": "irrelevant", "new_password": strong_password()},
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -373,5 +373,5 @@ async def test_get_roles_authenticated(api_client, fake_email_client):
 @pytest.mark.anyio
 async def test_get_roles_unauthenticated(api_client):
     response = await api_client.get(f"{API_PREFIX}/users/roles")
-    # HTTPBearer raises 403 when Authorization header is missing.
-    assert response.status_code == 403
+    # HTTPBearer raises 401 when Authorization header is missing.
+    assert response.status_code == 401

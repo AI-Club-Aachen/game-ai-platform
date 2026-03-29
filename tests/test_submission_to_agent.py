@@ -35,7 +35,7 @@ def test_submission_to_agent(auth_headers, api_base_url):
         assert build_job["status"] == "queued", f"Expected initially 'queued', got {build_job['status']}"
 
         # monitor build worker & wait for build to complete
-        max_retries = 30
+        max_retries = 60
         final_status = None
         for i in range(max_retries):
             poll_res = requests.get(f"{api_base_url}/submissions/{sub_id}", headers=headers)

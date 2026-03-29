@@ -59,6 +59,7 @@ def update_match(
         match_id,
         status=update_data.status.value,
         result=update_data.result,
+        game_state=update_data.game_state,
     )
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")

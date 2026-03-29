@@ -22,6 +22,7 @@ class MatchUpdate(BaseModel):
     """Schema for updating a match (used by workers)."""
     status: MatchStatus
     result: dict[str, Any] | None = None
+    game_state: dict[str, Any] | None = None
 
 
 class MatchRead(MatchBase):
@@ -29,6 +30,7 @@ class MatchRead(MatchBase):
     status: MatchStatus
     agent_ids: list[UUID]
     result: dict[str, Any] | None
+    game_state: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
 

@@ -41,8 +41,8 @@ def get_submission(
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
 
-    # Ideally check if user owns submission or is admin
-    if submission.user_id != current_user.id and current_user.role != "admin":  # assuming role logic
+    # Check if user owns submission or is admin
+    if submission.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to view this submission")
 
     return submission

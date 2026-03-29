@@ -33,6 +33,7 @@ class MatchJobUpdate(BaseModel):
     status: JobStatus
     logs: str | None = None
     result: dict[str, Any] | None = None
+    game_state: dict[str, Any] | None = None
 
 
 class MatchJobRead(BaseModel):
