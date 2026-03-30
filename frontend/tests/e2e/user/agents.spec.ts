@@ -88,6 +88,14 @@ async function getSubmissionRow(page: Page, submissionName: string): Promise<Loc
     return row.first();
 }
 
+async function deleteViaConfirmation(
+    page: Page,
+    buttonName: string,
+): Promise<void> {
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: buttonName }).click();
+}
+
 test.describe('User Agent Flows', () => {
     test.describe.configure({ mode: 'serial' });
     test.setTimeout(240000);
@@ -208,5 +216,96 @@ test.describe('User Agent Flows', () => {
         await page.goto(`/agents/${secondAgentId}`);
         await expect(page.getByText(firstSubmissionName, { exact: true })).toBeVisible();
         await expect(page.getByText(secondSubmissionName, { exact: true })).toBeVisible();
+    });
+});
+
+test.describe('User Agent Deletion Flows', () => {
+    test.describe.configure({ mode: 'serial' });
+    test.setTimeout(240000);
+
+    test('should delete a submission and keep it deleted after refresh', async ({ page }) => {
+        const submissionName = uniqueName('delete-submission');
+
+        await page.goto('/submissions/new');
+        await page.getByLabel('Submission Name').fill(submissionName);
+        await page.locator('input[type="file"]').setInputFiles(successUpload);
+        await page.getByRole('button', { name: 'Submit Agent' }).click();
+        await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 180000 });
+
+        const submissionId = await extractIdFromLabel(page);
+
+        await deleteViaConfirmation(page, 'Delete Submission');
+        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+
+        await page.reload();
+        await page.goto(`/submissions/${submissionId}`);
+        await expect(page.getByText('Submission not found')).toBeVisible();
+    });
+
+    test('should delete an agent and keep it deleted after refresh', async ({ page }) => {
+        const agentName = uniqueName('delete-agent');
+        const { agentId } = await createAgent(page, { agentName });
+
+        await deleteViaConfirmation(page, 'Delete Agent');
+        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+
+        await page.reload();
+        await page.goto(`/agents/${agentId}`);
+        await expect(page.getByText('Agent not found')).toBeVisible();
+    });
+
+    test('should keep an agent but remove its connection when the linked submission is deleted', async ({ page }) => {
+        const agentName = uniqueName('agent-kept');
+        const submissionName = uniqueName('submission-deleted');
+
+        const { agentId } = await createAgent(page, {
+            agentName,
+            submissionName,
+            uploadPath: successUpload,
+        });
+
+        await page.getByRole('button', { name: 'View Source Submission' }).click();
+        await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 10000 });
+
+        const submissionId = await extractIdFromLabel(page);
+        await deleteViaConfirmation(page, 'Delete Submission');
+        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+
+        await page.goto(`/agents/${agentId}`);
+        await page.reload();
+        await expect(page.getByRole('heading', { level: 4, name: agentName })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'View Source Submission' })).toHaveCount(0);
+        await expect(page.getByText(submissionName, { exact: true })).toHaveCount(0);
+
+        await page.goto(`/submissions/${submissionId}`);
+        await expect(page.getByText('Submission not found')).toBeVisible();
+    });
+
+    test('should keep a submission but remove the connection when the linked agent is deleted', async ({ page }) => {
+        const agentName = uniqueName('agent-deleted');
+        const submissionName = uniqueName('submission-kept');
+
+        const { agentId } = await createAgent(page, {
+            agentName,
+            submissionName,
+            uploadPath: successUpload,
+        });
+
+        await page.getByRole('button', { name: 'View Source Submission' }).click();
+        await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 10000 });
+        const submissionId = await extractIdFromLabel(page);
+
+        await page.goto(`/agents/${agentId}`);
+        await deleteViaConfirmation(page, 'Delete Agent');
+        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+
+        await page.reload();
+        await page.goto(`/agents/${agentId}`);
+        await expect(page.getByText('Agent not found')).toBeVisible();
+
+        await page.goto(`/submissions/${submissionId}`);
+        await page.reload();
+        await expect(page.getByRole('heading', { level: 4, name: submissionName })).toBeVisible();
+        await expect(page.getByText(/^ID:/)).toBeVisible();
     });
 });

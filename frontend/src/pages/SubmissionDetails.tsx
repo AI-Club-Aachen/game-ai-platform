@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Chip, Divider } from '@mui/material';
 import { ArrowBack, Code, Terminal } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { submissionsApi, Submission } from '../services/api/submissions';
+import { agentsApi } from '../services/api/agents';
+import { fromApiGameType } from '../config/games';
 import { overlays } from '../theme';
 
 export function SubmissionDetails() {
+    const navigate = useNavigate();
     const goBack = useSmartBack('/dashboard');
     const { id } = useParams<{ id: string }>();
 
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [loading, setLoading] = useState(true);
+    const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const fetchSubmission = async () => {
@@ -78,15 +82,57 @@ export function SubmissionDetails() {
         }
     };
 
+    const handleDeleteSubmission = async () => {
+        if (!id || !submission) return;
+
+        const confirmed = window.confirm(`Delete submission "${submission.name}"?`);
+        if (!confirmed) return;
+
+        try {
+            setDeleting(true);
+            setError(null);
+            const agents = await agentsApi.getAgents(0, 100);
+            const linkedAgent = agents.find((agent) => agent.active_submission_id === submission.id);
+            await submissionsApi.deleteSubmission(id);
+            if (linkedAgent) {
+                navigate(`/games/${fromApiGameType(linkedAgent.game_type)}`);
+                return;
+            }
+            navigate('/dashboard');
+        } catch (err: any) {
+            console.error('Failed to delete submission:', err);
+            setError(err.message || 'Failed to delete this submission.');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Button startIcon={<ArrowBack />} onClick={goBack}>
                     Back
                 </Button>
-                <Button variant="outlined" startIcon={<Code />} onClick={() => fetchSubmission()}>
-                    Refresh Status
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Button variant="outlined" startIcon={<Code />} onClick={() => fetchSubmission()} disabled={deleting}>
+                        Refresh Status
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        onClick={handleDeleteSubmission}
+                        disabled={deleting}
+                        sx={{
+                            color: 'error.main',
+                            borderColor: 'error.main',
+                            '&:hover': {
+                                borderColor: 'error.dark',
+                                backgroundColor: 'rgba(211, 47, 47, 0.08)',
+                            },
+                        }}
+                    >
+                        {deleting ? 'Deleting...' : 'Delete Submission'}
+                    </Button>
+                </Box>
             </Box>
 
             <Typography variant="h4" gutterBottom>

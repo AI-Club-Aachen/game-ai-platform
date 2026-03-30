@@ -18,6 +18,7 @@ export function AgentDetails() {
     const [agent, setAgent] = useState<Agent | null>(null);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
+    const [deleting, setDeleting] = useState(false);
     const [switchingSubmissionId, setSwitchingSubmissionId] = useState<string | null>(null);
     const [switchMessage, setSwitchMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -84,6 +85,25 @@ export function AgentDetails() {
         }
     };
 
+    const handleDeleteAgent = async () => {
+        if (!id || !agent) return;
+
+        const confirmed = window.confirm(`Delete agent "${agent.name}"?`);
+        if (!confirmed) return;
+
+        try {
+            setDeleting(true);
+            setError(null);
+            await agentsApi.deleteAgent(id);
+            navigate(`/games/${gameId}`);
+        } catch (err: any) {
+            console.error('Failed to delete agent:', err);
+            setError(err.message || 'Failed to delete this agent.');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     if (loading) {
         return (
             <Container maxWidth="lg" sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
@@ -134,6 +154,7 @@ export function AgentDetails() {
                     <Button
                         variant="outlined"
                         onClick={() => navigate(`/submissions/new?agentId=${agent.id}`)}
+                        disabled={deleting}
                     >
                         Upload Submission
                     </Button>
@@ -141,10 +162,26 @@ export function AgentDetails() {
                         <Button
                             variant="outlined"
                             onClick={() => navigate(`/submissions/${agent.active_submission_id}`)}
+                            disabled={deleting}
                         >
                             View Source Submission
                         </Button>
                     )}
+                    <Button
+                        variant="outlined"
+                        onClick={handleDeleteAgent}
+                        disabled={deleting}
+                        sx={{
+                            color: 'error.main',
+                            borderColor: 'error.main',
+                            '&:hover': {
+                                borderColor: 'error.dark',
+                                backgroundColor: 'rgba(211, 47, 47, 0.08)',
+                            },
+                        }}
+                    >
+                        {deleting ? 'Deleting...' : 'Delete Agent'}
+                    </Button>
                 </Box>
             </Box>
 
