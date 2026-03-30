@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
@@ -7,6 +7,7 @@ import { agentsApi, Agent } from '../services/api/agents';
 import { fromApiGameType, getActiveGames } from '../config/games';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
+import { overlays } from '../theme';
 
 export function AgentDetails() {
     const navigate = useNavigate();
@@ -33,9 +34,15 @@ export function AgentDetails() {
                 ]);
                 setAgent(agentData);
                 setSubmissions(
-                    [...submissionsData].sort(
-                        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                    )
+                    [...submissionsData].sort((a, b) => {
+                        const aIsActive = agentData.active_submission_id === a.id;
+                        const bIsActive = agentData.active_submission_id === b.id;
+
+                        if (aIsActive && !bIsActive) return -1;
+                        if (!aIsActive && bIsActive) return 1;
+
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    })
                 );
                 setSwitchMessage(null);
                 setError(null);
@@ -52,11 +59,11 @@ export function AgentDetails() {
 
     const getStatusColor = (status?: string) => {
         switch (status) {
-            case 'completed': return 'success';
-            case 'running': return 'info';
-            case 'queued': return 'warning';
-            case 'failed': return 'error';
-            default: return 'default';
+            case 'completed': return 'success.main';
+            case 'running': return 'info.main';
+            case 'queued': return 'warning.main';
+            case 'failed': return 'error.main';
+            default: return 'text.secondary';
         }
     };
 
@@ -255,21 +262,27 @@ export function AgentDetails() {
                                                 const canSwitchToSubmission = status === 'completed' && !isActiveSubmission;
 
                                                 return (
-                                                    <TableRow key={sub.id}>
+                                                    <TableRow
+                                                        key={sub.id}
+                                                        sx={isActiveSubmission ? { backgroundColor: overlays.primaryGlowFaint } : undefined}
+                                                    >
                                                         <TableCell>
                                                             <Typography variant="body2" fontWeight={600}>
                                                                 {sub.name}
                                                             </Typography>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Chip label={status} color={getStatusColor(status) as any} size="small" />
+                                                            <Typography
+                                                                variant="body2"
+                                                                sx={{ color: getStatusColor(status), fontWeight: 600, textTransform: 'capitalize' }}
+                                                            >
+                                                                {status}
+                                                            </Typography>
                                                         </TableCell>
                                                         <TableCell>
-                                                            {isActiveSubmission ? (
-                                                                <Chip label="Current" color="primary" size="small" />
-                                                            ) : (
-                                                                <Typography variant="body2" color="text.secondary">Not linked</Typography>
-                                                            )}
+                                                            <Typography variant="body2" color={isActiveSubmission ? 'text.primary' : 'text.secondary'} fontWeight={isActiveSubmission ? 600 : 400}>
+                                                                {isActiveSubmission ? 'Current' : 'Not linked'}
+                                                            </Typography>
                                                         </TableCell>
                                                         <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
                                                         <TableCell>
