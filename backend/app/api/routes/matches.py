@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user, get_match_service
-from app.api.services.match import MatchService
+from app.api.services.match import MatchService, MatchServiceError
 from app.models.user import User
 from app.schemas.match import MatchCreate, MatchRead, MatchUpdate
 
@@ -21,7 +21,10 @@ async def create_match(
     """
     Create a new match request.
     """
-    return await service.create_match(match_in.game_type, match_in.config, match_in.agent_ids)
+    try:
+        return await service.create_match(match_in.game_type, match_in.config, match_in.agent_ids)
+    except MatchServiceError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 # GET /api/v1/matches/{match_id}
