@@ -74,7 +74,7 @@ export default defineConfig({
                 storageState: 'tests/.auth/user.json',
             },
             dependencies: ['setup'],
-            testMatch: ['**/protected.spec.ts'], // Tests that require login
+            testMatch: ['**/e2e/user/*.spec.ts'], // Tests that require login
         },
 
         // 3. ADMIN TESTS (Authenticated as Admin)
