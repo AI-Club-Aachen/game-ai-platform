@@ -18,6 +18,8 @@ export function AgentDetails() {
     const [agent, setAgent] = useState<Agent | null>(null);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
+    const [switchingSubmissionId, setSwitchingSubmissionId] = useState<string | null>(null);
+    const [switchMessage, setSwitchMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -32,10 +34,11 @@ export function AgentDetails() {
                 ]);
                 setAgent(agentData);
                 setSubmissions(
-                    agentData.active_submission_id
-                        ? submissionsData.filter(sub => sub.id === agentData.active_submission_id)
-                        : []
+                    [...submissionsData].sort(
+                        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    )
                 );
+                setSwitchMessage(null);
                 setError(null);
             } catch (err: any) {
                 console.error('Failed to fetch details:', err);
@@ -55,6 +58,23 @@ export function AgentDetails() {
             case 'queued': return 'warning';
             case 'failed': return 'error';
             default: return 'default';
+        }
+    };
+
+    const handleSwitchSubmission = async (submissionId: string) => {
+        if (!id) return;
+
+        try {
+            setSwitchingSubmissionId(submissionId);
+            setSwitchMessage(null);
+            const updatedAgent = await agentsApi.updateAgent(id, { active_submission_id: submissionId });
+            setAgent(updatedAgent);
+            setSwitchMessage('Active submission updated for this agent.');
+        } catch (err: any) {
+            console.error('Failed to switch submission:', err);
+            setError(err.message || 'Failed to switch the active submission.');
+        } finally {
+            setSwitchingSubmissionId(null);
         }
     };
 
@@ -204,20 +224,26 @@ export function AgentDetails() {
                     <Card>
                         <CardContent>
                             <Typography variant="h6" sx={{ mb: 3 }}>Agent Submissions</Typography>
+                            {switchMessage && (
+                                <Alert severity="success" sx={{ mb: 3 }}>
+                                    {switchMessage}
+                                </Alert>
+                            )}
                             <TableContainer>
                                 <Table>
                                     <TableHead>
                                         <TableRow>
                                             <TableCell>Submission ID</TableCell>
                                             <TableCell>Status</TableCell>
+                                            <TableCell>Linked</TableCell>
                                             <TableCell>Submitted</TableCell>
-                                            {isAdmin && <TableCell>Actions</TableCell>}
+                                            <TableCell>Actions</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {submissions.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={isAdmin ? 4 : 3} align="center">
+                                                <TableCell colSpan={5} align="center">
                                                     <Typography color="text.secondary">No submissions found for this agent</Typography>
                                                 </TableCell>
                                             </TableRow>
@@ -226,6 +252,8 @@ export function AgentDetails() {
                                                 const status = sub.build_jobs && sub.build_jobs.length > 0
                                                     ? sub.build_jobs[0].status
                                                     : 'unknown';
+                                                const isActiveSubmission = agent.active_submission_id === sub.id;
+                                                const canSwitchToSubmission = status === 'completed' && !isActiveSubmission;
 
                                                 return (
                                                     <TableRow key={sub.id}>
@@ -237,12 +265,31 @@ export function AgentDetails() {
                                                         <TableCell>
                                                             <Chip label={status} color={getStatusColor(status) as any} size="small" />
                                                         </TableCell>
+                                                        <TableCell>
+                                                            {isActiveSubmission ? (
+                                                                <Chip label="Current" color="primary" size="small" />
+                                                            ) : (
+                                                                <Typography variant="body2" color="text.secondary">Not linked</Typography>
+                                                            )}
+                                                        </TableCell>
                                                         <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
-                                                        {isAdmin && (
-                                                            <TableCell>
-                                                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">Review</Button>
-                                                            </TableCell>
-                                                        )}
+                                                        <TableCell>
+                                                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">
+                                                                    {isAdmin ? 'Review' : 'View'}
+                                                                </Button>
+                                                                {canSwitchToSubmission && (
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        size="small"
+                                                                        onClick={() => handleSwitchSubmission(sub.id)}
+                                                                        disabled={switchingSubmissionId === sub.id}
+                                                                    >
+                                                                        {switchingSubmissionId === sub.id ? 'Switching...' : 'Use For Agent'}
+                                                                    </Button>
+                                                                )}
+                                                            </Box>
+                                                        </TableCell>
                                                     </TableRow>
                                                 );
                                             })

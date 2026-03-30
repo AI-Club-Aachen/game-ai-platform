@@ -458,32 +458,57 @@ export function GameDetails() {
                                     </Card>
                                 ) : (
                                     <>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                                            {agents.map(agent => (
-                                                <Card key={agent.id}>
-                                                    <CardContent sx={{ py: '16px !important' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                                                            <Box>
-                                                                <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                                                                    Agent {agent.id.slice(0, 8)}…
-                                                                </Typography>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    Created {formatDate(agent.created_at)}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Button
-                                                                component={Link}
-                                                                to={`/agents/${agent.id}`}
-                                                                size="small"
-                                                                variant="outlined"
-                                                            >
-                                                                Details
-                                                            </Button>
-                                                        </Box>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </Box>
+                                        <Card sx={{ mb: 2 }}>
+                                            <TableContainer>
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>Agent ID</TableCell>
+                                                            <TableCell>Submission</TableCell>
+                                                            <TableCell>Date</TableCell>
+                                                            <TableCell align="right">Actions</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {agents.map(agent => (
+                                                            <TableRow key={agent.id}>
+                                                                <TableCell>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                                                                    >
+                                                                        {agent.id.slice(0, 8)}…
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                                                                    >
+                                                                        {agent.active_submission_id ? `${agent.active_submission_id.slice(0, 8)}…` : 'None'}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {formatDate(agent.created_at)}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell align="right">
+                                                                    <Button
+                                                                        component={Link}
+                                                                        to={`/agents/${agent.id}`}
+                                                                        size="small"
+                                                                        variant="text"
+                                                                    >
+                                                                        Details
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                        </Card>
                                         <Button
                                             variant="outlined"
                                             startIcon={<AddCircleOutline />}
