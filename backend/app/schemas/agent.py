@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.game import GameType
+
 
 class AgentBase(BaseModel):
     pass
@@ -11,6 +13,7 @@ class AgentBase(BaseModel):
 
 class AgentCreate(AgentBase):
     user_id: UUID
+    game_type: GameType
     active_submission_id: UUID
 
 
@@ -22,7 +25,8 @@ class AgentUpdate(AgentBase):
 class AgentRead(AgentBase):
     id: UUID
     user_id: UUID
-    active_submission_id: UUID
+    game_type: GameType
+    active_submission_id: UUID | None
     stats: dict[str, Any]
     created_at: datetime
     updated_at: datetime

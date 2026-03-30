@@ -21,7 +21,7 @@ class SubmissionRepository:
 
     # --- Queries ---
 
-    def get_by_id(self, submission_id: str) -> Submission | None:
+    def get_by_id(self, submission_id: str | UUID) -> Submission | None:
         return self._session.get(Submission, submission_id)
 
     def list_by_user(

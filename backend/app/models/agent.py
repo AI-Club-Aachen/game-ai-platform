@@ -1,8 +1,14 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+
+from app.models.game import GameType
+
+
+if TYPE_CHECKING:
+    from app.models.submission import Submission
 
 
 class Agent(SQLModel, table=True):
@@ -16,9 +22,16 @@ class Agent(SQLModel, table=True):
 
     user_id: UUID = Field(index=True, nullable=False)
 
-    active_submission_id: UUID = Field(nullable=True)
+    game_type: GameType = Field(nullable=False, index=True)
 
-    stats: dict[str, Any] = Field(default={}, sa_column=Column(JSON))  # TODO: change from freeform json
+    active_submission_id: UUID | None = Field(
+        default=None,
+        foreign_key="submissions.id",
+        nullable=True,
+    )
+    active_submission: "Submission | None" = Relationship(back_populates="agents")
+
+    stats: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))  # TODO: change from freeform json
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
