@@ -38,8 +38,9 @@ class AgentService:
 
     def create_agent(self, agent_create: AgentCreate) -> Agent:
         """Create a new agent."""
-        self._validate_submission_for_agent(agent_create.active_submission_id, agent_create.user_id)
         self._validate_agent_limit(agent_create.user_id, agent_create.game_type)
+        if agent_create.active_submission_id is not None:
+            self._validate_submission_for_agent(agent_create.active_submission_id, agent_create.user_id)
 
         agent = Agent(
             user_id=agent_create.user_id,

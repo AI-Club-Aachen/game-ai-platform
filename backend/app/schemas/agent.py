@@ -14,7 +14,7 @@ class AgentBase(BaseModel):
 class AgentCreate(AgentBase):
     user_id: UUID
     game_type: GameType
-    active_submission_id: UUID
+    active_submission_id: UUID | None = None
 
 
 class AgentUpdate(AgentBase):
