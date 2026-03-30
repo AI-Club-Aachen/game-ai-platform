@@ -14,6 +14,7 @@ export interface BuildJob {
 export interface Submission {
     id: string;
     user_id: string;
+    name: string;
     created_at: string;
     updated_at: string;
     build_jobs: BuildJob[];
@@ -35,9 +36,12 @@ export const submissionsApi = {
     /**
      * Submit agent zip file
      */
-    submitAgent: async (file: File) => {
+    submitAgent: async (file: File, name?: string) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (name && name.trim()) {
+            formData.append('name', name.trim());
+        }
 
         return apiRequest<Submission>('/submissions', {
             method: 'POST',

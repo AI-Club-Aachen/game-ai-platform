@@ -15,6 +15,7 @@ import { fromApiGameType, getGameById } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
+import { submissionsApi, Submission } from '../services/api/submissions';
 import { palette, overlays } from '../theme';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -154,6 +155,7 @@ export function GameDetails() {
     const [lbError, setLbError] = useState<string | null>(null);
 
     const [agents, setAgents] = useState<Agent[]>([]);
+    const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [agentsLoading, setAgentsLoading] = useState(true);
     const [agentsError, setAgentsError] = useState<string | null>(null);
 
@@ -177,6 +179,10 @@ export function GameDetails() {
             .then(data => setAgents(data.filter(agent => fromApiGameType(agent.game_type) === gameId)))
             .catch(err => setAgentsError(err.message || 'Failed to load agents'))
             .finally(() => setAgentsLoading(false));
+
+        submissionsApi.getSubmissions(0, 100)
+            .then(data => setSubmissions(data))
+            .catch(err => setAgentsError(err.message || 'Failed to load submissions'));
     }, [gameId]);
 
     // ── 404 guard ────────────────────────────────────────────────
@@ -463,7 +469,7 @@ export function GameDetails() {
                                                 <Table size="small">
                                                     <TableHead>
                                                         <TableRow>
-                                                            <TableCell>Agent ID</TableCell>
+                                                            <TableCell>Agent</TableCell>
                                                             <TableCell>Submission</TableCell>
                                                             <TableCell>Date</TableCell>
                                                             <TableCell align="right">Actions</TableCell>
@@ -473,19 +479,15 @@ export function GameDetails() {
                                                         {agents.map(agent => (
                                                             <TableRow key={agent.id}>
                                                                 <TableCell>
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
-                                                                    >
-                                                                        {agent.id.slice(0, 8)}…
+                                                                    <Typography variant="body2" fontWeight={600}>
+                                                                        {agent.name}
                                                                     </Typography>
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
-                                                                    >
-                                                                        {agent.active_submission_id ? `${agent.active_submission_id.slice(0, 8)}…` : 'None'}
+                                                                    <Typography variant="body2">
+                                                                        {agent.active_submission_id
+                                                                            ? (submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
+                                                                            : 'None'}
                                                                     </Typography>
                                                                 </TableCell>
                                                                 <TableCell>

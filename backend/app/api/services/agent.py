@@ -44,9 +44,12 @@ class AgentService:
 
         agent = Agent(
             user_id=agent_create.user_id,
+            name=agent_create.name or "",
             game_type=agent_create.game_type,
             active_submission_id=agent_create.active_submission_id,
         )
+        if not agent.name.strip():
+            agent.name = str(agent.id)
         try:
             return self._repo.save(agent)
         except AgentRepositoryError as e:

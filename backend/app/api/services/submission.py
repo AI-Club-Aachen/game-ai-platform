@@ -36,6 +36,7 @@ class SubmissionService:
         self,
         user_id: UUID,
         file: UploadFile,
+        name: str | None = None,
     ) -> Submission:
         """
         Handle the full submission process:
@@ -47,7 +48,9 @@ class SubmissionService:
             raise SubmissionServiceError("Only .zip files are allowed.")
 
         # 1. Create initial record
-        submission = Submission(user_id=user_id, object_path="pending")
+        submission = Submission(user_id=user_id, name=name or "", object_path="pending")
+        if not submission.name.strip():
+            submission.name = str(submission.id)
         submission = self._repository.save(submission)
 
         # 2. Save file

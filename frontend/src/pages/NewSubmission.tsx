@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, TextField } from '@mui/material';
 import { ArrowBack, CloudUpload } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
@@ -17,6 +17,7 @@ export function NewSubmission() {
     const goBack = useSmartBack('/dashboard');
     const [searchParams] = useSearchParams();
     const agentId = searchParams.get('agentId');
+    const [submissionName, setSubmissionName] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export function NewSubmission() {
             setLoading(true);
             setError(null);
             setStatusMessage('Uploading your submission...');
-            const submission = await submissionsApi.submitAgent(file);
+            const submission = await submissionsApi.submitAgent(file, submissionName.trim() || undefined);
 
             if (!agentId) {
                 navigate(`/submissions/${submission.id}`);
@@ -104,6 +105,16 @@ export function NewSubmission() {
                             {statusMessage}
                         </Alert>
                     )}
+
+                    <TextField
+                        label="Submission Name"
+                        value={submissionName}
+                        onChange={(e) => setSubmissionName(e.target.value)}
+                        disabled={loading}
+                        fullWidth
+                        helperText="Optional. If left blank, the submission ID will be used as the name."
+                        sx={{ mb: 3 }}
+                    />
 
                     <Box sx={{
                         display: 'flex',

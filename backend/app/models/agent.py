@@ -21,6 +21,7 @@ class Agent(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
 
     user_id: UUID = Field(index=True, nullable=False)
+    name: str = Field(nullable=False)
 
     game_type: GameType = Field(nullable=False, index=True)
 

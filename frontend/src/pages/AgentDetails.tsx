@@ -7,7 +7,6 @@ import { agentsApi, Agent } from '../services/api/agents';
 import { fromApiGameType, getActiveGames } from '../config/games';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
-import { overlays } from '../theme';
 
 export function AgentDetails() {
     const navigate = useNavigate();
@@ -118,7 +117,7 @@ export function AgentDetails() {
                 <Box>
                     <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Gamepad fontSize="large" color="primary" />
-                        Agent Details
+                        {agent.name}
                     </Typography>
                     <Typography color="text.secondary">
                         ID: {agent.id}
@@ -233,7 +232,7 @@ export function AgentDetails() {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>Submission ID</TableCell>
+                                            <TableCell>Submission</TableCell>
                                             <TableCell>Status</TableCell>
                                             <TableCell>Linked</TableCell>
                                             <TableCell>Submitted</TableCell>
@@ -258,8 +257,8 @@ export function AgentDetails() {
                                                 return (
                                                     <TableRow key={sub.id}>
                                                         <TableCell>
-                                                            <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
-                                                                {sub.id.substring(0, 8)}
+                                                            <Typography variant="body2" fontWeight={600}>
+                                                                {sub.name}
                                                             </Typography>
                                                         </TableCell>
                                                         <TableCell>

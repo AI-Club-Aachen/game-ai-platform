@@ -14,6 +14,7 @@ class AgentBase(BaseModel):
 class AgentCreate(AgentBase):
     user_id: UUID
     game_type: GameType
+    name: str | None = None
     active_submission_id: UUID | None = None
 
 
@@ -25,6 +26,7 @@ class AgentUpdate(AgentBase):
 class AgentRead(AgentBase):
     id: UUID
     user_id: UUID
+    name: str
     game_type: GameType
     active_submission_id: UUID | None
     stats: dict[str, Any]

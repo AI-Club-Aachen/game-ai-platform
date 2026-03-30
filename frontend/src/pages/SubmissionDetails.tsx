@@ -90,7 +90,7 @@ export function SubmissionDetails() {
             </Box>
 
             <Typography variant="h4" gutterBottom>
-                Submission Details
+                {submission.name}
             </Typography>
 
             <Card sx={{ mb: 4 }}>

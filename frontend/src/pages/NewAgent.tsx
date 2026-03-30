@@ -45,6 +45,8 @@ export function NewAgent() {
     }, [availableGames, requestedGameId]);
 
     const [gameId, setGameId] = useState(initialGameId);
+    const [agentName, setAgentName] = useState('');
+    const [submissionName, setSubmissionName] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -74,6 +76,7 @@ export function NewAgent() {
             const agent = await agentsApi.createAgent({
                 user_id: user.id,
                 game_type: toApiGameType(gameId),
+                name: agentName.trim() || undefined,
                 active_submission_id: null,
             });
             setCreatedAgentId(agent.id);
@@ -84,7 +87,7 @@ export function NewAgent() {
             }
 
             setStatusMessage('Uploading your submission...');
-            const submission = await submissionsApi.submitAgent(file);
+            const submission = await submissionsApi.submitAgent(file, submissionName.trim() || undefined);
             setCreatedSubmissionId(submission.id);
 
             setStatusMessage('Building your submission and linking it to the agent if it succeeds...');
@@ -141,6 +144,15 @@ export function NewAgent() {
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <TextField
+                            label="Agent Name"
+                            value={agentName}
+                            onChange={(e) => setAgentName(e.target.value)}
+                            disabled={loading}
+                            fullWidth
+                            helperText="Optional. If left blank, the agent ID will be used as the name."
+                        />
+
+                        <TextField
                             select
                             label="Game"
                             value={gameId}
@@ -154,6 +166,15 @@ export function NewAgent() {
                                 </MenuItem>
                             ))}
                         </TextField>
+
+                        <TextField
+                            label="Submission Name"
+                            value={submissionName}
+                            onChange={(e) => setSubmissionName(e.target.value)}
+                            disabled={loading}
+                            fullWidth
+                            helperText="Optional. Only used if you upload a submission now."
+                        />
 
                         <Box sx={{
                             display: 'flex',
