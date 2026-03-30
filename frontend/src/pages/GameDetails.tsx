@@ -11,7 +11,7 @@ import {
     PanoramaFishEye, Casino, Videocam, History, ArrowForward,
     AddCircleOutline, SmartToy, FiberManualRecord,
 } from '@mui/icons-material';
-import { getGameById } from '../config/games';
+import { fromApiGameType, getGameById } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
@@ -172,9 +172,9 @@ export function GameDetails() {
             .catch(err => setLbError(err.message || 'Failed to load leaderboard'))
             .finally(() => setLbLoading(false));
 
-        // Agents (current user's agents — no game filter yet in API)
+        // Agents (filtered client-side by game)
         agentsApi.getAgents()
-            .then(data => setAgents(data))
+            .then(data => setAgents(data.filter(agent => fromApiGameType(agent.game_type) === gameId)))
             .catch(err => setAgentsError(err.message || 'Failed to load agents'))
             .finally(() => setAgentsLoading(false));
     }, [gameId]);
@@ -274,7 +274,7 @@ export function GameDetails() {
                             variant="contained"
                             size="large"
                             startIcon={<AddCircleOutline />}
-                            onClick={() => navigate('/submissions/new')}
+                            onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
                         >
                             Create New Agent
                         </Button>
@@ -445,12 +445,12 @@ export function GameDetails() {
                                         <CardContent sx={{ textAlign: 'center', py: 4 }}>
                                             <SmartToy sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
                                             <Typography color="text.secondary" sx={{ mb: 2 }}>
-                                                You haven't submitted any agents yet.
+                                                You haven't created any agents for this game yet.
                                             </Typography>
                                             <Button
                                                 variant="contained"
                                                 startIcon={<AddCircleOutline />}
-                                                onClick={() => navigate('/submissions/new')}
+                                                onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
                                             >
                                                 Create New Agent
                                             </Button>
@@ -487,7 +487,7 @@ export function GameDetails() {
                                         <Button
                                             variant="outlined"
                                             startIcon={<AddCircleOutline />}
-                                            onClick={() => navigate('/submissions/new')}
+                                            onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
                                             fullWidth
                                         >
                                             Create New Agent

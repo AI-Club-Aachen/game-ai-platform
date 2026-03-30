@@ -32,7 +32,7 @@ export const agentsApi = {
     /**
      * Create a new agent
      */
-    createAgent: async (data: { user_id: string; game_type: string; active_submission_id: string }) => {
+    createAgent: async (data: { user_id: string; game_type: string; active_submission_id?: string | null }) => {
         return apiRequest<Agent>('/agents', {
             method: 'POST',
             body: JSON.stringify(data),

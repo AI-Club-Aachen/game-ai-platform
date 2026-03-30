@@ -4,7 +4,7 @@ import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { agentsApi, Agent } from '../services/api/agents';
-import { getActiveGames } from '../config/games';
+import { fromApiGameType, getActiveGames } from '../config/games';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { overlays } from '../theme';
@@ -85,7 +85,7 @@ export function AgentDetails() {
 
     // Attempt to guess the game if stats has a game_id, otherwise fallback
     const games = getActiveGames();
-    const gameId = agent.game_type || stats?.game_id || 'chess';
+    const gameId = fromApiGameType(agent.game_type || stats?.game_id || 'chess');
     const game = games.find(g => g.id === gameId);
 
     return (
@@ -104,14 +104,22 @@ export function AgentDetails() {
                         ID: {agent.id}
                     </Typography>
                 </Box>
-                {agent.active_submission_id && (
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Button
                         variant="outlined"
-                        onClick={() => navigate(`/submissions/${agent.active_submission_id}`)}
+                        onClick={() => navigate(`/submissions/new?agentId=${agent.id}`)}
                     >
-                        View Source Submission
+                        Upload Submission
                     </Button>
-                )}
+                    {agent.active_submission_id && (
+                        <Button
+                            variant="outlined"
+                            onClick={() => navigate(`/submissions/${agent.active_submission_id}`)}
+                        >
+                            View Source Submission
+                        </Button>
+                    )}
+                </Box>
             </Box>
 
             <Grid container spacing={4} sx={{ mb: 4 }}>

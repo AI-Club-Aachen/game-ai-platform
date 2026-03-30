@@ -1,17 +1,26 @@
 import { useState } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert } from '@mui/material';
 import { ArrowBack, CloudUpload } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { submissionsApi } from '../services/api/submissions';
+import { agentsApi } from '../services/api/agents';
 import { overlays, palette } from '../theme';
+
+const BUILD_POLL_MS = 2000;
+const BUILD_POLL_ATTEMPTS = 60;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export function NewSubmission() {
     const navigate = useNavigate();
     const goBack = useSmartBack('/dashboard');
+    const [searchParams] = useSearchParams();
+    const agentId = searchParams.get('agentId');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -29,13 +38,40 @@ export function NewSubmission() {
         try {
             setLoading(true);
             setError(null);
+            setStatusMessage('Uploading your submission...');
             const submission = await submissionsApi.submitAgent(file);
+
+            if (!agentId) {
+                navigate(`/submissions/${submission.id}`);
+                return;
+            }
+
+            setStatusMessage('Waiting for the build to finish so we can link it to the agent...');
+            for (let attempt = 0; attempt < BUILD_POLL_ATTEMPTS; attempt += 1) {
+                const currentSubmission = await submissionsApi.getSubmission(submission.id);
+                const latestJob = currentSubmission.build_jobs?.[0];
+
+                if (latestJob?.status === 'completed') {
+                    await agentsApi.updateAgent(agentId, { active_submission_id: currentSubmission.id });
+                    navigate(`/agents/${agentId}`);
+                    return;
+                }
+
+                if (latestJob?.status === 'failed') {
+                    navigate(`/submissions/${submission.id}`);
+                    return;
+                }
+
+                await sleep(BUILD_POLL_MS);
+            }
+
             navigate(`/submissions/${submission.id}`);
         } catch (err: any) {
             console.error('Submission failed:', err);
             setError(err.message || 'Failed to upload agent submission. Please try again.');
         } finally {
             setLoading(false);
+            setStatusMessage(null);
         }
     };
 
@@ -45,7 +81,7 @@ export function NewSubmission() {
                 Back
             </Button>
             <Typography variant="h4" gutterBottom>
-                New Submission
+                {agentId ? 'Upload Submission' : 'New Submission'}
             </Typography>
             <Card>
                 <CardContent>
@@ -60,6 +96,12 @@ export function NewSubmission() {
                     {error && (
                         <Alert severity="error" sx={{ mb: 3 }}>
                             {error}
+                        </Alert>
+                    )}
+
+                    {statusMessage && (
+                        <Alert severity="info" sx={{ mb: 3 }}>
+                            {statusMessage}
                         </Alert>
                     )}
 
@@ -111,7 +153,7 @@ export function NewSubmission() {
                             disabled={!file || loading}
                             sx={{ minWidth: 140 }}
                         >
-                            {loading ? <CircularProgress size={24} color="inherit" /> : 'Submit Agent'}
+                            {loading ? <CircularProgress size={24} color="inherit" /> : agentId ? 'Upload Submission' : 'Submit Agent'}
                         </Button>
                     </Box>
                 </CardContent>
