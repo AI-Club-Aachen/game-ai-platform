@@ -31,7 +31,11 @@ export function AgentDetails() {
                     submissionsApi.getSubmissions(0, 100)
                 ]);
                 setAgent(agentData);
-                setSubmissions(submissionsData.filter(sub => sub.agent_id === id));
+                setSubmissions(
+                    agentData.active_submission_id
+                        ? submissionsData.filter(sub => sub.id === agentData.active_submission_id)
+                        : []
+                );
                 setError(null);
             } catch (err: any) {
                 console.error('Failed to fetch details:', err);
@@ -81,7 +85,7 @@ export function AgentDetails() {
 
     // Attempt to guess the game if stats has a game_id, otherwise fallback
     const games = getActiveGames();
-    const gameId = stats?.game_id || 'chess';
+    const gameId = agent.game_type || stats?.game_id || 'chess';
     const game = games.find(g => g.id === gameId);
 
     return (
@@ -100,12 +104,14 @@ export function AgentDetails() {
                         ID: {agent.id}
                     </Typography>
                 </Box>
-                <Button
-                    variant="outlined"
-                    onClick={() => navigate(`/submissions/${agent.active_submission_id}`)}
-                >
-                    View Source Submission
-                </Button>
+                {agent.active_submission_id && (
+                    <Button
+                        variant="outlined"
+                        onClick={() => navigate(`/submissions/${agent.active_submission_id}`)}
+                    >
+                        View Source Submission
+                    </Button>
+                )}
             </Box>
 
             <Grid container spacing={4} sx={{ mb: 4 }}>

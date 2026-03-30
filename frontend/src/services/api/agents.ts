@@ -3,7 +3,8 @@ import { apiRequest } from './client';
 export interface Agent {
     id: string;
     user_id: string;
-    active_submission_id: string;
+    game_type: string;
+    active_submission_id: string | null;
     stats: Record<string, any>;
     created_at: string;
     updated_at: string;
@@ -31,7 +32,7 @@ export const agentsApi = {
     /**
      * Create a new agent
      */
-    createAgent: async (data: { user_id: string; active_submission_id: string }) => {
+    createAgent: async (data: { user_id: string; game_type: string; active_submission_id: string }) => {
         return apiRequest<Agent>('/agents', {
             method: 'POST',
             body: JSON.stringify(data),
@@ -41,7 +42,7 @@ export const agentsApi = {
     /**
      * Update an agent
      */
-    updateAgent: async (agentId: string, data: { active_submission_id?: string; stats?: Record<string, any> }) => {
+    updateAgent: async (agentId: string, data: { active_submission_id?: string | null; stats?: Record<string, any> }) => {
         return apiRequest<Agent>(`/agents/${agentId}`, {
             method: 'PATCH',
             body: JSON.stringify(data),

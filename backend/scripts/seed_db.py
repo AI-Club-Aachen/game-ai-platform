@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.connection import engine
 from app.models.agent import Agent
+from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 from app.models.user import User, UserRole
@@ -55,7 +56,7 @@ def _create_build_logs(status: JobStatus, sub_id: int) -> str:
     return logs
 
 
-def _create_submissions_and_jobs(session: Session, user: User, passed_agent_id: uuid.UUID) -> uuid.UUID | None:
+def _create_submissions_and_jobs(session: Session, user: User) -> uuid.UUID | None:
     """Creates test submissions and jobs. Returns the ID of a completed submission if any."""
     existing_submissions = session.exec(select(Submission).where(Submission.user_id == user.id)).all()
     if existing_submissions:
@@ -69,7 +70,6 @@ def _create_submissions_and_jobs(session: Session, user: User, passed_agent_id: 
         ).first()
         return completed.id if completed else None
 
-    agent_id = passed_agent_id
     active_sub_id = None
     completed_sub_id = uuid.uuid4()  # Pre-allocate one id for the completed submission
 
@@ -79,9 +79,7 @@ def _create_submissions_and_jobs(session: Session, user: User, passed_agent_id: 
 
     for i, status in enumerate(statuses):
         sub_id = completed_sub_id if status == JobStatus.COMPLETED else uuid.uuid4()
-        sub = Submission(
-            id=sub_id, user_id=user.id, agent_id=agent_id, object_path=f"seeded/submissions/agent_v{i}.zip"
-        )
+        sub = Submission(id=sub_id, user_id=user.id, object_path=f"seeded/submissions/agent_v{i}.zip")
         session.add(sub)
         session.commit()
         session.refresh(sub)
@@ -109,7 +107,11 @@ def _get_or_create_seed_agent(session: Session, user: User) -> Agent:
     agent = session.exec(select(Agent).where(Agent.user_id == user.id)).first()
     if not agent:
         agent = Agent(
-            id=uuid.uuid4(), user_id=user.id, active_submission_id=None, stats={"rating": 1500, "matches_played": 0}
+            id=uuid.uuid4(),
+            user_id=user.id,
+            game_type=GameType.CHESS,
+            active_submission_id=None,
+            stats={"rating": 1500, "matches_played": 0},
         )
         session.add(agent)
         session.commit()
@@ -136,7 +138,7 @@ def seed() -> None:
         agent = _get_or_create_seed_agent(session, user)
 
         # Try to create submissions
-        active_sub_id = _create_submissions_and_jobs(session, user, agent.id)
+        active_sub_id = _create_submissions_and_jobs(session, user)
 
         if active_sub_id and agent.active_submission_id is None:
             agent.active_submission_id = active_sub_id

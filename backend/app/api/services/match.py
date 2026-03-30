@@ -92,7 +92,7 @@ class MatchService:
         if not job:
             return None
 
-        job.status = status
+        job.status = JobStatus(status)
         if logs is not None:
             job.logs += logs + "\n"
         if result is not None:

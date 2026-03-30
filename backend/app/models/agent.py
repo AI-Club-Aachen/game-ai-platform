@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
@@ -29,7 +29,7 @@ class Agent(SQLModel, table=True):
         foreign_key="submissions.id",
         nullable=True,
     )
-    active_submission: "Submission | None" = Relationship(back_populates="agents")
+    active_submission: Optional["Submission"] = Relationship(back_populates="agents")
 
     stats: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))  # TODO: change from freeform json
 

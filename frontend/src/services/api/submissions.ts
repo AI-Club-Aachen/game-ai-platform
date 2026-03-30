@@ -14,7 +14,6 @@ export interface BuildJob {
 export interface Submission {
     id: string;
     user_id: string;
-    agent_id: string;
     created_at: string;
     updated_at: string;
     build_jobs: BuildJob[];
@@ -53,6 +52,12 @@ export const submissionsApi = {
     getSubmission: async (submissionId: string) => {
         return apiRequest<Submission>(`/submissions/${submissionId}`, {
             method: 'GET',
+        });
+    },
+
+    deleteSubmission: async (submissionId: string) => {
+        return apiRequest<void>(`/submissions/${submissionId}`, {
+            method: 'DELETE',
         });
     },
 };

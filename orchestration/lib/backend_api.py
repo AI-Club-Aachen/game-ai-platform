@@ -150,6 +150,18 @@ class BackendAPI:
         """
         return await self._get(f"/submissions/{submission_id}")
 
+    async def get_agent(self, agent_id: str) -> dict[str, Any]:
+        """
+        Get an agent by ID.
+
+        Args:
+            agent_id: Agent UUID
+
+        Returns:
+            Agent data
+        """
+        return await self._get(f"/agents/{agent_id}")
+
     # Match methods
 
     async def update_match(

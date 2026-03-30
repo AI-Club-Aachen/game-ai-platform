@@ -22,7 +22,10 @@ async def create_submission(
     """
     Upload an agent zip file and queue it for building.
     """
-    return await service.create_submission(current_user.id, file)
+    try:
+        return await service.create_submission(current_user.id, file)
+    except SubmissionServiceError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # GET /api/v1/submissions/{submission_id}

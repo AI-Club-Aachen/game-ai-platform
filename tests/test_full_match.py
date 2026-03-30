@@ -1,7 +1,9 @@
 import os
 import time
 import zipfile
+
 import requests
+
 
 def upload_agent_and_wait_for_build(api_base_url, headers, zip_path):
     # send as submission to backend API
@@ -42,7 +44,17 @@ def upload_agent_and_wait_for_build(api_base_url, headers, zip_path):
     assert final_job.get("image_id") is not None, "image_id was not set on successful build"
     assert final_job.get("image_tag") is not None, "image_tag was not set on successful build"
     
-    return sub_id
+    agent_res = requests.post(
+        f"{api_base_url}/agents",
+        headers=headers,
+        json={
+            "user_id": submission["user_id"],
+            "game_type": "tictactoe",
+            "active_submission_id": sub_id,
+        },
+    )
+    assert agent_res.status_code == 201, f"Failed to create agent: {agent_res.text}"
+    return agent_res.json()["id"]
 
 def test_full_match(auth_headers, api_base_url):
     """

@@ -17,7 +17,6 @@ class SubmissionCreate(SubmissionBase):
 class SubmissionRead(SubmissionBase):
     id: UUID
     user_id: UUID
-    object_path: str
     created_at: datetime
     updated_at: datetime
     build_jobs: list[BuildJobRead] = []

@@ -1,7 +1,9 @@
 import os
 import time
 import zipfile
+
 import requests
+
 
 def test_submission_to_agent(auth_headers, api_base_url):
     """
@@ -60,6 +62,20 @@ def test_submission_to_agent(auth_headers, api_base_url):
         assert final_job.get("image_id") is not None, "image_id was not set on successful build"
         assert final_job.get("image_tag") is not None, "image_tag was not set on successful build"
         print(f"Image created successfully with tag: {final_job['image_tag']}")
+
+        agent_res = requests.post(
+            f"{api_base_url}/agents",
+            headers=headers,
+            json={
+                "user_id": submission["user_id"],
+                "game_type": "tictactoe",
+                "active_submission_id": sub_id,
+            },
+        )
+        assert agent_res.status_code == 201, f"Failed to create agent: {agent_res.text}"
+        agent = agent_res.json()
+        assert agent["active_submission_id"] == sub_id
+        assert agent["game_type"] == "tictactoe"
 
         print("Test passed successfully.")
     finally:

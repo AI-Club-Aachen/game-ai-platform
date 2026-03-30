@@ -53,6 +53,7 @@ class SubmissionService:
         # 2. Save file
         safe_filename = f"{submission.id}.zip"
         file_path = self._upload_dir / safe_filename
+        self._upload_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             with file_path.open("wb") as buffer:
@@ -90,7 +91,7 @@ class SubmissionService:
         if not job:
             return None
 
-        job.status = status
+        job.status = JobStatus(status)
         if logs is not None:
             job.logs += logs + "\n"
         if image_id is not None:
