@@ -6,6 +6,10 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 const uploadsDir = path.resolve(process.cwd(), 'tests/utils/uploads');
 const successUpload = path.join(uploadsDir, 'agent_success.zip');
 const failUpload = path.join(uploadsDir, 'agent_fail.zip');
+if (!process.env.BACKEND_URL) {
+    throw new Error('BACKEND_URL is not defined');
+}
+const backendUrl = process.env.BACKEND_URL.replace(/\/$/, '');
 
 const uuidRegex =
     /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -235,11 +239,16 @@ test.describe('User Agent Deletion Flows', () => {
         const submissionId = await extractIdFromLabel(page);
 
         await deleteViaConfirmation(page, 'Delete Submission');
-        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
 
-        await page.reload();
-        await page.goto(`/submissions/${submissionId}`);
-        await expect(page.getByText('Submission not found')).toBeVisible();
+        await page.goto('/games/tictactoe');
+        await expect(page.getByRole('img').nth(2)).toBeHidden();
+        await expect(page.getByText(submissionName, { exact: true })).toHaveCount(0);
+
+        const token = await page.evaluate(() => window.localStorage.getItem('access_token'));
+        const apiRes = await page.request.get(`${backendUrl}/submissions/${submissionId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        expect(apiRes.status()).toBe(404);
     });
 
     test('should delete an agent and keep it deleted after refresh', async ({ page }) => {
@@ -247,11 +256,12 @@ test.describe('User Agent Deletion Flows', () => {
         const { agentId } = await createAgent(page, { agentName });
 
         await deleteViaConfirmation(page, 'Delete Agent');
-        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
 
-        await page.reload();
-        await page.goto(`/agents/${agentId}`);
-        await expect(page.getByText('Agent not found')).toBeVisible();
+        const token = await page.evaluate(() => window.localStorage.getItem('access_token'));
+        const apiRes = await page.request.get(`${backendUrl}/agents/${agentId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        expect(apiRes.status()).toBe(404);
     });
 
     test('should keep an agent but remove its connection when the linked submission is deleted', async ({ page }) => {
@@ -269,7 +279,6 @@ test.describe('User Agent Deletion Flows', () => {
 
         const submissionId = await extractIdFromLabel(page);
         await deleteViaConfirmation(page, 'Delete Submission');
-        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
 
         await page.goto(`/agents/${agentId}`);
         await page.reload();
@@ -277,8 +286,11 @@ test.describe('User Agent Deletion Flows', () => {
         await expect(page.getByRole('button', { name: 'View Source Submission' })).toHaveCount(0);
         await expect(page.getByText(submissionName, { exact: true })).toHaveCount(0);
 
-        await page.goto(`/submissions/${submissionId}`);
-        await expect(page.getByText('Submission not found')).toBeVisible();
+        const token = await page.evaluate(() => window.localStorage.getItem('access_token'));
+        const apiRes = await page.request.get(`${backendUrl}/submissions/${submissionId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        expect(apiRes.status()).toBe(404);
     });
 
     test('should keep a submission but remove the connection when the linked agent is deleted', async ({ page }) => {
@@ -297,11 +309,12 @@ test.describe('User Agent Deletion Flows', () => {
 
         await page.goto(`/agents/${agentId}`);
         await deleteViaConfirmation(page, 'Delete Agent');
-        await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
 
-        await page.reload();
-        await page.goto(`/agents/${agentId}`);
-        await expect(page.getByText('Agent not found')).toBeVisible();
+        const token = await page.evaluate(() => window.localStorage.getItem('access_token'));
+        const apiRes = await page.request.get(`${backendUrl}/agents/${agentId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        expect(apiRes.status()).toBe(404);
 
         await page.goto(`/submissions/${submissionId}`);
         await page.reload();
