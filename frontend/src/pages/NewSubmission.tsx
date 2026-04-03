@@ -3,7 +3,7 @@ import { Box, Container, Typography, Button, Card, CardContent, CircularProgress
 import { ArrowBack, CloudUpload } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
-import { submissionsApi } from '../services/api/submissions';
+import { getLatestBuildJob, submissionsApi } from '../services/api/submissions';
 import { agentsApi } from '../services/api/agents';
 import { overlays, palette } from '../theme';
 
@@ -50,7 +50,7 @@ export function NewSubmission() {
             setStatusMessage('Waiting for the build to finish so we can link it to the agent...');
             for (let attempt = 0; attempt < BUILD_POLL_ATTEMPTS; attempt += 1) {
                 const currentSubmission = await submissionsApi.getSubmission(submission.id);
-                const latestJob = currentSubmission.build_jobs?.[0];
+                const latestJob = getLatestBuildJob(currentSubmission);
 
                 if (latestJob?.status === 'completed') {
                     await agentsApi.updateAgent(agentId, { active_submission_id: currentSubmission.id });

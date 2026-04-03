@@ -20,6 +20,18 @@ export interface Submission {
     build_jobs: BuildJob[];
 }
 
+export function getLatestBuildJob(submission: Submission): BuildJob | null {
+    if (!submission.build_jobs.length) {
+        return null;
+    }
+
+    return [...submission.build_jobs].sort((left, right) => {
+        const leftTime = Date.parse(left.updated_at || left.created_at);
+        const rightTime = Date.parse(right.updated_at || right.created_at);
+        return rightTime - leftTime;
+    })[0] ?? null;
+}
+
 /**
  * Submissions API
  */

@@ -4,7 +4,7 @@ import { ArrowBack, CloudUpload, SmartToy } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { agentsApi } from '../services/api/agents';
-import { submissionsApi, Submission } from '../services/api/submissions';
+import { getLatestBuildJob, submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { fromApiGameType, getActiveGames, toApiGameType } from '../config/games';
 import { overlays, palette } from '../theme';
@@ -14,10 +14,17 @@ const BUILD_POLL_ATTEMPTS = 60;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+class SubmissionBuildPendingError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'SubmissionBuildPendingError';
+    }
+}
+
 async function waitForSubmission(submissionId: string): Promise<Submission> {
     for (let attempt = 0; attempt < BUILD_POLL_ATTEMPTS; attempt += 1) {
         const submission = await submissionsApi.getSubmission(submissionId);
-        const latestJob = submission.build_jobs?.[0];
+        const latestJob = getLatestBuildJob(submission);
 
         if (latestJob?.status === 'completed' || latestJob?.status === 'failed') {
             return submission;
@@ -26,7 +33,7 @@ async function waitForSubmission(submissionId: string): Promise<Submission> {
         await sleep(BUILD_POLL_MS);
     }
 
-    throw new Error('The build is still running. You can check the submission details in a moment.');
+    throw new SubmissionBuildPendingError('The build is still running. You can check the submission details in a moment.');
 }
 
 export function NewAgent() {
@@ -92,7 +99,7 @@ export function NewAgent() {
 
             setStatusMessage('Building your submission and linking it to the agent if it succeeds...');
             const completedSubmission = await waitForSubmission(submission.id);
-            const latestJob = completedSubmission.build_jobs?.[0];
+            const latestJob = getLatestBuildJob(completedSubmission);
 
             if (latestJob?.status === 'completed') {
                 await agentsApi.updateAgent(agent.id, { active_submission_id: completedSubmission.id });
@@ -103,6 +110,11 @@ export function NewAgent() {
             setError('The agent was created, but the submission build failed. The agent is still available without a linked submission.');
         } catch (err: any) {
             console.error('Agent creation failed:', err);
+            if (err instanceof SubmissionBuildPendingError) {
+                setStatusMessage(null);
+                return;
+            }
+
             setError(err.message || 'Failed to create agent. Please try again.');
         } finally {
             setLoading(false);
@@ -133,12 +145,6 @@ export function NewAgent() {
                     {error && (
                         <Alert severity="error" sx={{ mb: 3 }}>
                             {error}
-                        </Alert>
-                    )}
-
-                    {!error && createdAgentId && createdSubmissionId && (
-                        <Alert severity="info" sx={{ mb: 3 }}>
-                            Agent created. Submission build is not linked automatically because it did not finish successfully.
                         </Alert>
                     )}
 
