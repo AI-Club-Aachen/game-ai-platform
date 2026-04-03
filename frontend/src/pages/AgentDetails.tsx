@@ -286,7 +286,7 @@ export function AgentDetails() {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>Submission</TableCell>
+                                            <TableCell>{hasActiveSubmission ? 'Current Submissions' : 'Submissions'}</TableCell>
                                             <TableCell>Status</TableCell>
                                             <TableCell>Submitted</TableCell>
                                             <TableCell>Actions</TableCell>
@@ -312,26 +312,6 @@ export function AgentDetails() {
 
                                                 return (
                                                     <Fragment key={sub.id}>
-                                                        {index === 0 && isActiveSubmission && (
-                                                            <TableRow>
-                                                                <TableCell
-                                                                    colSpan={4}
-                                                                    sx={{
-                                                                        py: 1,
-                                                                        backgroundColor: overlays.primaryGlowFaint,
-                                                                        borderBottom: 'none',
-                                                                    }}
-                                                                >
-                                                                    <Typography
-                                                                        variant="caption"
-                                                                        color="primary.main"
-                                                                        sx={{ fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}
-                                                                    >
-                                                                        Current Submission
-                                                                    </Typography>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )}
                                                         {startsOtherSubmissionsSection && (
                                                             <TableRow>
                                                                 <TableCell
