@@ -39,6 +39,12 @@ limiter = Limiter(
     default_limits=["500/hour", "30/minute"],
 )
 
+if not settings.RATE_LIMITING_ENABLED:
+    limiter.enabled = False
+    auth.limiter.enabled = False
+    email.limiter.enabled = False
+    users.limiter.enabled = False
+
 
 def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONResponse:
     """Mirror CORS headers on error responses so browsers can read backend failures."""
@@ -61,6 +67,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} in {settings.ENVIRONMENT} mode")
+    if not settings.RATE_LIMITING_ENABLED:
+        logger.info("Rate limiting disabled for this environment")
 
     if os.getenv("SEED_DB") == "true":
         logger.info("SEED_DB is set to true. Running database seed script...")

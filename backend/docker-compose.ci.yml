@@ -49,6 +49,7 @@ services:
       ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:3000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      RATE_LIMITING_ENABLED: ${RATE_LIMITING_ENABLED:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-key-12345}
     depends_on:

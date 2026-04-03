@@ -71,6 +71,7 @@ jobs:
         API_V1_PREFIX=/api/v1
         PROJECT_NAME="Game AI Platform"
         REDIS_URL=redis://redis:6379/0
+        RATE_LIMITING_ENABLED=false
         WORKER_API_KEY=dev-worker-key-12345
         EOF
 
@@ -175,6 +176,7 @@ jobs:
         API_V1_PREFIX=/api/v1
         PROJECT_NAME="Game AI Platform"
         REDIS_URL=redis://redis:6379/0
+        RATE_LIMITING_ENABLED=false
         WORKER_API_KEY=dev-worker-key-12345
         EOF
 

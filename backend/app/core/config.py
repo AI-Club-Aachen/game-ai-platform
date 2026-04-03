@@ -34,6 +34,7 @@ class Settings(BaseSettings):
         description="Override default DB SQL echoing behavior. Defaults to True in dev environment, False otherwise.",
     )
     REDIS_URL: str = "redis://redis:6379/0"
+    RATE_LIMITING_ENABLED: bool = True
 
     # JWT Configuration
     JWT_SECRET_KEY: str
