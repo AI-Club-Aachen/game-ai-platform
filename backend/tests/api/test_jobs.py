@@ -39,7 +39,7 @@ async def test_build_job_flow(
     db_session.add(user)
     db_session.commit()
 
-    submission = Submission(user_id=user.id, object_path="path/to/zip")
+    submission = Submission(user_id=user.id, name="test_sub", object_path="path/to/zip")
     submission = submission_repository.save(submission)
 
     job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
