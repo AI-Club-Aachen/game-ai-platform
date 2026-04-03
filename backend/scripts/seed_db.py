@@ -83,6 +83,7 @@ def _create_submissions_and_jobs(session: Session, user: User) -> uuid.UUID | No
             id=sub_id,
             user_id=user.id,
             name=f"seed-submission-{i + 1}",
+            game_type=GameType.CHESS,
             object_path=f"seeded/submissions/agent_v{i}.zip",
         )
         session.add(sub)

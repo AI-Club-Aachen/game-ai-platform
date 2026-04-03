@@ -21,6 +21,10 @@ const sortSubmissions = (items: Submission[], activeSubmissionId: string | null)
     })
 );
 
+const filterSubmissionsForGame = (items: Submission[], gameId: string) => (
+    items.filter(submission => fromApiGameType(submission.game_type) === gameId)
+);
+
 const tableActionButtonSx = {
     '&:hover': {
         borderWidth: 1,
@@ -63,8 +67,9 @@ export function AgentDetails() {
                     agentsApi.getAgent(id),
                     submissionsApi.getSubmissions(0, 100)
                 ]);
+                const gameId = fromApiGameType(agentData.game_type || 'chess');
                 setAgent(agentData);
-                setSubmissions(sortSubmissions(submissionsData, agentData.active_submission_id));
+                setSubmissions(sortSubmissions(filterSubmissionsForGame(submissionsData, gameId), agentData.active_submission_id));
                 setSwitchMessage(null);
                 setError(null);
             } catch (err: any) {
@@ -175,7 +180,7 @@ export function AgentDetails() {
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Button
                         variant="outlined"
-                        onClick={() => navigate(`/submissions/new?agentId=${agent.id}`)}
+                        onClick={() => navigate(`/submissions/new?agentId=${agent.id}&gameId=${gameId}`)}
                         disabled={deleting}
                     >
                         Upload Submission

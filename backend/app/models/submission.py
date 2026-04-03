@@ -4,6 +4,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.models.game import GameType
+
 
 if TYPE_CHECKING:
     from app.models.agent import Agent
@@ -21,6 +23,7 @@ class Submission(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     user_id: UUID = Field(index=True, nullable=False)  # Foreign key to User, but loose coupling for now
     name: str = Field(nullable=False)
+    game_type: GameType = Field(index=True, nullable=False)
 
     # Path to the uploaded zip file
     object_path: str = Field(nullable=False)

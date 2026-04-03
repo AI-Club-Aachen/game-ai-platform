@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 
 from app.api.deps import get_current_user, get_submission_service
 from app.api.services.submission import SubmissionService, SubmissionServiceError
+from app.models.game import GameType
 from app.models.user import User, UserRole
 from app.schemas.submission import SubmissionRead
 
@@ -16,6 +17,7 @@ router = APIRouter()
 @router.post("", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
 async def create_submission(
     file: Annotated[UploadFile, File(...)],
+    game_type: Annotated[GameType, Form(...)],
     current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
     name: Annotated[str | None, Form()] = None,
@@ -24,7 +26,7 @@ async def create_submission(
     Upload an agent zip file and queue it for building.
     """
     try:
-        return await service.create_submission(current_user.id, file, name=name)
+        return await service.create_submission(current_user.id, file, game_type=game_type, name=name)
     except SubmissionServiceError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

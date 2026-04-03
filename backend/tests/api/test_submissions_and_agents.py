@@ -37,12 +37,14 @@ async def test_submission_upload_does_not_create_agent(api_client, fake_email_cl
     response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
+        data={"game_type": GameType.CHESS.value},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
 
     assert response.status_code == 201
     submission = response.json()
     assert "build_jobs" in submission
+    assert submission["game_type"] == GameType.CHESS.value
     assert db_session.exec(select(Agent)).all() == []
 
 
@@ -63,6 +65,7 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
     create_submission_response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
+        data={"game_type": GameType.TICTACTOE.value},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
     assert create_submission_response.status_code == 201
@@ -101,6 +104,33 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
     assert create_agent_response.status_code == 201
     agent_id = create_agent_response.json()["id"]
 
+    mismatched_submission_response = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.CHESS.value},
+        files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
+    )
+    assert mismatched_submission_response.status_code == 201
+    mismatched_submission_id = mismatched_submission_response.json()["id"]
+
+    mismatched_build_job = db_session.exec(
+        select(BuildJob).where(BuildJob.submission_id == UUID(mismatched_submission_id))
+    ).first()
+    assert mismatched_build_job is not None
+    mismatched_build_job.status = JobStatus.COMPLETED
+    mismatched_build_job.image_id = "sha256:mismatched"
+    mismatched_build_job.image_tag = "agent:mismatched"
+    db_session.add(mismatched_build_job)
+    db_session.commit()
+
+    switch_agent_response = await api_client.patch(
+        f"{API_PREFIX}/agents/{agent_id}",
+        headers={"Authorization": bearer_token},
+        json={"active_submission_id": mismatched_submission_id},
+    )
+    assert switch_agent_response.status_code == 400
+    assert "does not match the agent game" in switch_agent_response.json()["detail"]
+
     delete_submission_response = await api_client.delete(
         f"{API_PREFIX}/submissions/{submission_id}",
         headers={"Authorization": bearer_token},
@@ -127,6 +157,7 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
         response = await api_client.post(
             f"{API_PREFIX}/submissions",
             headers={"Authorization": bearer_token},
+            data={"game_type": GameType.CHESS.value},
             files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
         )
         assert response.status_code == 201

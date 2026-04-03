@@ -7,6 +7,7 @@ from app.api.repositories.submission import SubmissionRepository
 from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.models.agent import Agent
+from app.models.submission import Submission
 from app.schemas.agent import AgentCreate, AgentUpdate
 
 
@@ -40,7 +41,11 @@ class AgentService:
         """Create a new agent."""
         self._validate_agent_limit(agent_create.user_id, agent_create.game_type)
         if agent_create.active_submission_id is not None:
-            self._validate_submission_for_agent(agent_create.active_submission_id, agent_create.user_id)
+            self._validate_submission_for_agent_game(
+                agent_create.active_submission_id,
+                agent_create.user_id,
+                agent_create.game_type,
+            )
 
         agent = Agent(
             user_id=agent_create.user_id,
@@ -88,7 +93,11 @@ class AgentService:
             if agent_update.active_submission_id is None:
                 agent.active_submission_id = None
             else:
-                self._validate_submission_for_agent(agent_update.active_submission_id, agent.user_id)
+                self._validate_submission_for_agent_game(
+                    agent_update.active_submission_id,
+                    agent.user_id,
+                    agent.game_type,
+                )
                 agent.active_submission_id = agent_update.active_submission_id
 
         if agent_update.stats is not None:
@@ -115,7 +124,7 @@ class AgentService:
             logger.exception("Error deleting agent %s", agent_id)
             raise AgentServiceError("Failed to delete agent") from e
 
-    def _validate_submission_for_agent(self, submission_id: UUID, user_id: UUID) -> None:
+    def _validate_submission_for_agent(self, submission_id: UUID, user_id: UUID) -> Submission:
         submission = self._submission_repository.get_by_id(submission_id)
         if not submission:
             raise AgentValidationError("Submission not found")
@@ -123,6 +132,12 @@ class AgentService:
             raise AgentPermissionError("Not authorized to use this submission")
         if not submission_has_successful_build(submission):
             raise AgentValidationError("Only successfully built submissions can be attached to agents")
+        return submission
+
+    def _validate_submission_for_agent_game(self, submission_id: UUID, user_id: UUID, game_type: str) -> None:
+        submission = self._validate_submission_for_agent(submission_id, user_id)
+        if submission.game_type != game_type:
+            raise AgentValidationError("Submission game does not match the agent game")
 
     def _validate_agent_limit(self, user_id: UUID, game_type: str) -> None:
         max_agents_per_game = settings.MAX_AGENTS_PER_GAME

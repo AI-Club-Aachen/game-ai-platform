@@ -6,6 +6,7 @@ import { useSmartBack } from '../hooks/use-smart-back';
 import { tournamentsApi } from '../services/api/tournaments';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
+import { fromApiGameType } from '../config/games';
 import { palette } from '../theme';
 
 export function TournamentDetails() {
@@ -36,8 +37,11 @@ export function TournamentDetails() {
                 // If user is logged in and tournament is upcoming, fetch submissions for registration
                 if (user && tourneyData.status === 'upcoming') {
                     const subs = await submissionsApi.getSubmissions();
-                    // Filter for successful builds or just show all
-                    const validSubs = subs.filter(s => s.build_jobs?.some(job => job.status === 'completed'));
+                    const validSubs = subs.filter(
+                        (submission) =>
+                            fromApiGameType(submission.game_type) === tourneyData.game_id
+                            && submission.build_jobs?.some(job => job.status === 'completed')
+                    );
                     setMySubmissions(validSubs);
                 }
             } catch (err: any) {

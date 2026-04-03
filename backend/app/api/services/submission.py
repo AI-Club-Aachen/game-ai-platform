@@ -9,6 +9,7 @@ from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository, SubmissionRepositoryError
 from app.core.config import settings
 from app.core.queue import job_queue
+from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 
@@ -36,6 +37,7 @@ class SubmissionService:
         self,
         user_id: UUID,
         file: UploadFile,
+        game_type: GameType,
         name: str | None = None,
     ) -> Submission:
         """
@@ -48,7 +50,7 @@ class SubmissionService:
             raise SubmissionServiceError("Only .zip files are allowed.")
 
         # 1. Create initial record
-        submission = Submission(user_id=user_id, name=name or "", object_path="pending")
+        submission = Submission(user_id=user_id, name=name or "", game_type=game_type, object_path="pending")
         if not submission.name.strip():
             submission.name = str(submission.id)
         submission = self._repository.save(submission)

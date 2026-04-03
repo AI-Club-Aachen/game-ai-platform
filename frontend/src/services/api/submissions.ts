@@ -15,6 +15,7 @@ export interface Submission {
     id: string;
     user_id: string;
     name: string;
+    game_type: string;
     created_at: string;
     updated_at: string;
     build_jobs: BuildJob[];
@@ -48,9 +49,10 @@ export const submissionsApi = {
     /**
      * Submit agent zip file
      */
-    submitAgent: async (file: File, name?: string) => {
+    submitAgent: async (file: File, gameType: string, name?: string) => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('game_type', gameType);
         if (name && name.trim()) {
             formData.append('name', name.trim());
         }
