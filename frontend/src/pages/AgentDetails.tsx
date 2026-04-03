@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -8,6 +8,24 @@ import { fromApiGameType, getActiveGames } from '../config/games';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { overlays } from '../theme';
+
+const sortSubmissions = (items: Submission[], activeSubmissionId: string | null) => (
+    [...items].sort((a, b) => {
+        const aIsActive = activeSubmissionId === a.id;
+        const bIsActive = activeSubmissionId === b.id;
+
+        if (aIsActive && !bIsActive) return -1;
+        if (!aIsActive && bIsActive) return 1;
+
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    })
+);
+
+const tableActionButtonSx = {
+    '&:hover': {
+        borderWidth: 1,
+    },
+};
 
 export function AgentDetails() {
     const navigate = useNavigate();
@@ -34,17 +52,7 @@ export function AgentDetails() {
                     submissionsApi.getSubmissions(0, 100)
                 ]);
                 setAgent(agentData);
-                setSubmissions(
-                    [...submissionsData].sort((a, b) => {
-                        const aIsActive = agentData.active_submission_id === a.id;
-                        const bIsActive = agentData.active_submission_id === b.id;
-
-                        if (aIsActive && !bIsActive) return -1;
-                        if (!aIsActive && bIsActive) return 1;
-
-                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                    })
-                );
+                setSubmissions(sortSubmissions(submissionsData, agentData.active_submission_id));
                 setSwitchMessage(null);
                 setError(null);
             } catch (err: any) {
@@ -76,6 +84,7 @@ export function AgentDetails() {
             setSwitchMessage(null);
             const updatedAgent = await agentsApi.updateAgent(id, { active_submission_id: submissionId });
             setAgent(updatedAgent);
+            setSubmissions(current => sortSubmissions(current, submissionId));
             setSwitchMessage('Active submission updated for this agent.');
         } catch (err: any) {
             console.error('Failed to switch submission:', err);
@@ -133,6 +142,7 @@ export function AgentDetails() {
     const games = getActiveGames();
     const gameId = fromApiGameType(agent.game_type || stats?.game_id || 'chess');
     const game = games.find(g => g.id === gameId);
+    const hasActiveSubmission = submissions.some(submission => submission.id === agent.active_submission_id);
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -278,7 +288,6 @@ export function AgentDetails() {
                                         <TableRow>
                                             <TableCell>Submission</TableCell>
                                             <TableCell>Status</TableCell>
-                                            <TableCell>Linked</TableCell>
                                             <TableCell>Submitted</TableCell>
                                             <TableCell>Actions</TableCell>
                                         </TableRow>
@@ -286,60 +295,114 @@ export function AgentDetails() {
                                     <TableBody>
                                         {submissions.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={5} align="center">
+                                                <TableCell colSpan={4} align="center">
                                                     <Typography color="text.secondary">No submissions found for this agent</Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            submissions.map(sub => {
+                                            submissions.map((sub, index) => {
                                                 const status = sub.build_jobs && sub.build_jobs.length > 0
                                                     ? sub.build_jobs[0].status
                                                     : 'unknown';
                                                 const isActiveSubmission = agent.active_submission_id === sub.id;
                                                 const canSwitchToSubmission = status === 'completed' && !isActiveSubmission;
+                                                const startsOtherSubmissionsSection = hasActiveSubmission
+                                                    ? index === 1
+                                                    : index === 0;
 
                                                 return (
-                                                    <TableRow
-                                                        key={sub.id}
-                                                        sx={isActiveSubmission ? { backgroundColor: overlays.primaryGlowFaint } : undefined}
-                                                    >
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontWeight={600}>
-                                                                {sub.name}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography
-                                                                variant="body2"
-                                                                sx={{ color: getStatusColor(status), fontWeight: 600, textTransform: 'capitalize' }}
-                                                            >
-                                                                {status}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" color={isActiveSubmission ? 'text.primary' : 'text.secondary'} fontWeight={isActiveSubmission ? 600 : 400}>
-                                                                {isActiveSubmission ? 'Current' : 'Not linked'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
-                                                        <TableCell>
-                                                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">
-                                                                    {isAdmin ? 'Review' : 'View'}
-                                                                </Button>
-                                                                {canSwitchToSubmission && (
-                                                                    <Button
-                                                                        variant="contained"
-                                                                        size="small"
-                                                                        onClick={() => handleSwitchSubmission(sub.id)}
-                                                                        disabled={switchingSubmissionId === sub.id}
+                                                    <Fragment key={sub.id}>
+                                                        {index === 0 && isActiveSubmission && (
+                                                            <TableRow>
+                                                                <TableCell
+                                                                    colSpan={4}
+                                                                    sx={{
+                                                                        py: 1,
+                                                                        backgroundColor: overlays.primaryGlowFaint,
+                                                                        borderBottom: 'none',
+                                                                    }}
+                                                                >
+                                                                    <Typography
+                                                                        variant="caption"
+                                                                        color="primary.main"
+                                                                        sx={{ fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}
                                                                     >
-                                                                        {switchingSubmissionId === sub.id ? 'Switching...' : 'Use For Agent'}
+                                                                        Current Submission
+                                                                    </Typography>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                        {startsOtherSubmissionsSection && (
+                                                            <TableRow>
+                                                                <TableCell
+                                                                    colSpan={4}
+                                                                    sx={{
+                                                                        py: 1,
+                                                                        backgroundColor: 'action.hover',
+                                                                    }}
+                                                                >
+                                                                    <Typography
+                                                                        variant="caption"
+                                                                        color="text.secondary"
+                                                                        sx={{ fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}
+                                                                    >
+                                                                        Other Submissions
+                                                                    </Typography>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                        <TableRow
+                                                            sx={isActiveSubmission ? { backgroundColor: overlays.primaryGlowFaint } : undefined}
+                                                        >
+                                                            <TableCell>
+                                                                <Typography variant="body2" fontWeight={600}>
+                                                                    {sub.name}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    sx={{ color: getStatusColor(status), fontWeight: 600, textTransform: 'capitalize' }}
+                                                                >
+                                                                    {status}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
+                                                            <TableCell>
+                                                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                                    <Button
+                                                                        component={Link}
+                                                                        to={`/submissions/${sub.id}`}
+                                                                        variant="outlined"
+                                                                        size="small"
+                                                                        sx={tableActionButtonSx}
+                                                                    >
+                                                                        {isAdmin ? 'Review' : 'View'}
                                                                     </Button>
-                                                                )}
-                                                            </Box>
-                                                        </TableCell>
-                                                    </TableRow>
+                                                                    {canSwitchToSubmission && (
+                                                                        <Button
+                                                                            variant="outlined"
+                                                                            size="small"
+                                                                            onClick={() => handleSwitchSubmission(sub.id)}
+                                                                            disabled={switchingSubmissionId === sub.id}
+                                                                            color="inherit"
+                                                                            sx={{
+                                                                                ...tableActionButtonSx,
+                                                                                borderColor: 'divider',
+                                                                                color: 'text.secondary',
+                                                                                '&:hover': {
+                                                                                    ...tableActionButtonSx['&:hover'],
+                                                                                    borderColor: 'text.secondary',
+                                                                                },
+                                                                            }}
+                                                                        >
+                                                                            {switchingSubmissionId === sub.id ? 'Switching...' : 'Use For Agent'}
+                                                                        </Button>
+                                                                    )}
+                                                                </Box>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </Fragment>
                                                 );
                                             })
                                         )}

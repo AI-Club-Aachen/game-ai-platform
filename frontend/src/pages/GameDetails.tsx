@@ -68,6 +68,13 @@ const formatDate = (iso: string) => {
     return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 };
 
+const truncateLabel = (value: string | null | undefined, maxLength = 18) => {
+    if (!value) return '';
+    return value.length > maxLength
+        ? `${value.slice(0, maxLength - 1)}…`
+        : value;
+};
+
 const difficultyColor = (d: string) => {
     if (d === 'easy') return palette.success;
     if (d === 'medium') return palette.warning;
@@ -479,14 +486,23 @@ export function GameDetails() {
                                                         {agents.map(agent => (
                                                             <TableRow key={agent.id}>
                                                                 <TableCell>
-                                                                    <Typography variant="body2" fontWeight={600}>
-                                                                        {agent.name}
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        fontWeight={600}
+                                                                        title={agent.name}
+                                                                    >
+                                                                        {truncateLabel(agent.name)}
                                                                     </Typography>
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <Typography variant="body2">
-                                                                        {agent.active_submission_id
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        title={agent.active_submission_id
                                                                             ? (submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
+                                                                            : 'None'}
+                                                                    >
+                                                                        {agent.active_submission_id
+                                                                            ? truncateLabel(submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
                                                                             : 'None'}
                                                                     </Typography>
                                                                 </TableCell>
