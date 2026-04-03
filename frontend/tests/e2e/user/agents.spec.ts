@@ -26,18 +26,16 @@ async function extractIdFromLabel(page: Page): Promise<string> {
     return match![0];
 }
 
-async function openTicTacToeCreateAgent(page: Page): Promise<void> {
-    await page.goto('/agents/new?gameId=tictactoe');
-    await expect(page.getByRole('heading', { name: 'Create New Agent' })).toBeVisible();
-}
-
 async function createAgent(
     page: Page,
     options: {
         agentName?: string;
+        gameId?: string;
     } = {},
 ): Promise<{ agentId: string }> {
-    await openTicTacToeCreateAgent(page);
+    const gameId = options.gameId ?? 'tictactoe';
+    await page.goto(`/agents/new?gameId=${gameId}`);
+    await expect(page.getByRole('heading', { name: 'Create New Agent' })).toBeVisible();
 
     if (options.agentName) {
         await page.getByLabel('Agent Name').fill(options.agentName);
@@ -199,14 +197,16 @@ test.describe('User Agent Flows', () => {
         await expect(page.getByRole('heading', { level: 4, name: agentName })).toBeVisible();
 
         const currentRow = await getSubmissionRow(page, secondSuccessName);
-        await expect(currentRow).toContainText('Current');
         await expect(currentRow.getByRole('button', { name: 'Use For Agent' })).toHaveCount(0);
+        const otherSubmissionsDivider = page.getByText('Other Submissions');
+        await expect(otherSubmissionsDivider).toBeVisible();
+        await expect(currentRow).toBeVisible();
 
         const selectableRow = await getSubmissionRow(page, firstSuccessName);
         await expect(selectableRow.getByRole('button', { name: 'Use For Agent' })).toBeVisible();
 
         const failedRow = await getSubmissionRow(page, failedName);
-        await expect(failedRow).toContainText('failed');
+        await expect(failedRow.getByText('failed', { exact: true })).toBeVisible();
         await expect(failedRow.getByRole('button', { name: 'Use For Agent' })).toHaveCount(0);
     });
 
@@ -238,6 +238,31 @@ test.describe('User Agent Flows', () => {
         await page.goto(`/agents/${secondAgentId}`);
         await expect(page.getByText(firstSubmissionName, { exact: true })).toBeVisible();
         await expect(page.getByText(secondSubmissionName, { exact: true })).toBeVisible();
+    });
+});
+
+test.describe('Game Type Submission Isolation', () => {
+    test.setTimeout(240000);
+
+    test('chess agent should not show tictactoe submissions', async ({ page }) => {
+        const chessAgentName = uniqueName('chess-agent');
+        const tttAgentName = uniqueName('ttt-agent');
+        const chessSubName = uniqueName('chess-sub');
+        const tttSubName = uniqueName('ttt-sub');
+
+        // Create chess agent + submission
+        const { agentId: chessAgentId } = await createAgent(page, { agentName: chessAgentName, gameId: 'chess' });
+        await uploadSubmission(page, { agentId: chessAgentId, submissionName: chessSubName, uploadPath: successUpload });
+
+        // Create tictactoe agent + submission
+        const { agentId: tttAgentId } = await createAgent(page, { agentName: tttAgentName, gameId: 'tictactoe' });
+        await uploadSubmission(page, { agentId: tttAgentId, submissionName: tttSubName, uploadPath: successUpload });
+
+        // Chess agent page should show its own submission only
+        await page.goto(`/agents/${chessAgentId}`);
+        await expect(page.getByRole('heading', { level: 4, name: chessAgentName })).toBeVisible();
+        await expect(page.getByText(chessSubName, { exact: true })).toBeVisible();
+        await expect(page.getByText(tttSubName, { exact: true })).toHaveCount(0);
     });
 });
 
