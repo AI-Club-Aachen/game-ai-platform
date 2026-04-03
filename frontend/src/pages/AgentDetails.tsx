@@ -7,7 +7,7 @@ import { agentsApi, Agent } from '../services/api/agents';
 import { fromApiGameType, getActiveGames } from '../config/games';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
-import { overlays } from '../theme';
+import { overlays, palette } from '../theme';
 
 const sortSubmissions = (items: Submission[], activeSubmissionId: string | null) => (
     [...items].sort((a, b) => {
@@ -24,6 +24,18 @@ const sortSubmissions = (items: Submission[], activeSubmissionId: string | null)
 const tableActionButtonSx = {
     '&:hover': {
         borderWidth: 1,
+    },
+};
+
+const secondaryTableActionButtonSx = {
+    ...tableActionButtonSx,
+    borderColor: 'divider',
+    color: 'text.secondary',
+    '&:hover': {
+        ...tableActionButtonSx['&:hover'],
+        borderColor: palette.textSecondary,
+        backgroundColor: 'rgba(100, 116, 139, 0.08)',
+        transform: 'none',
     },
 };
 
@@ -365,16 +377,7 @@ export function AgentDetails() {
                                                                             size="small"
                                                                             onClick={() => handleSwitchSubmission(sub.id)}
                                                                             disabled={switchingSubmissionId === sub.id}
-                                                                            color="inherit"
-                                                                            sx={{
-                                                                                ...tableActionButtonSx,
-                                                                                borderColor: 'divider',
-                                                                                color: 'text.secondary',
-                                                                                '&:hover': {
-                                                                                    ...tableActionButtonSx['&:hover'],
-                                                                                    borderColor: 'text.secondary',
-                                                                                },
-                                                                            }}
+                                                                            sx={secondaryTableActionButtonSx}
                                                                         >
                                                                             {switchingSubmissionId === sub.id ? 'Switching...' : 'Use For Agent'}
                                                                         </Button>
