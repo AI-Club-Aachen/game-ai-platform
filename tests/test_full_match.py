@@ -9,7 +9,7 @@ def upload_agent_and_wait_for_build(api_base_url, headers, zip_path):
     # send as submission to backend API
     with open(zip_path, 'rb') as f:
         files = {'file': ('agent.zip', f, 'application/zip')}
-        sub_res = requests.post(f"{api_base_url}/submissions/", headers=headers, files=files)
+        sub_res = requests.post(f"{api_base_url}/submissions/", headers=headers, files=files, data={"game_type": "tictactoe"})
         
     assert sub_res.status_code == 201, f"Failed to create submission: {sub_res.text}"
     submission = sub_res.json()
