@@ -18,24 +18,32 @@ Install dependencies:
    bun install
    ```
 
-### Running Locally
-Start the development server:
-```bash
-bun run dev
-```
-The application will be available at `http://localhost:3000`.
-
 ### Building for Production
 ```bash
 bun run build
 ```
 
 ## Testing
-To run the detailed end-to-end tests using Playwright:
+Install Playwright browsers once:
 ```bash
 bunx playwright install
+```
+
+Start the backend test stack from the repo root:
+```bash
+docker compose --env-file .env -f backend/docker-compose.ci.yml up -d --build redis db backend agent-builder
+```
+
+Then run the full Playwright suite from `frontend/`:
+```bash
 bun run test:e2e
 bun run test:e2e:ui
+```
+
+To dry-run the GitHub Actions pipelines locally with `act` from the repo root:
+```bash
+act pull_request -W .github/workflows/playwright.yml -j ui-test
+act push -W .github/workflows/playwright.yml -j build-e2e
 ```
 
 

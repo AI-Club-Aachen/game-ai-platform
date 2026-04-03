@@ -11,10 +11,11 @@ const executeDbCommand = (sql: string, description: string) => {
     try {
         console.log(`${description}...`);
         const __dirname = path.dirname(__filename);
-        // Correct path to the root docker-compose.yml
-        const defaultComposePath = path.resolve(__dirname, '../../../docker-compose.yml');
+        const rootEnvFile = path.resolve(__dirname, '../../../.env');
+        const defaultComposePath = path.resolve(__dirname, '../../../backend/docker-compose.ci.yml');
         const composeFile = process.env.CI_COMPOSE_FILE || defaultComposePath;
-        const command = `docker compose -f "${composeFile}" exec -T db psql -U postgres -d gameai -c "${sql}"`;
+        const envFile = process.env.CI_ENV_FILE || rootEnvFile;
+        const command = `docker compose --env-file "${envFile}" -f "${composeFile}" exec -T db psql -U postgres -d gameai -c "${sql}"`;
         execSync(command, { stdio: 'inherit' });
         console.log(`Success: ${description}.`);
     } catch (error) {
@@ -94,4 +95,36 @@ export const createUnverifiedUser = (username: string, email: string) => {
         `Creating unverified user ${username} (${email})`
     );
     return id;
+};
+
+export const setSubmissionBuildStatus = (
+    submissionId: string,
+    status: 'queued' | 'running' | 'completed' | 'failed',
+    options?: {
+        logs?: string;
+        imageId?: string;
+        imageTag?: string;
+    }
+) => {
+    const safeSubmissionId = escapeSqlLiteral(submissionId);
+    const dbStatus = status.toUpperCase();
+    const safeLogs = escapeSqlLiteral(options?.logs ?? `Test forced build status: ${status}`);
+    const imageId = options?.imageId ?? (status === 'completed' ? `sha256:${submissionId}` : '');
+    const imageTag = options?.imageTag ?? (status === 'completed' ? `agent:${submissionId}` : '');
+    const safeImageId = escapeSqlLiteral(imageId);
+    const safeImageTag = escapeSqlLiteral(imageTag);
+
+    executeDbCommand(
+        `
+        UPDATE build_jobs
+        SET
+            status = '${dbStatus}',
+            logs = '${safeLogs}',
+            image_id = ${status === 'completed' ? `'${safeImageId}'` : 'NULL'},
+            image_tag = ${status === 'completed' ? `'${safeImageTag}'` : 'NULL'},
+            updated_at = NOW()
+        WHERE submission_id = '${safeSubmissionId}';
+        `,
+        `Setting build status for submission ${submissionId} to ${status}`
+    );
 };

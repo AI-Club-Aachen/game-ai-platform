@@ -1,6 +1,7 @@
 import path from 'path';
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { setSubmissionBuildStatus } from '../../utils/db';
 
 
 const uploadsDir = path.resolve(process.cwd(), 'tests/utils/uploads');
@@ -34,8 +35,6 @@ async function createAgent(
     page: Page,
     options: {
         agentName?: string;
-        submissionName?: string;
-        uploadPath?: string;
     } = {},
 ): Promise<{ agentId: string }> {
     await openTicTacToeCreateAgent(page);
@@ -44,46 +43,52 @@ async function createAgent(
         await page.getByLabel('Agent Name').fill(options.agentName);
     }
 
-    if (options.submissionName) {
-        await page.getByLabel('Submission Name').fill(options.submissionName);
-    }
-
-    if (options.uploadPath) {
-        await page.locator('input[type="file"]').setInputFiles(options.uploadPath);
-    }
-
     await page.getByRole('button', { name: 'Create Agent' }).click();
-    await page.waitForURL(/\/agents\/[0-9a-f-]+$/i, { timeout: 180000 });
+    await page.waitForURL(/\/agents\/[0-9a-f-]+$/i, { timeout: 15000 });
 
     return { agentId: await extractIdFromLabel(page) };
 }
 
-async function uploadSubmissionFromAgentDetails(
+async function uploadSubmission(
     page: Page,
-    agentId: string,
     options: {
+        agentId?: string;
         submissionName?: string;
         uploadPath: string;
-        expectSuccess?: boolean;
+        finalStatus?: 'completed' | 'failed';
     },
-): Promise<void> {
-    await page.goto(`/agents/${agentId}`);
-    await page.getByRole('button', { name: 'Upload Submission' }).click();
-    await page.waitForURL(new RegExp(`/submissions/new\\?agentId=${agentId}$`), { timeout: 10000 });
+): Promise<{ submissionId: string }> {
+    const agentId = options.agentId;
+    const submitButtonName = agentId ? 'Upload Submission' : 'Submit Agent';
+
+    await page.goto(agentId ? `/submissions/new?agentId=${agentId}` : '/submissions/new');
+    await expect(page.getByLabel('Submission Name')).toBeVisible();
 
     if (options.submissionName) {
         await page.getByLabel('Submission Name').fill(options.submissionName);
     }
 
     await page.locator('input[type="file"]').setInputFiles(options.uploadPath);
-    await page.getByRole('button', { name: 'Upload Submission' }).click();
+    const createSubmissionResponsePromise = page.waitForResponse((response) =>
+        response.url().endsWith('/submissions') &&
+        response.request().method() === 'POST' &&
+        response.status() === 201
+    );
+    await page.getByRole('button', { name: submitButtonName }).click();
 
-    if (options.expectSuccess === false) {
-        await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 180000 });
-        return;
+    const createSubmissionResponse = await createSubmissionResponsePromise;
+    const submission = await createSubmissionResponse.json() as { id: string };
+    const finalStatus = options.finalStatus ?? 'completed';
+
+    setSubmissionBuildStatus(submission.id, finalStatus);
+
+    if (!agentId || finalStatus === 'failed') {
+        await page.waitForURL(new RegExp(`/submissions/${submission.id}$`), { timeout: 15000 });
+        return { submissionId: submission.id };
     }
 
-    await page.waitForURL(new RegExp(`/agents/${agentId}$`), { timeout: 180000 });
+    await page.waitForURL(new RegExp(`/agents/${agentId}$`), { timeout: 15000 });
+    return { submissionId: submission.id };
 }
 
 async function getSubmissionRow(page: Page, submissionName: string): Promise<Locator> {
@@ -124,15 +129,19 @@ test.describe('User Agent Flows', () => {
     test('should create a tic-tac-toe agent with a named agent and an unnamed submission', async ({ page }) => {
         const agentName = uniqueName('ttt-agent');
 
-        await createAgent(page, { agentName, uploadPath: successUpload });
+        const { agentId } = await createAgent(page, { agentName });
+        const { submissionId } = await uploadSubmission(page, {
+            agentId,
+            uploadPath: successUpload,
+        });
 
+        await page.goto(`/agents/${agentId}`);
         await expect(page.getByRole('heading', { level: 4, name: agentName })).toBeVisible();
         await expect(page.getByRole('button', { name: 'View Source Submission' })).toBeVisible();
 
         await page.getByRole('button', { name: 'View Source Submission' }).click();
         await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 10000 });
 
-        const submissionId = await extractIdFromLabel(page);
         await expect(page.getByRole('heading', { level: 4, name: submissionId })).toBeVisible();
     });
 
@@ -140,12 +149,16 @@ test.describe('User Agent Flows', () => {
         const agentName = uniqueName('ttt-agent');
         const submissionName = uniqueName('ttt-submission');
 
-        await createAgent(page, {
+        const { agentId } = await createAgent(page, {
             agentName,
+        });
+        await uploadSubmission(page, {
+            agentId,
             submissionName,
             uploadPath: successUpload,
         });
 
+        await page.goto(`/agents/${agentId}`);
         await expect(page.getByRole('heading', { level: 4, name: agentName })).toBeVisible();
         await expect(page.getByText(submissionName, { exact: true })).toBeVisible();
 
@@ -163,18 +176,21 @@ test.describe('User Agent Flows', () => {
 
         const { agentId } = await createAgent(page, { agentName });
 
-        await uploadSubmissionFromAgentDetails(page, agentId, {
+        await uploadSubmission(page, {
+            agentId,
             submissionName: failedName,
             uploadPath: failUpload,
-            expectSuccess: false,
+            finalStatus: 'failed',
         });
 
-        await uploadSubmissionFromAgentDetails(page, agentId, {
+        await uploadSubmission(page, {
+            agentId,
             submissionName: firstSuccessName,
             uploadPath: successUpload,
         });
 
-        await uploadSubmissionFromAgentDetails(page, agentId, {
+        await uploadSubmission(page, {
+            agentId,
             submissionName: secondSuccessName,
             uploadPath: successUpload,
         });
@@ -203,12 +219,14 @@ test.describe('User Agent Flows', () => {
         const { agentId: firstAgentId } = await createAgent(page, { agentName: firstAgentName });
         const { agentId: secondAgentId } = await createAgent(page, { agentName: secondAgentName });
 
-        await uploadSubmissionFromAgentDetails(page, firstAgentId, {
+        await uploadSubmission(page, {
+            agentId: firstAgentId,
             submissionName: firstSubmissionName,
             uploadPath: successUpload,
         });
 
-        await uploadSubmissionFromAgentDetails(page, secondAgentId, {
+        await uploadSubmission(page, {
+            agentId: secondAgentId,
             submissionName: secondSubmissionName,
             uploadPath: successUpload,
         });
@@ -230,13 +248,10 @@ test.describe('User Agent Deletion Flows', () => {
     test('should delete a submission and keep it deleted after refresh', async ({ page }) => {
         const submissionName = uniqueName('delete-submission');
 
-        await page.goto('/submissions/new');
-        await page.getByLabel('Submission Name').fill(submissionName);
-        await page.locator('input[type="file"]').setInputFiles(successUpload);
-        await page.getByRole('button', { name: 'Submit Agent' }).click();
-        await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 180000 });
-
-        const submissionId = await extractIdFromLabel(page);
+        const { submissionId } = await uploadSubmission(page, {
+            submissionName,
+            uploadPath: successUpload,
+        });
 
         await deleteViaConfirmation(page, 'Delete Submission');
 
@@ -270,14 +285,15 @@ test.describe('User Agent Deletion Flows', () => {
 
         const { agentId } = await createAgent(page, {
             agentName,
+        });
+        const { submissionId } = await uploadSubmission(page, {
+            agentId,
             submissionName,
             uploadPath: successUpload,
         });
 
         await page.getByRole('button', { name: 'View Source Submission' }).click();
         await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 10000 });
-
-        const submissionId = await extractIdFromLabel(page);
         await deleteViaConfirmation(page, 'Delete Submission');
 
         await page.goto(`/agents/${agentId}`);
@@ -299,13 +315,15 @@ test.describe('User Agent Deletion Flows', () => {
 
         const { agentId } = await createAgent(page, {
             agentName,
+        });
+        const { submissionId } = await uploadSubmission(page, {
+            agentId,
             submissionName,
             uploadPath: successUpload,
         });
 
         await page.getByRole('button', { name: 'View Source Submission' }).click();
         await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 10000 });
-        const submissionId = await extractIdFromLabel(page);
 
         await page.goto(`/agents/${agentId}`);
         await deleteViaConfirmation(page, 'Delete Agent');

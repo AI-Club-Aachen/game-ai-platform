@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  ui-test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
@@ -31,8 +31,7 @@ jobs:
     - name: Check Docker
       run: docker --version && docker compose version
 
-    - name: Setup Backend Environment
-      working-directory: ./backend
+    - name: Setup Root Environment
       run: |
         cat <<EOF > .env
         # Environment
@@ -71,16 +70,22 @@ jobs:
         # Application
         API_V1_PREFIX=/api/v1
         PROJECT_NAME="Game AI Platform"
+        REDIS_URL=redis://redis:6379/0
+        WORKER_API_KEY=dev-worker-key-12345
         EOF
 
     - name: Start Backend Services
       working-directory: ./backend
-      run: docker compose -f docker-compose.ci.yml up -d
+      run: docker compose --env-file ../.env -f docker-compose.ci.yml up -d --build redis db backend
 
     - name: Wait for Backend
       run: |
         echo "Waiting for backend health check..."
         timeout 60s bash -c 'until curl -fsS http://localhost:8000/health; do sleep 5; done'
+
+    - name: Show CI services
+      working-directory: ./backend
+      run: docker compose --env-file ../.env -f docker-compose.ci.yml ps
 
     - name: Run Playwright tests
       working-directory: ./frontend
@@ -88,15 +93,131 @@ jobs:
         bun run dev --port 3000 --host &
         echo "Waiting for frontend to be ready..."
         bunx wait-on tcp:3000
-        bun run test:e2e
+        bunx playwright test --grep-invert "Real Build Pipeline"
       env:
         CI: true
         CI_COMPOSE_FILE: ../backend/docker-compose.ci.yml
+        CI_ENV_FILE: ../.env
         BACKEND_URL: http://localhost:8000/api/v1
 
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: playwright-report
+        name: playwright-report-ui
         path: frontend/playwright-report/
         retention-days: 30
+
+    - name: Dump backend logs on failure
+      if: failure()
+      working-directory: ./backend
+      run: docker compose --env-file ../.env -f docker-compose.ci.yml logs --no-color
+
+  build-e2e:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: bun install
+
+    - name: Install Playwright Browsers
+      working-directory: ./frontend
+      run: bunx playwright install --with-deps chromium
+
+    - name: Check Docker
+      run: docker --version && docker compose version
+
+    - name: Setup Root Environment
+      run: |
+        cat <<EOF > .env
+        # Environment
+        ENVIRONMENT=development
+        
+        # Database Connection
+        DATABASE_URL=postgresql://postgres:postgres@db:5432/gameai
+        POSTGRES_USER=postgres
+        POSTGRES_PASSWORD=postgres
+        POSTGRES_DB=gameai
+        POSTGRES_PORT=5432
+        
+        # Backend Port
+        BACKEND_PORT=8000
+        
+        # Security
+        JWT_SECRET_KEY=mock-secret-key-for-ci-tests-only-do-not-use-in-prod
+        JWT_ALGORITHM=HS256
+        JWT_ACCESS_TOKEN_EXPIRE_HOURS=24
+        ALLOW_ORIGINS=["http://localhost:3000"]
+        FRONTEND_URL=http://localhost:3000
+        
+        # SMTP (Mock)
+        SMTP_HOST=smtp.gmail.com
+        SMTP_PORT=587
+        SMTP_USERNAME=mock@example.com
+        SMTP_PASSWORD=mockpassword
+        SMTP_FROM_ADDRESS=mock@example.com
+        SMTP_FROM_NAME="Game AI Platform"
+        SMTP_USE_TLS=true
+        
+        # Token expiry
+        EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS=24
+        PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
+        
+        # Application
+        API_V1_PREFIX=/api/v1
+        PROJECT_NAME="Game AI Platform"
+        REDIS_URL=redis://redis:6379/0
+        WORKER_API_KEY=dev-worker-key-12345
+        EOF
+
+    - name: Start Full Backend Services
+      working-directory: ./backend
+      run: docker compose --env-file ../.env -f docker-compose.ci.yml up -d --build redis db backend agent-builder
+
+    - name: Wait for Backend
+      run: |
+        echo "Waiting for backend health check..."
+        timeout 90s bash -c 'until curl -fsS http://localhost:8000/health; do sleep 5; done'
+
+    - name: Wait for Agent Builder
+      working-directory: ./backend
+      run: |
+        echo "Waiting for agent-builder to be running..."
+        timeout 90s bash -c 'until [ "$(docker compose --env-file ../.env -f docker-compose.ci.yml ps -q agent-builder | xargs docker inspect -f "{{.State.Status}}" 2>/dev/null)" = "running" ]; do sleep 5; done'
+
+    - name: Show CI services
+      working-directory: ./backend
+      run: docker compose --env-file ../.env -f docker-compose.ci.yml ps
+
+    - name: Run real build Playwright tests
+      working-directory: ./frontend
+      run: |
+        bun run dev --port 3000 --host &
+        echo "Waiting for frontend to be ready..."
+        bunx wait-on tcp:3000
+        bunx playwright test tests/e2e/user/build-pipeline.spec.ts
+      env:
+        CI: true
+        CI_COMPOSE_FILE: ../backend/docker-compose.ci.yml
+        CI_ENV_FILE: ../.env
+        BACKEND_URL: http://localhost:8000/api/v1
+
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report-build-e2e
+        path: frontend/playwright-report/
+        retention-days: 30
+
+    - name: Dump backend logs on failure
+      if: failure()
+      working-directory: ./backend
+      run: docker compose --env-file ../.env -f docker-compose.ci.yml logs --no-color
