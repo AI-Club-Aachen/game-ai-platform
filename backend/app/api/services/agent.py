@@ -124,7 +124,7 @@ class AgentService:
         if not submission_has_successful_build(submission):
             raise AgentValidationError("Only successfully built submissions can be attached to agents")
 
-    def _validate_agent_limit(self, user_id: UUID, game_type) -> None:
+    def _validate_agent_limit(self, user_id: UUID, game_type: str) -> None:
         max_agents_per_game = settings.MAX_AGENTS_PER_GAME
         if max_agents_per_game <= 0:
             return

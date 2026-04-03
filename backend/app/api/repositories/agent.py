@@ -40,7 +40,9 @@ class AgentRepository:
         return list(self._session.exec(statement).all())
 
     def count_by_user_and_game(self, user_id: UUID, game_type: str) -> int:
-        statement = select(func.count()).select_from(Agent).where(Agent.user_id == user_id, Agent.game_type == game_type)
+        statement = (
+            select(func.count()).select_from(Agent).where(Agent.user_id == user_id, Agent.game_type == game_type)
+        )
         return self._session.exec(statement).one()
 
     def list_agents(
