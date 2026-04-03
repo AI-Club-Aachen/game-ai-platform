@@ -30,10 +30,7 @@ class MatchService:
         Create a match and queue it for execution.
         """
         match = Match(
-            game_type=game_type,
-            status=MatchStatus.QUEUED,
-            config=config,
-            agent_ids=[str(i) for i in agent_ids]
+            game_type=game_type, status=MatchStatus.QUEUED, config=config, agent_ids=[str(i) for i in agent_ids]
         )
         match = self._repository.save(match)
 

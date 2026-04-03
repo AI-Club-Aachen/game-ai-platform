@@ -81,10 +81,11 @@ export async function apiRequest<T>(
         // Network error or other issue
         const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
 
-        // Enhance network error message
+        // Browsers report CORS failures and connection failures similarly here.
+        // Keep the message neutral unless we actually received an HTTP response.
         if (errorMessage === 'Failed to fetch' || errorMessage.includes('NetworkError')) {
             throw new ApiError(
-                'Unable to connect to the server. Please check if the backend is running. If you are developing locally, ensure CORS is configured correctly.'
+                'Unable to reach the server or read its response. Please check that the backend is running and reachable.'
             );
         }
 

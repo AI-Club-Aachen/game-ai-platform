@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { GAMES, getActiveGames } from '../config/games';
-import { Box, Container, Typography, Button, Card, CardContent, Chip } from '@mui/material';
+import { Box, Container, Typography, Card, CardContent, Chip } from '@mui/material';
 import { SportsEsports, Casino, Close, Circle, Album, PanoramaFishEye } from '@mui/icons-material';
 import { palette } from '../theme';
 
@@ -37,7 +37,7 @@ export function Games() {
           <SportsEsports sx={{ fontSize: 32 }} /> Available Games
         </Typography>
         <Typography color="text.secondary">
-          Choose a game to view details and start competing
+          Click a game to view details, matches, leaderboard and manage your agents
         </Typography>
       </Box>
 
@@ -51,10 +51,22 @@ export function Games() {
           gap: 3,
         }}>
           {activeGames.map((game) => (
-            <Card key={game.id} sx={{
-              display: 'flex',
-              flexDirection: 'column',
-            }}>
+            <Card
+              key={game.id}
+              component={Link}
+              to={`/games/${game.id}`}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                '&:hover': {
+                  borderColor: palette.primary,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
               <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{
                   display: 'flex',
@@ -74,7 +86,7 @@ export function Games() {
                   {game.description}
                 </Typography>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Players:</Typography>
                     <Typography variant="body2">
@@ -98,27 +110,6 @@ export function Games() {
                       }}
                     />
                   </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    component={Link}
-                    to={`/leaderboard?game=${game.id}`}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  >
-                    Leaderboard
-                  </Button>
-                  <Button
-                    component={Link}
-                    to={`/games/live?game=${game.id}`}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  >
-                    Watch Live
-                  </Button>
                 </Box>
               </CardContent>
             </Card>

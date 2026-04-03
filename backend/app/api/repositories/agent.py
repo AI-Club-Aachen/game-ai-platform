@@ -44,11 +44,7 @@ class AgentRepository:
             count_statement = count_statement.where(Agent.user_id == user_id)
 
         total: int = self._session.exec(count_statement).one()
-        statement = (
-            statement.offset(skip)
-            .limit(limit)
-            .order_by(Agent.created_at.desc())
-        )
+        statement = statement.offset(skip).limit(limit).order_by(Agent.created_at.desc())
         agents: list[Agent] = list(self._session.exec(statement).all())
 
         return agents, total

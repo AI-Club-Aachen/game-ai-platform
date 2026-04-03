@@ -42,6 +42,5 @@ class Match(SQLModel, table=True):
     # The current state of the game
     game_state: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
-
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

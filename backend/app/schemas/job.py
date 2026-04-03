@@ -9,6 +9,7 @@ from app.models.job import JobStatus
 
 class BuildJobUpdate(BaseModel):
     """Schema for updating a build job (used by workers)."""
+
     status: JobStatus
     logs: str | None = None
     image_id: str | None = None
@@ -30,6 +31,7 @@ class BuildJobRead(BaseModel):
 
 class MatchJobUpdate(BaseModel):
     """Schema for updating a match job (used by workers)."""
+
     status: JobStatus
     logs: str | None = None
     result: dict[str, Any] | None = None

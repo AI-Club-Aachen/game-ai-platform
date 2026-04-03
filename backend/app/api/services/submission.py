@@ -1,12 +1,15 @@
 import shutil
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import UploadFile
 
+from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository
+from app.core.config import settings
 from app.core.queue import job_queue
+from app.models.agent import Agent
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 
@@ -22,18 +25,19 @@ class SubmissionService:
         self,
         submission_repository: SubmissionRepository,
         job_repository: JobRepository,
+        agent_repository: AgentRepository,
     ) -> None:
         self._repository = submission_repository
         self._job_repository = job_repository
+        self._agent_repository = agent_repository
         # Directory to store uploaded zips temporarily or permanently
-        # Ideally this path should come from config settings
-        self._upload_dir = Path("uploads/submissions")
-        self._upload_dir.mkdir(parents=True, exist_ok=True)
+        self._upload_dir = Path(settings.SUBMISSIONS_DIR)
 
     async def create_submission(
         self,
         user_id: UUID,
         file: UploadFile,
+        agent_id: UUID | None = None,
     ) -> Submission:
         """
         Handle the full submission process:
@@ -44,8 +48,15 @@ class SubmissionService:
         if not file.filename or not file.filename.endswith(".zip"):
             raise SubmissionServiceError("Only .zip files are allowed.")
 
+        sub_id = uuid4()
+
+        if agent_id is None:
+            agent_id = uuid4()
+            agent = Agent(id=agent_id, user_id=user_id, active_submission_id=sub_id)
+            self._agent_repository.save(agent)
+
         # 1. Create initial record
-        submission = Submission(user_id=user_id, object_path="pending")
+        submission = Submission(id=sub_id, user_id=user_id, agent_id=agent_id, object_path="pending")
         submission = self._repository.save(submission)
 
         # 2. Save file

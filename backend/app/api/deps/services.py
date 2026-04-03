@@ -65,9 +65,10 @@ def get_user_service(
 def get_submission_service(
     repository: Annotated[SubmissionRepository, Depends(get_submission_repository)],
     job_repository: Annotated[JobRepository, Depends(get_job_repository)],
+    agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
 ) -> SubmissionService:
     """Provide a SubmissionService with an injected Repository."""
-    return SubmissionService(repository, job_repository)
+    return SubmissionService(repository, job_repository, agent_repository)
 
 
 def get_match_service(

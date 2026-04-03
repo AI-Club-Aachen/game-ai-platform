@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
@@ -39,7 +41,8 @@ async def test_build_job_flow(
     db_session.add(user)
     db_session.commit()
 
-    submission = Submission(user_id=user.id, object_path="path/to/zip")
+    agent_id = uuid4()
+    submission = Submission(user_id=user.id, agent_id=agent_id, object_path="path/to/zip")
     submission = submission_repository.save(submission)
 
     job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
@@ -57,7 +60,7 @@ async def test_build_job_flow(
         "status": "completed",
         "logs": "Build successful",
         "image_id": "sha256:12345",
-        "image_tag": "latest"
+        "image_tag": "latest",
     }
     response = await api_client.patch(f"/api/v1/jobs/build/{job.id}", json=update_payload)
     assert response.status_code == 200
@@ -93,11 +96,7 @@ async def test_match_job_flow(
     assert data["status"] == "queued"
 
     # 3. Test UPDATE (Worker reports success)
-    update_payload = {
-        "status": "completed",
-        "logs": "Match finished",
-        "result": {"winner": "player1"}
-    }
+    update_payload = {"status": "completed", "logs": "Match finished", "result": {"winner": "player1"}}
     response = await api_client.patch(f"/api/v1/jobs/match/{job.id}", json=update_payload)
     assert response.status_code == 200
     data = response.json()

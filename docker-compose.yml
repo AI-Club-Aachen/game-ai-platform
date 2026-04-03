@@ -15,7 +15,7 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ./backend/postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 10s
@@ -37,6 +37,9 @@ services:
       - /app/node_modules
     networks:
       - app-network
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
   backend:
@@ -71,10 +74,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     volumes:
       - ./backend/app:/app/app:z
       - ./backend/alembic:/app/alembic:z
-      - ./backend/uploads:/app/uploads:z
+      - uploads_data:/app/uploads
     networks:
       - app-network
     restart: unless-stopped
@@ -92,12 +101,14 @@ services:
       - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
       - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:-False}
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend/uploads:/app/uploads:z
+      - uploads_data:/app/uploads
       - ./gamelib:/gamelib:z
     user: root
     networks:
@@ -116,8 +127,10 @@ services:
       - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
@@ -132,3 +145,4 @@ networks:
 
 volumes:
   postgres_data:
+  uploads_data:

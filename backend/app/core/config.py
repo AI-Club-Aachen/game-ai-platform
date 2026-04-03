@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Game Competition Platform"
     WORKER_API_KEY: str = "dev-worker-key-12345"
 
+    # Filesystem Paths
+    UPLOAD_DIR: str = "uploads"
+    SUBMISSIONS_DIR: str = "uploads/submissions"
+
     # CORS/Security
     ALLOW_ORIGINS: list[str] = Field(
         default=["http://localhost:3000"],

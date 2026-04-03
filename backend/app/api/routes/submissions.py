@@ -1,6 +1,7 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.deps import get_current_user, get_submission_service
 from app.api.services.submission import SubmissionService
@@ -17,11 +18,12 @@ async def create_submission(
     file: Annotated[UploadFile, File(...)],
     current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
+    agent_id: Annotated[UUID | None, Form()] = None,
 ) -> SubmissionRead:
     """
     Upload an agent zip file and queue it for building.
     """
-    return await service.create_submission(current_user.id, file)
+    return await service.create_submission(current_user.id, file, agent_id)
 
 
 # GET /api/v1/submissions/{submission_id}

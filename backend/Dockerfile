@@ -15,6 +15,9 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 
 COPY --chown=appuser:appuser . .
 
+# Ensure upload directories exist and are owned by appuser
+RUN mkdir -p uploads/submissions && chown -R appuser:appuser uploads
+
 # Increase timeout for slow connections
 ENV UV_HTTP_TIMEOUT=500
 # Sync dependencies from lockfile

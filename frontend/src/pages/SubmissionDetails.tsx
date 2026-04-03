@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Chip, Divider } from '@mui/material';
 import { ArrowBack, Code, Terminal } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useSmartBack } from '../hooks/use-smart-back';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { overlays } from '../theme';
 
 export function SubmissionDetails() {
-    const navigate = useNavigate();
+    const goBack = useSmartBack('/dashboard');
     const { id } = useParams<{ id: string }>();
 
     const [submission, setSubmission] = useState<Submission | null>(null);
@@ -55,8 +56,8 @@ export function SubmissionDetails() {
     if (error || !submission) {
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
-                <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')} sx={{ mb: 2 }}>
-                    Back to Dashboard
+                <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+                    Back
                 </Button>
                 <Alert severity="error">{error || 'Submission not found'}</Alert>
             </Container>
@@ -80,8 +81,8 @@ export function SubmissionDetails() {
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Button startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')}>
-                    Back to Dashboard
+                <Button startIcon={<ArrowBack />} onClick={goBack}>
+                    Back
                 </Button>
                 <Button variant="outlined" startIcon={<Code />} onClick={() => fetchSubmission()}>
                     Refresh Status

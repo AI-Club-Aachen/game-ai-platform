@@ -21,6 +21,7 @@ class BuildJob(SQLModel, table=True):
     """
     Represents a background job to build a submission (Docker image).
     """
+
     __tablename__ = "build_jobs"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
@@ -45,6 +46,7 @@ class MatchJob(SQLModel, table=True):
     """
     Represents a background job to execute a match.
     """
+
     __tablename__ = "match_jobs"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
