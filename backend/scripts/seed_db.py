@@ -79,7 +79,12 @@ def _create_submissions_and_jobs(session: Session, user: User) -> uuid.UUID | No
 
     for i, status in enumerate(statuses):
         sub_id = completed_sub_id if status == JobStatus.COMPLETED else uuid.uuid4()
-        sub = Submission(id=sub_id, user_id=user.id, object_path=f"seeded/submissions/agent_v{i}.zip")
+        sub = Submission(
+            id=sub_id,
+            user_id=user.id,
+            name=f"seed-submission-{i + 1}",
+            object_path=f"seeded/submissions/agent_v{i}.zip",
+        )
         session.add(sub)
         session.commit()
         session.refresh(sub)
@@ -109,6 +114,7 @@ def _get_or_create_seed_agent(session: Session, user: User) -> Agent:
         agent = Agent(
             id=uuid.uuid4(),
             user_id=user.id,
+            name="seed-agent",
             game_type=GameType.CHESS,
             active_submission_id=None,
             stats={"rating": 1500, "matches_played": 0},
