@@ -28,9 +28,12 @@ test.describe('Protected Routes', () => {
 
     test('should display password requirements on profile page', async ({ page }) => {
         await page.goto('/profile');
+        await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
 
         // Type in new password field to show requirements
-        await page.getByLabel(/^New Password$/).fill('weak');
+        const newPasswordInput = page.getByRole('textbox', { name: 'New Password', exact: true });
+        await expect(newPasswordInput).toBeVisible();
+        await newPasswordInput.fill('weak');
 
         await expect(page.getByText('At least 12 characters')).toBeVisible();
         await expect(page.getByText('One uppercase letter (A-Z)')).toBeVisible();

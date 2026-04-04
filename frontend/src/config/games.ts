@@ -79,3 +79,17 @@ export function getActiveGames(): Game[] {
 export function getGamesByCategory(category: Game['category']): Game[] {
   return GAMES.filter(game => game.category === category);
 }
+
+export function toApiGameType(id: string): string {
+  if (id === 'connect4') {
+    return 'connect_four';
+  }
+  return id;
+}
+
+export function fromApiGameType(gameType: string): string {
+  if (gameType === 'connect_four') {
+    return 'connect4';
+  }
+  return gameType;
+}

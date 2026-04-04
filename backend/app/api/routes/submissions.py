@@ -4,8 +4,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.deps import get_current_user, get_submission_service
-from app.api.services.submission import SubmissionService
-from app.models.user import User
+from app.api.services.submission import SubmissionService, SubmissionServiceError
+from app.models.game import GameType
+from app.models.user import User, UserRole
 from app.schemas.submission import SubmissionRead
 
 
@@ -16,14 +17,18 @@ router = APIRouter()
 @router.post("", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
 async def create_submission(
     file: Annotated[UploadFile, File(...)],
+    game_type: Annotated[GameType, Form(...)],
     current_user: Annotated[User, Depends(get_current_user)],
     service: SubmissionService = Depends(get_submission_service),
-    agent_id: Annotated[UUID | None, Form()] = None,
+    name: Annotated[str | None, Form()] = None,
 ) -> SubmissionRead:
     """
     Upload an agent zip file and queue it for building.
     """
-    return await service.create_submission(current_user.id, file, agent_id)
+    try:
+        return await service.create_submission(current_user.id, file, game_type=game_type, name=name)
+    except SubmissionServiceError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # GET /api/v1/submissions/{submission_id}
@@ -59,3 +64,20 @@ def list_submissions(
     List submissions for the current user.
     """
     return service.list_user_submissions(current_user.id, skip, limit)
+
+
+@router.delete("/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_submission(
+    submission_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: SubmissionService = Depends(get_submission_service),
+) -> None:
+    try:
+        service.delete_submission(submission_id, current_user.id, is_admin=current_user.role == UserRole.ADMIN)
+    except SubmissionServiceError as e:
+        detail = str(e)
+        if detail == "Submission not found":
+            raise HTTPException(status_code=404, detail=detail) from e
+        if detail == "Not authorized to delete this submission":
+            raise HTTPException(status_code=403, detail=detail) from e
+        raise HTTPException(status_code=400, detail=detail) from e

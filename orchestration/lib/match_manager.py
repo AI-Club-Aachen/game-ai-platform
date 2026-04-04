@@ -11,14 +11,23 @@ logger = logging.getLogger(__name__)
 async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[str]:
     image_tags = []
     for agent_id in agent_ids:
-        logger.debug(f"Fetching submission metadata for agent {agent_id!r}")
+        logger.debug(f"Fetching agent metadata for agent {agent_id!r}")
         try:
-            submission = await api.get_submission(agent_id)
+            agent = await api.get_agent(agent_id)
         except Exception as e:
             raise AgentCommunicationError(f"Could not retrieve agent metadata for {agent_id}: {e}")
 
+        submission_id = agent.get("active_submission_id")
+        if not submission_id:
+            raise AgentCommunicationError(f"Agent {agent_id} does not have an active submission")
+
+        try:
+            submission = await api.get_submission(submission_id)
+        except Exception as e:
+            raise AgentCommunicationError(f"Could not retrieve submission metadata for agent {agent_id}: {e}")
+
         build_jobs = submission.get("build_jobs", [])
-        logger.debug(f"Agent {agent_id!r} has {len(build_jobs)} build job(s)")
+        logger.debug(f"Agent {agent_id!r} submission {submission_id!r} has {len(build_jobs)} build job(s)")
         tag = None
         for job in build_jobs:
             if job.get("status") == "completed" and job.get("image_tag"):

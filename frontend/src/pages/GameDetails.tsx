@@ -11,10 +11,11 @@ import {
     PanoramaFishEye, Casino, Videocam, History, ArrowForward,
     AddCircleOutline, SmartToy, FiberManualRecord,
 } from '@mui/icons-material';
-import { getGameById } from '../config/games';
+import { fromApiGameType, getGameById } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
+import { submissionsApi, Submission } from '../services/api/submissions';
 import { palette, overlays } from '../theme';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -65,6 +66,13 @@ const isCompleted = (match: Match) =>
 const formatDate = (iso: string) => {
     const d = new Date(iso);
     return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+};
+
+const truncateLabel = (value: string | null | undefined, maxLength = 18) => {
+    if (!value) return '';
+    return value.length > maxLength
+        ? `${value.slice(0, maxLength - 1)}…`
+        : value;
 };
 
 const difficultyColor = (d: string) => {
@@ -154,6 +162,7 @@ export function GameDetails() {
     const [lbError, setLbError] = useState<string | null>(null);
 
     const [agents, setAgents] = useState<Agent[]>([]);
+    const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [agentsLoading, setAgentsLoading] = useState(true);
     const [agentsError, setAgentsError] = useState<string | null>(null);
 
@@ -172,11 +181,15 @@ export function GameDetails() {
             .catch(err => setLbError(err.message || 'Failed to load leaderboard'))
             .finally(() => setLbLoading(false));
 
-        // Agents (current user's agents — no game filter yet in API)
+        // Agents (filtered client-side by game)
         agentsApi.getAgents()
-            .then(data => setAgents(data))
+            .then(data => setAgents(data.filter(agent => fromApiGameType(agent.game_type) === gameId)))
             .catch(err => setAgentsError(err.message || 'Failed to load agents'))
             .finally(() => setAgentsLoading(false));
+
+        submissionsApi.getSubmissions(0, 100)
+            .then(data => setSubmissions(data))
+            .catch(err => setAgentsError(err.message || 'Failed to load submissions'));
     }, [gameId]);
 
     // ── 404 guard ────────────────────────────────────────────────
@@ -274,7 +287,7 @@ export function GameDetails() {
                             variant="contained"
                             size="large"
                             startIcon={<AddCircleOutline />}
-                            onClick={() => navigate('/submissions/new')}
+                            onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
                         >
                             Create New Agent
                         </Button>
@@ -445,12 +458,12 @@ export function GameDetails() {
                                         <CardContent sx={{ textAlign: 'center', py: 4 }}>
                                             <SmartToy sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
                                             <Typography color="text.secondary" sx={{ mb: 2 }}>
-                                                You haven't submitted any agents yet.
+                                                You haven't created any agents for this game yet.
                                             </Typography>
                                             <Button
                                                 variant="contained"
                                                 startIcon={<AddCircleOutline />}
-                                                onClick={() => navigate('/submissions/new')}
+                                                onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
                                             >
                                                 Create New Agent
                                             </Button>
@@ -458,36 +471,66 @@ export function GameDetails() {
                                     </Card>
                                 ) : (
                                     <>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                                            {agents.map(agent => (
-                                                <Card key={agent.id}>
-                                                    <CardContent sx={{ py: '16px !important' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                                                            <Box>
-                                                                <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                                                                    Agent {agent.id.slice(0, 8)}…
-                                                                </Typography>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    Created {formatDate(agent.created_at)}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Button
-                                                                component={Link}
-                                                                to={`/agents/${agent.id}`}
-                                                                size="small"
-                                                                variant="outlined"
-                                                            >
-                                                                Details
-                                                            </Button>
-                                                        </Box>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </Box>
+                                        <Card sx={{ mb: 2 }}>
+                                            <TableContainer>
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>Agent</TableCell>
+                                                            <TableCell>Submission</TableCell>
+                                                            <TableCell>Date</TableCell>
+                                                            <TableCell align="right">Actions</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {agents.map(agent => (
+                                                            <TableRow key={agent.id}>
+                                                                <TableCell>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        fontWeight={600}
+                                                                        title={agent.name}
+                                                                    >
+                                                                        {truncateLabel(agent.name)}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        title={agent.active_submission_id
+                                                                            ? (submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
+                                                                            : 'None'}
+                                                                    >
+                                                                        {agent.active_submission_id
+                                                                            ? truncateLabel(submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
+                                                                            : 'None'}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {formatDate(agent.created_at)}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell align="right">
+                                                                    <Button
+                                                                        component={Link}
+                                                                        to={`/agents/${agent.id}`}
+                                                                        size="small"
+                                                                        variant="text"
+                                                                    >
+                                                                        Details
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                        </Card>
                                         <Button
                                             variant="outlined"
                                             startIcon={<AddCircleOutline />}
-                                            onClick={() => navigate('/submissions/new')}
+                                            onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
                                             fullWidth
                                         >
                                             Create New Agent

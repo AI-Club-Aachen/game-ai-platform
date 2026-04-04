@@ -34,6 +34,7 @@ class Settings(BaseSettings):
         description="Override default DB SQL echoing behavior. Defaults to True in dev environment, False otherwise.",
     )
     REDIS_URL: str = "redis://redis:6379/0"
+    RATE_LIMITING_ENABLED: bool = True
 
     # JWT Configuration
     JWT_SECRET_KEY: str
@@ -48,6 +49,10 @@ class Settings(BaseSettings):
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
     SUBMISSIONS_DIR: str = "uploads/submissions"
+    MAX_AGENTS_PER_GAME: int = Field(
+        default=0,
+        description="Maximum number of agents a user can create per game. 0 disables the limit.",
+    )
 
     # CORS/Security
     ALLOW_ORIGINS: list[str] = Field(

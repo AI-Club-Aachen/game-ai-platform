@@ -4,8 +4,11 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.models.game import GameType
+
 
 if TYPE_CHECKING:
+    from app.models.agent import Agent
     from app.models.job import BuildJob
 
 
@@ -19,12 +22,17 @@ class Submission(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     user_id: UUID = Field(index=True, nullable=False)  # Foreign key to User, but loose coupling for now
-    agent_id: UUID = Field(index=True, nullable=False)
+    name: str = Field(nullable=False)
+    game_type: GameType = Field(index=True, nullable=False)
 
     # Path to the uploaded zip file
     object_path: str = Field(nullable=False)
 
-    build_jobs: list["BuildJob"] = Relationship(back_populates="submission")
+    build_jobs: list["BuildJob"] = Relationship(
+        back_populates="submission",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    agents: list["Agent"] = Relationship(back_populates="active_submission")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

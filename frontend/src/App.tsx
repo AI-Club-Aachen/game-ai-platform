@@ -17,6 +17,7 @@ import { LiveMatch } from './pages/LiveMatch';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { VerifyEmail } from './pages/VerifyEmail';
+import { NewAgent } from './pages/NewAgent';
 import { NewSubmission } from './pages/NewSubmission';
 import { AgentDetails } from './pages/AgentDetails';
 import { SubmissionDetails } from './pages/SubmissionDetails';
@@ -51,6 +52,7 @@ function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="containers" element={<ContainerManagement />} />
+              <Route path="agents/new" element={<NewAgent />} />
               <Route path="submissions/new" element={<NewSubmission />} />
               <Route path="submissions/:id" element={<SubmissionDetails />} />
               <Route path="agents/:id" element={<AgentDetails />} />

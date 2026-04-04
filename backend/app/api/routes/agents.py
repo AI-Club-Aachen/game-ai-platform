@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_agent_service, get_current_user
-from app.api.services.agent import AgentNotFoundError, AgentPermissionError, AgentService
+from app.api.services.agent import AgentNotFoundError, AgentPermissionError, AgentService, AgentValidationError
 from app.models.user import User, UserRole
 from app.schemas.agent import AgentCreate, AgentRead, AgentUpdate
 
@@ -24,7 +24,12 @@ def create_agent(
     """
     if agent_create.user_id != current_user.id and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot create agent for another user")
-    return service.create_agent(agent_create)
+    try:
+        return service.create_agent(agent_create)
+    except AgentPermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except AgentValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/{agent_id}", response_model=AgentRead)
@@ -77,6 +82,8 @@ def update_agent(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except AgentPermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except AgentValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -74,16 +74,18 @@ def get_submission_service(
 def get_match_service(
     repository: Annotated[MatchRepository, Depends(get_match_repository)],
     job_repository: Annotated[JobRepository, Depends(get_job_repository)],
+    agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
 ) -> MatchService:
     """Provide a MatchService with an injected Repository."""
-    return MatchService(repository, job_repository)
+    return MatchService(repository, job_repository, agent_repository)
 
 
 def get_agent_service(
     repository: Annotated[AgentRepository, Depends(get_agent_repository)],
+    submission_repository: Annotated[SubmissionRepository, Depends(get_submission_repository)],
 ) -> AgentService:
     """Provide an AgentService with an injected AgentRepository."""
-    return AgentService(repository)
+    return AgentService(repository, submission_repository)
 
 
 def get_email_client() -> EmailClient:

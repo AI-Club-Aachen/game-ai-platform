@@ -5,6 +5,8 @@ from uuid import UUID
 
 from redis import asyncio as aioredis
 
+from app.core.config import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class JobQueue:
 
     async def close(self) -> None:
         if self._redis:
-            await self._redis.close()
+            await getattr(self._redis, "aclose", self._redis.close)()
             self._redis = None
 
     async def _enqueue(self, queue_name: str, payload: dict[str, Any]) -> None:
@@ -62,4 +64,4 @@ class JobQueue:
 
 
 # Singleton instance
-job_queue = JobQueue()
+job_queue = JobQueue(redis_url=settings.REDIS_URL)

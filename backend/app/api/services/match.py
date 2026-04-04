@@ -1,8 +1,11 @@
 from collections.abc import Sequence
 from typing import Any
+from uuid import UUID
 
+from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
+from app.api.services.submission_builds import submission_has_successful_build
 from app.core.queue import job_queue
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
@@ -16,19 +19,27 @@ class MatchServiceError(Exception):
 class MatchService:
     """Service for managing matches."""
 
-    def __init__(self, match_repository: MatchRepository, job_repository: JobRepository) -> None:
+    def __init__(
+        self,
+        match_repository: MatchRepository,
+        job_repository: JobRepository,
+        agent_repository: AgentRepository,
+    ) -> None:
         self._repository = match_repository
         self._job_repository = job_repository
+        self._agent_repository = agent_repository
 
     async def create_match(
         self,
         game_type: GameType,
         config: dict[str, Any],
-        agent_ids: list[Any],
+        agent_ids: list[UUID],
     ) -> Match:
         """
         Create a match and queue it for execution.
         """
+        self._validate_agents_for_match(game_type, agent_ids)
+
         match = Match(
             game_type=game_type, status=MatchStatus.QUEUED, config=config, agent_ids=[str(i) for i in agent_ids]
         )
@@ -81,8 +92,9 @@ class MatchService:
         if not job:
             return None
 
-        job.status = status
-        job.logs += logs + "\n"
+        job.status = JobStatus(status)
+        if logs is not None:
+            job.logs += logs + "\n"
         if result is not None:
             job.result = result
 
@@ -104,3 +116,18 @@ class MatchService:
         limit: int,
     ) -> Sequence[Match]:
         return self._repository.list_matches(skip, limit)
+
+    def _validate_agents_for_match(self, game_type: GameType, agent_ids: list[UUID]) -> None:
+        agents = self._agent_repository.list_by_ids(agent_ids)
+        if len(agents) != len(agent_ids):
+            raise MatchServiceError("One or more agents were not found")
+
+        agents_by_id = {agent.id: agent for agent in agents}
+        for agent_id in agent_ids:
+            agent = agents_by_id[agent_id]
+            if agent.game_type != game_type:
+                raise MatchServiceError(f"Agent {agent.id} does not belong to game '{game_type}'")
+            if agent.active_submission is None:
+                raise MatchServiceError(f"Agent {agent.id} does not have an active submission")
+            if not submission_has_successful_build(agent.active_submission):
+                raise MatchServiceError(f"Agent {agent.id} does not have a successful active submission")

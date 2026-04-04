@@ -4,8 +4,9 @@ import { defineConfig, devices } from '@playwright/test';
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-// import dotenv from 'dotenv';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -74,7 +75,7 @@ export default defineConfig({
                 storageState: 'tests/.auth/user.json',
             },
             dependencies: ['setup'],
-            testMatch: ['**/protected.spec.ts'], // Tests that require login
+            testMatch: ['**/e2e/user/*.spec.ts'], // Tests that require login
         },
 
         // 3. ADMIN TESTS (Authenticated as Admin)
@@ -91,9 +92,10 @@ export default defineConfig({
 
 
     /* Run your local dev server before starting the tests */
-    // webServer: {
-    //   command: 'npm run start',
-    //   url: 'http://127.0.0.1:3000',
-    //   reuseExistingServer: !process.env.CI,
-    // },
+    webServer: {
+        command: 'bun run dev --port 3000 --host',
+        url: 'http://127.0.0.1:3000',
+        reuseExistingServer: true,
+        timeout: 120000,
+    },
 });

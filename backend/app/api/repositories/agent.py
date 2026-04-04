@@ -29,6 +29,22 @@ class AgentRepository:
         statement = select(Agent).where(Agent.user_id == user_id)
         return list(self._session.exec(statement).all())
 
+    def list_by_ids(self, agent_ids: list[UUID]) -> list[Agent]:
+        if not agent_ids:
+            return []
+        statement = select(Agent).where(Agent.id.in_(agent_ids))
+        return list(self._session.exec(statement).all())
+
+    def list_by_active_submission_id(self, submission_id: UUID) -> list[Agent]:
+        statement = select(Agent).where(Agent.active_submission_id == submission_id)
+        return list(self._session.exec(statement).all())
+
+    def count_by_user_and_game(self, user_id: UUID, game_type: str) -> int:
+        statement = (
+            select(func.count()).select_from(Agent).where(Agent.user_id == user_id, Agent.game_type == game_type)
+        )
+        return self._session.exec(statement).one()
+
     def list_agents(
         self,
         skip: int,

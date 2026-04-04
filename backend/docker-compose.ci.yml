@@ -8,6 +8,8 @@ services:
 
   db:
     image: postgres:16-alpine
+    env_file:
+      - ../.env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -24,6 +26,8 @@ services:
 
   backend:
     build: .
+    env_file:
+      - ../.env
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
@@ -44,14 +48,54 @@ services:
       PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: ${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES}
       ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:3000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      RATE_LIMITING_ENABLED: ${RATE_LIMITING_ENABLED:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-key-12345}
     depends_on:
       db:
         condition: service_healthy
-    # No volumes - use code from image
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - app-network
+
+  agent-builder:
+    build:
+      context: ../orchestration
+      dockerfile: Dockerfile.worker
+    env_file:
+      - ../.env
+    working_dir: /worker
+    command: python agent_builder_worker.py
+    environment:
+      BACKEND_URL: ${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-key-12345}
+      LOG_LEVEL: ${WORKER_LOG_LEVEL:-INFO}
+      BUILD_LOCAL_BASE_IMAGE: ${BUILD_LOCAL_BASE_IMAGE:-False}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - uploads_data:/app/uploads
+      - ../gamelib:/gamelib
+    user: root
     networks:
       - app-network
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  uploads_data:

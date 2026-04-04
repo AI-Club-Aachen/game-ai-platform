@@ -12,6 +12,7 @@ from app.api.deps import get_email_client, get_email_notification_service
 from app.api.routes import auth, email, users
 from app.api.services.email import EmailNotificationService
 from app.core.config import settings
+from app.core.queue import job_queue
 from app.db.session import get_session
 from app.main import app
 from tests.fakes import FakeEmailClient
@@ -131,6 +132,16 @@ def override_rate_limiter():
     email.limiter.enabled = False
     users.limiter.enabled = False
     app.state.limiter = test_limiter
+
+
+@pytest.fixture(autouse=True)
+async def reset_job_queue():
+    """
+    Ensure the global job_queue's redis connection is closed between tests,
+    otherwise subsequent tests will attempt to use a connection attached to a closed event loop.
+    """
+    yield
+    await job_queue.close()
 
 
 # Tell pytest-anyio to use only asyncio, so tests are not duplicated for trio.

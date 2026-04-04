@@ -48,3 +48,6 @@ backend/postgres_data/
 
 # Postgres database
 postgres_data/
+
+# testing
+.artifacts/

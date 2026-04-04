@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session
@@ -41,8 +39,12 @@ async def test_build_job_flow(
     db_session.add(user)
     db_session.commit()
 
-    agent_id = uuid4()
-    submission = Submission(user_id=user.id, agent_id=agent_id, object_path="path/to/zip")
+    submission = Submission(
+        user_id=user.id,
+        name="test_sub",
+        game_type=GameType.TICTACTOE,
+        object_path="path/to/zip",
+    )
     submission = submission_repository.save(submission)
 
     job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
