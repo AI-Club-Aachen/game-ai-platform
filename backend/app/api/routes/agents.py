@@ -56,11 +56,17 @@ def list_agents(
     service: AgentService = Depends(get_agent_service),
     skip: int = 0,
     limit: int = 20,
+    all_users: bool = False,
 ) -> list[AgentRead]:
     """
-    List agents for the current user.
+    List agents.
+    If all_users is True and user is admin, lists all agents.
+    Otherwise lists agents for the current user.
     """
-    agents, _ = service.list_user_agents(current_user.id, skip, limit)
+    if all_users and current_user.role == UserRole.ADMIN:
+        agents, _ = service.list_agents(skip=skip, limit=limit, user_id=None)
+    else:
+        agents, _ = service.list_agents(skip=skip, limit=limit, user_id=current_user.id)
     return agents
 
 

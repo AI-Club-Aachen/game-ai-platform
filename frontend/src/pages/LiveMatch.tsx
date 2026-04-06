@@ -1,61 +1,258 @@
+import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Container, Typography, Card, CardContent, Button, Chip } from '@mui/material';
-import { Visibility, ArrowBack, Videocam } from '@mui/icons-material';
+import {
+  Box,
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
+import {
+  ArrowBack,
+  FiberManualRecord,
+  SignalWifiOff,
+  CheckCircle,
+  Error as ErrorIcon,
+  HourglassEmpty,
+} from '@mui/icons-material';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { useMatchStream } from '../hooks/useMatchStream';
+import { getGameRenderer } from '../components/game-renderers';
+import { fromApiGameType, getGameById } from '../config/games';
+
+/** Map match status to a user-friendly chip */
+function StatusChip({ status }: { status: string | null }) {
+  if (!status) return null;
+
+  const config: Record<string, { label: string; color: 'default' | 'success' | 'error' | 'warning' | 'info' }> = {
+    queued: { label: 'Queued', color: 'default' },
+    running: { label: 'Live', color: 'error' },
+    completed: { label: 'Completed', color: 'success' },
+    failed: { label: 'Failed', color: 'error' },
+    client_error: { label: 'Client Error', color: 'warning' },
+  };
+
+  const { label, color } = config[status] ?? { label: status, color: 'default' as const };
+
+  return (
+    <Chip
+      icon={status === 'running' ? (
+        <FiberManualRecord sx={{
+          fontSize: 10,
+          animation: 'pulse 1.5s ease-in-out infinite',
+          '@keyframes pulse': {
+            '0%, 100%': { opacity: 1 },
+            '50%': { opacity: 0.3 },
+          },
+        }} />
+      ) : undefined}
+      label={label}
+      color={color}
+      size="small"
+      sx={{ fontWeight: 600 }}
+    />
+  );
+}
+
+/** Connection status indicator */
+function ConnectionIndicator({ isConnected, error }: { isConnected: boolean; error: string | null }) {
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <SignalWifiOff sx={{ fontSize: 14, color: 'warning.main' }} />
+        <Typography variant="caption" color="warning.main">
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <FiberManualRecord
+        sx={{
+          fontSize: 8,
+          color: isConnected ? 'success.main' : 'text.disabled',
+        }}
+      />
+      <Typography variant="caption" color="text.secondary">
+        {isConnected ? 'Connected' : 'Connecting...'}
+      </Typography>
+    </Box>
+  );
+}
+
+/** Result summary for completed/failed matches */
+function MatchResult({ result, status }: { result: any; status: string | null }) {
+  if (!result || !status) return null;
+
+  const isError = status === 'failed' || status === 'client_error';
+
+  if (isError) {
+    return (
+      <Alert severity="error" icon={<ErrorIcon />} sx={{ mt: 2 }}>
+        <Typography variant="body2" fontWeight={600}>
+          Match {status === 'failed' ? 'Failed' : 'Client Error'}
+        </Typography>
+        {result.reason && (
+          <Typography variant="body2" color="text.secondary">
+            {result.reason}
+          </Typography>
+        )}
+      </Alert>
+    );
+  }
+
+  if (status === 'completed') {
+    return (
+      <Alert severity="success" icon={<CheckCircle />} sx={{ mt: 2 }}>
+        <Typography variant="body2" fontWeight={600}>
+          Match Complete
+        </Typography>
+        {result.winner && (
+          <Typography variant="body2" color="text.secondary">
+            Winner: {result.winner === 'draw' ? 'Draw' : result.winner.slice(0, 8) + '…'}
+          </Typography>
+        )}
+        {result.reason && (
+          <Typography variant="body2" color="text.secondary">
+            {result.reason}
+          </Typography>
+        )}
+      </Alert>
+    );
+  }
+
+  return null;
+}
 
 export function LiveMatch() {
   const { matchId } = useParams<{ matchId: string }>();
   const goBack = useSmartBack('/games/matches');
 
-  // Stub data depending on matchId
-  const selectedMatchData = {
-    id: matchId || 'match_1',
-    player1: { name: 'AImaster', agent: 'GammaNet v1.5', score: 45 },
-    player2: { name: 'BotBuilder', agent: 'DeepMind v2.0', score: 42 },
-    gameType: 'Chess AI',
-    startedAt: '10 min ago',
-    viewers: 127,
-    round: 15,
-    maxRounds: 50,
-  };
+  const {
+    gameState,
+    matchStatus,
+    gameType,
+    agentIds,
+    result,
+    isConnected,
+    error,
+  } = useMatchStream(matchId);
+
+  // Resolve game metadata from config
+  const gameInfo = useMemo(() => {
+    if (!gameType) return null;
+    const frontendId = fromApiGameType(gameType);
+    return getGameById(frontendId);
+  }, [gameType]);
+
+  // Get the correct renderer component for this game type
+  const GameRenderer = useMemo(() => {
+    if (!gameType) return null;
+    return getGameRenderer(gameType);
+  }, [gameType]);
+
+  const isLoading = matchStatus === null;
+  const isTerminal = matchStatus === 'completed' || matchStatus === 'failed' || matchStatus === 'client_error';
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 3 }} variant="text">
-        Back to Matches
-      </Button>
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      {/* Back button + connection status */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Button startIcon={<ArrowBack />} onClick={goBack} variant="text">
+          Back to Matches
+        </Button>
+        <ConnectionIndicator isConnected={isConnected} error={error} />
+      </Box>
+
+      {/* Match header */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, flexGrow: 1 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h6">{selectedMatchData.player1.name}</Typography>
-                <Typography variant="body2" color="text.secondary">{selectedMatchData.player1.agent}</Typography>
-                <Typography variant="h4" color="primary" sx={{ mt: 1 }}>{selectedMatchData.player1.score}</Typography>
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                {gameInfo && (
+                  <Typography variant="h5" sx={{ fontSize: '1.5rem' }}>
+                    {gameInfo.icon === 'tictactoe' ? '⭕' : gameInfo.icon === 'chess' ? '♟️' : '🎮'}
+                  </Typography>
+                )}
+                <Typography variant="h5" fontWeight={700}>
+                  {gameInfo?.name ?? gameType ?? 'Loading...'}
+                </Typography>
+                <StatusChip status={matchStatus} />
               </Box>
-              <Typography variant="h5" color="text.secondary">VS</Typography>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h6">{selectedMatchData.player2.name}</Typography>
-                <Typography variant="body2" color="text.secondary">{selectedMatchData.player2.agent}</Typography>
-                <Typography variant="h4" color="primary" sx={{ mt: 1 }}>{selectedMatchData.player2.score}</Typography>
-              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Match {matchId?.slice(0, 8)}…
+              </Typography>
             </Box>
+
+            {/* Agents */}
+            {agentIds.length > 0 && (
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                {agentIds.map((id, i) => (
+                  <Chip
+                    key={id}
+                    variant="outlined"
+                    size="small"
+                    label={`Player ${i + 1}: ${id.slice(0, 8)}…`}
+                    sx={{
+                      borderColor: i === 0 ? '#6366f1' : '#f43f5e',
+                      color: i === 0 ? '#6366f1' : '#f43f5e',
+                      fontWeight: 500,
+                      fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                      fontSize: '0.75rem',
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
           </Box>
         </CardContent>
       </Card>
-      <Card sx={{ mb: 3, minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CardContent sx={{ textAlign: 'center' }}>
-          <Videocam sx={{ fontSize: 56, mb: 2, color: 'primary.main' }} />
-          <Typography variant="h4" gutterBottom>Match Visualization</Typography>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Round {selectedMatchData.round} of {selectedMatchData.maxRounds}</Typography>
-          <Chip label="LIVE" color="error" sx={{ mt: 2 }} />
+
+      {/* Game visualization */}
+      <Card sx={{ mb: 3, minHeight: 360 }}>
+        <CardContent>
+          {isLoading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 2 }}>
+              <CircularProgress size={40} />
+              <Typography color="text.secondary">
+                Connecting to match…
+              </Typography>
+            </Box>
+          ) : matchStatus === 'queued' ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 2 }}>
+              <HourglassEmpty sx={{ fontSize: 48, color: 'text.secondary' }} />
+              <Typography variant="h6" color="text.secondary">
+                Match is queued
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Waiting for the match to start…
+              </Typography>
+            </Box>
+          ) : GameRenderer ? (
+            <GameRenderer
+              gameState={gameState}
+              gameType={gameType!}
+              agentIds={agentIds}
+            />
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="text.secondary">
+                No renderer available for game type: {gameType}
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 3 }}>
-        <Card><CardContent><Typography variant="body2" color="text.secondary">Game</Typography><Typography variant="h6">{selectedMatchData.gameType}</Typography></CardContent></Card>
-        <Card><CardContent><Typography variant="body2" color="text.secondary">Started</Typography><Typography variant="h6">{selectedMatchData.startedAt}</Typography></CardContent></Card>
-        <Card><CardContent><Typography variant="body2" color="text.secondary">Viewers</Typography><Typography variant="h6"><Visibility sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} />{selectedMatchData.viewers}</Typography></CardContent></Card>
-      </Box>
+
+      {/* Match result (shown for terminal states) */}
+      {isTerminal && <MatchResult result={result} status={matchStatus} />}
     </Container>
   );
 }

@@ -28,9 +28,17 @@ class MatchRepository:
         self,
         skip: int,
         limit: int,
+        game_type: str | None = None,
+        status: str | None = None,
     ) -> Sequence[Match]:
         """List matches with pagination."""
-        statement = select(Match).offset(skip).limit(limit).order_by(Match.created_at.desc())
+        statement = select(Match)
+        if game_type is not None:
+            statement = statement.where(Match.game_type == game_type)
+        if status is not None:
+            statement = statement.where(Match.status == status)
+            
+        statement = statement.offset(skip).limit(limit).order_by(Match.created_at.desc())
         return self._session.exec(statement).all()
 
     # --- Commands ---

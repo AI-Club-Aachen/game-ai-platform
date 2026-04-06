@@ -6,6 +6,7 @@ from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.submission_builds import submission_has_successful_build
+from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
@@ -57,7 +58,7 @@ class MatchService:
     def get_match(self, match_id: str) -> Match | None:
         return self._repository.get_by_id(match_id)
 
-    def update_match(
+    async def update_match(
         self,
         match_id: str,
         status: str,
@@ -77,9 +78,19 @@ class MatchService:
         if game_state is not None:
             match.game_state = game_state
 
-        return self._repository.save(match)
+        saved = self._repository.save(match)
 
-    def update_match_job(
+        # Publish game state update to Redis for SSE subscribers
+        await match_event_publisher.publish_game_state(
+            match_id=match_id,
+            game_state=saved.game_state or {},
+            status=saved.status.value,
+            result=saved.result,
+        )
+
+        return saved
+
+    async def update_match_job(
         self,
         job_id: str,
         status: str,
@@ -101,7 +112,7 @@ class MatchService:
         job = self._job_repository.save_match_job(job)
 
         # Sync with match
-        self.update_match(
+        await self.update_match(
             str(job.match_id),
             status,
             result=result,
@@ -114,8 +125,10 @@ class MatchService:
         self,
         skip: int,
         limit: int,
+        game_type: str | None = None,
+        status: MatchStatus | None = None,
     ) -> Sequence[Match]:
-        return self._repository.list_matches(skip, limit)
+        return self._repository.list_matches(skip, limit, game_type=game_type, status=status)
 
     def _validate_agents_for_match(self, game_type: GameType, agent_ids: list[UUID]) -> None:
         agents = self._agent_repository.list_by_ids(agent_ids)

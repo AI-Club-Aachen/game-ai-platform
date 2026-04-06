@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, API_BASE_URL } from './client';
 
 /**
  * Matches API
@@ -7,21 +7,26 @@ export const matchesApi = {
     /**
      * Get all matches
      */
-    getMatches: async (params?: { game_id?: string; user_id?: string }) => {
+    getMatches: async (params?: { game_type?: string; status?: string; skip?: number; limit?: number }) => {
         const queryParams = new URLSearchParams();
-        if (params?.game_id) queryParams.append('game_id', params.game_id);
-        if (params?.user_id) queryParams.append('user_id', params.user_id);
+        if (params?.game_type) queryParams.append('game_type', params.game_type);
+        if (params?.status) queryParams.append('status', params.status);
+        if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString());
+        if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
 
         const queryString = queryParams.toString();
         const endpoint = queryString ? `/matches?${queryString}` : '/matches';
 
         return apiRequest<Array<{
             id: string;
-            game_id: string;
+            game_type: string;
             status: string;
             created_at: string;
-            completed_at?: string;
+            agent_ids: string[];
             result?: any;
+            game_state?: any;
+            updated_at: string;
+            config: any;
         }>>(endpoint, {
             method: 'GET',
         });
@@ -33,11 +38,14 @@ export const matchesApi = {
     getMatch: async (matchId: string) => {
         return apiRequest<{
             id: string;
-            game_id: string;
+            game_type: string;
             status: string;
             created_at: string;
-            completed_at?: string;
+            agent_ids: string[];
             result?: any;
+            game_state?: any;
+            updated_at: string;
+            config: any;
             players?: Array<{
                 user_id: string;
                 username: string;
@@ -52,15 +60,30 @@ export const matchesApi = {
      * Create a new match
      */
     createMatch: async (matchData: {
-        game_id: string;
-        player_submissions: string[];
+        game_type: string;
+        config: any;
+        agent_ids: string[];
     }) => {
         return apiRequest<{
-            match_id: string;
-            message: string;
+            id: string;
+            game_type: string;
+            status: string;
+            created_at: string;
+            agent_ids: string[];
+            result?: any;
+            game_state?: any;
+            updated_at: string;
+            config: any;
         }>('/matches', {
             method: 'POST',
             body: JSON.stringify(matchData),
         });
+    },
+
+    /**
+     * Get the SSE stream URL for spectating a match
+     */
+    getMatchStreamUrl: (matchId: string): string => {
+        return `${API_BASE_URL}/matches/${matchId}/stream`;
     },
 };

@@ -81,6 +81,10 @@ export function Sidebar({ onToggle }: SidebarProps) {
               <ManageAccounts />
               {!isCollapsed && <span>Container Management</span>}
             </Link>
+            <Link to="/matches-admin" className="sidebar-link">
+              <SportsEsports />
+              {!isCollapsed && <span>Match Management</span>}
+            </Link>
           </>
         )}
       </nav>

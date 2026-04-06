@@ -75,13 +75,13 @@ def get_match_job(
 
 
 @router.patch("/match/{job_id}", response_model=MatchJobRead)
-def update_match_job(
+async def update_match_job(
     job_id: UUID,
     update: MatchJobUpdate,
     match_service: Annotated[MatchService, Depends(get_match_service)],
 ) -> MatchJobRead:
     """Update a match job (used by workers)."""
-    job = match_service.update_match_job(
+    job = await match_service.update_match_job(
         str(job_id),
         update.status,
         update.logs,
