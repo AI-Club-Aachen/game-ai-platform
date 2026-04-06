@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import get_match_service, get_current_user
+from app.api.deps import get_current_user, get_match_service
 from app.api.services.match import MatchService, MatchServiceError
 from app.core.match_events import subscribe_match_events
 from app.models.game import GameType

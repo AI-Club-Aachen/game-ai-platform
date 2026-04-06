@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -10,6 +10,8 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Slider,
+  IconButton,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -18,6 +20,10 @@ import {
   CheckCircle,
   Error as ErrorIcon,
   HourglassEmpty,
+  PlayArrow,
+  Pause,
+  SkipPrevious,
+  SkipNext,
 } from '@mui/icons-material';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { useMatchStream } from '../hooks/useMatchStream';
@@ -160,6 +166,40 @@ export function LiveMatch() {
   const isLoading = matchStatus === null;
   const isTerminal = matchStatus === 'completed' || matchStatus === 'failed' || matchStatus === 'client_error';
 
+  // --- Replay State Logic ---
+  const history: any[] = useMemo(() => result?.history || [], [result?.history]);
+  const hasHistory = isTerminal && history.length > 0;
+  
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Set replay index to end when history first becomes available
+  useEffect(() => {
+    if (hasHistory) {
+      setReplayIndex(history.length - 1);
+    }
+  }, [hasHistory, history.length]);
+
+  // Auto-play interval
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (isPlaying && hasHistory) {
+      timer = setInterval(() => {
+        setReplayIndex((prev) => {
+          if (prev >= history.length - 1) {
+            setIsPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000); // 1 state per second playback
+    }
+    return () => clearInterval(timer);
+  }, [isPlaying, hasHistory, history.length]);
+
+  // The state to render: if we have history, use the selected replay frame, else use the live frame
+  const displayedGameState = hasHistory ? history[replayIndex] : gameState;
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {/* Back button + connection status */}
@@ -236,11 +276,65 @@ export function LiveMatch() {
               </Typography>
             </Box>
           ) : GameRenderer ? (
-            <GameRenderer
-              gameState={gameState}
-              gameType={gameType!}
-              agentIds={agentIds}
-            />
+            <Box>
+              <GameRenderer
+                gameState={displayedGameState}
+                gameType={gameType!}
+                agentIds={agentIds}
+              />
+              
+              {/* Replay Controls (Only shown if history is available) */}
+              {hasHistory && (
+                <Box sx={{ mt: 4, px: 2, bg: 'background.paper', borderRadius: 2, p: 2, border: 1, borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Match Replay</span>
+                    <span>Turn {replayIndex} / {history.length - 1}</span>
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <IconButton 
+                      size="small" 
+                      disabled={replayIndex === 0}
+                      onClick={() => setReplayIndex(0)}
+                    >
+                      <SkipPrevious />
+                    </IconButton>
+                    <IconButton
+                      color="primary"
+                      onClick={() => {
+                        if (isPlaying) {
+                          setIsPlaying(false);
+                        } else {
+                          if (replayIndex >= history.length - 1) {
+                            setReplayIndex(0); // Restart if at end
+                          }
+                          setIsPlaying(true);
+                        }
+                      }}
+                    >
+                      {isPlaying ? <Pause /> : <PlayArrow />}
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      disabled={replayIndex >= history.length - 1}
+                      onClick={() => setReplayIndex(history.length - 1)}
+                    >
+                      <SkipNext />
+                    </IconButton>
+                    <Slider
+                      value={replayIndex}
+                      min={0}
+                      max={history.length > 0 ? history.length - 1 : 0}
+                      step={1}
+                      onChange={(_, newVal) => {
+                        setIsPlaying(false); // Pause when seeking
+                        setReplayIndex(newVal as number);
+                      }}
+                      sx={{ ml: 2, flex: 1 }}
+                    />
+                  </Box>
+                </Box>
+              )}
+            </Box>
           ) : (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography color="text.secondary">

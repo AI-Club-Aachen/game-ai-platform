@@ -108,6 +108,10 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         reason = ""
         turn_count = 0
 
+        # Initialize history with initial state
+        state_dict = json.loads(state.to_json())
+        history = [state_dict]
+
         # Send states and get moves from agents
         try:
             while not engine.is_game_over(state):
@@ -140,6 +144,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 try:
                     state_json_str = state.to_json()
                     state_dict = json.loads(state_json_str)
+                    history.append(state_dict)
                     await api.update_match(match_id, status="running", game_state=state_dict)
                     logger.debug(f"[{match_id}] Turn {turn_count}: backend state updated")
                 except Exception as e:
@@ -171,6 +176,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             "winner": winner_result,
             "scores": scores,
             "reason": reason,
+            "history": history,
         }
         logger.debug(f"[{match_id}] Match result: {result}")
         return result
