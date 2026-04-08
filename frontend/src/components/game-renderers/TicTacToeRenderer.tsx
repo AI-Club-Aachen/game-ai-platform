@@ -6,44 +6,53 @@ import type { GameRendererProps } from './index';
  * -1 = empty, 0 = Player 0 (X), 1 = Player 1 (O)
  */
 function CellContent({ value }: { value: number }) {
+  const baseStyle = {
+    position: 'absolute' as const,
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    animation: 'cellPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    '@keyframes cellPop': {
+      '0%': { transform: 'scale(0)', opacity: 0 },
+      '100%': { transform: 'scale(1)', opacity: 1 },
+    },
+  };
+
   if (value === 0) {
     return (
-      <Typography
-        sx={{
-          fontSize: '2.5rem',
-          fontWeight: 800,
-          lineHeight: 1,
-          color: '#6366f1',
-          textShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
-          animation: 'cellPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          '@keyframes cellPop': {
-            '0%': { transform: 'scale(0)', opacity: 0 },
-            '100%': { transform: 'scale(1)', opacity: 1 },
-          },
-        }}
-      >
-        ✕
-      </Typography>
+      <Box sx={baseStyle}>
+        <Typography
+          sx={{
+            fontSize: '2.5rem',
+            fontWeight: 800,
+            lineHeight: 1,
+            color: '#6366f1',
+            textShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+            userSelect: 'none',
+          }}
+        >
+          ✕
+        </Typography>
+      </Box>
     );
   }
   if (value === 1) {
     return (
-      <Typography
-        sx={{
-          fontSize: '2.5rem',
-          fontWeight: 800,
-          lineHeight: 1,
-          color: '#f43f5e',
-          textShadow: '0 0 20px rgba(244, 63, 94, 0.4)',
-          animation: 'cellPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          '@keyframes cellPop': {
-            '0%': { transform: 'scale(0)', opacity: 0 },
-            '100%': { transform: 'scale(1)', opacity: 1 },
-          },
-        }}
-      >
-        ○
-      </Typography>
+      <Box sx={baseStyle}>
+        <Typography
+          sx={{
+            fontSize: '2.5rem',
+            fontWeight: 800,
+            lineHeight: 1,
+            color: '#f43f5e',
+            textShadow: '0 0 20px rgba(244, 63, 94, 0.4)',
+            userSelect: 'none',
+          }}
+        >
+          ○
+        </Typography>
+      </Box>
     );
   }
   return null;
@@ -105,28 +114,34 @@ export function TicTacToeRenderer({ gameState, agentIds }: GameRendererProps) {
         py: 2,
       }}
     >
-      {/* Turn / Status indicator */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {!isGameOver && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
-              sx={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                backgroundColor: turn === 0 ? '#6366f1' : '#f43f5e',
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': {
-                  '0%, 100%': { opacity: 1 },
-                  '50%': { opacity: 0.4 },
-                },
-              }}
-            />
-            <Typography variant="body1" fontWeight={600}>
-              {turn === 0 ? 'Player 1' : 'Player 2'}'s turn
-            </Typography>
-          </Box>
-        )}
+      {/* Turn / Status indicator — always rendered to prevent layout shift */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: 32 }}>
+        {/* Turn label: always occupies space, hidden when game is over */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            visibility: isGameOver ? 'hidden' : 'visible',
+          }}
+        >
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              backgroundColor: turn === 0 ? '#6366f1' : '#f43f5e',
+              animation: 'pulse 1.5s ease-in-out infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.4 },
+              },
+            }}
+          />
+          <Typography variant="body1" fontWeight={600}>
+            {turn === 0 ? 'Player 1' : 'Player 2'}'s turn
+          </Typography>
+        </Box>
         <Chip
           label={statusInfo.text}
           size="small"
@@ -173,9 +188,8 @@ export function TicTacToeRenderer({ gameState, agentIds }: GameRendererProps) {
           <Box
             key={index}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden',
               backgroundColor: 'background.paper',
               transition: 'background-color 0.2s ease',
               cursor: 'default',

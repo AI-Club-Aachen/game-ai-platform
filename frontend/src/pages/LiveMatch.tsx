@@ -256,8 +256,8 @@ export function LiveMatch() {
       </Card>
 
       {/* Game visualization */}
-      <Card sx={{ mb: 3, minHeight: 360 }}>
-        <CardContent>
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ minHeight: 360, boxSizing: 'border-box' }}>
           {isLoading ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 2 }}>
               <CircularProgress size={40} />
