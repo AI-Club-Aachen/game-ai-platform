@@ -29,6 +29,7 @@ import { useSmartBack } from '../hooks/use-smart-back';
 import { useMatchStream } from '../hooks/useMatchStream';
 import { getGameRenderer } from '../components/game-renderers';
 import { fromApiGameType, getGameById } from '../config/games';
+import { agentsApi } from '../services/api/agents';
 
 /** Map match status to a user-friendly chip */
 function StatusChip({ status }: { status: string | null }) {
@@ -140,6 +141,19 @@ export function LiveMatch() {
   const { matchId } = useParams<{ matchId: string }>();
   const goBack = useSmartBack('/games/matches');
 
+  const [agentMap, setAgentMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    agentsApi.getAgents(0, 1000, true)
+      .then(res => {
+        const agentsData = Array.isArray(res) ? res : (res as any).data || [];
+        const map: Record<string, string> = {};
+        agentsData.forEach((a: any) => { map[a.id] = a.name; });
+        setAgentMap(map);
+      })
+      .catch(err => console.error("Failed to load agents", err));
+  }, []);
+
   const {
     gameState,
     matchStatus,
@@ -239,7 +253,7 @@ export function LiveMatch() {
                     key={id}
                     variant="outlined"
                     size="small"
-                    label={`Player ${i + 1}: ${id.slice(0, 8)}…`}
+                    label={`${agentMap[id] || id.slice(0, 8) + '...'}`}
                     sx={{
                       borderColor: i === 0 ? '#6366f1' : '#f43f5e',
                       color: i === 0 ? '#6366f1' : '#f43f5e',

@@ -85,19 +85,15 @@ export function MatchManagement() {
   }, [fetchMatches]);
 
   useEffect(() => {
-    if (createDialogOpen) {
-      setLoadingAgents(true);
-      // Fetch all agents when dialog opens, using all_users=true
-      agentsApi.getAgents(0, 1000, true)
-        .then(res => {
-          // Check if response is {data, total} or just array
-          const agentsData = Array.isArray(res) ? res : (res as any).data || [];
-          setAgents(agentsData);
-        })
-        .catch(err => console.error("Failed to fetch agents", err))
-        .finally(() => setLoadingAgents(false));
-    }
-  }, [createDialogOpen]);
+    setLoadingAgents(true);
+    agentsApi.getAgents(0, 1000, true)
+      .then(res => {
+        const agentsData = Array.isArray(res) ? res : (res as any).data || [];
+        setAgents(agentsData);
+      })
+      .catch(err => console.error("Failed to fetch agents", err))
+      .finally(() => setLoadingAgents(false));
+  }, []);
 
   const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
 
@@ -263,7 +259,10 @@ export function MatchManagement() {
                     </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                       {match.agent_ids && match.agent_ids.length > 0
-                        ? match.agent_ids.join(', ')
+                        ? match.agent_ids.map((id: string) => {
+                            const found = agents.find(a => a.id === id);
+                            return found ? found.name : id.substring(0, 8) + '...';
+                          }).join(', ')
                         : 'None'}
                     </TableCell>
                     <TableCell align="right">
