@@ -282,7 +282,20 @@ export function AgentDetails() {
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Game</Typography>
-                                    <Typography variant="body1">{game?.name || gameId}</Typography>
+                                    <Typography 
+                                        variant="body1" 
+                                        onClick={() => navigate(`/games/${gameId}`)}
+                                        sx={{ 
+                                            cursor: 'pointer', 
+                                            transition: 'color 0.2s',
+                                            '&:hover': {
+                                                textDecoration: 'underline',
+                                                color: 'primary.main',
+                                            }
+                                        }}
+                                    >
+                                        {game?.name || gameId}
+                                    </Typography>
                                 </Box>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Created</Typography>
