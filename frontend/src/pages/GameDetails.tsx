@@ -11,7 +11,7 @@ import {
     PanoramaFishEye, Casino, Videocam, History, ArrowForward,
     AddCircleOutline, SmartToy, FiberManualRecord,
 } from '@mui/icons-material';
-import { fromApiGameType, getGameById } from '../config/games';
+import { fromApiGameType, toApiGameType, getGameById } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
@@ -22,7 +22,7 @@ import { palette, overlays } from '../theme';
 
 interface Match {
     id: string;
-    game_id: string;
+    game_type: string;
     status: string;
     created_at: string;
     completed_at?: string;
@@ -170,7 +170,7 @@ export function GameDetails() {
         if (!gameId) return;
 
         // Matches
-        matchesApi.getMatches({ game_id: gameId })
+        matchesApi.getMatches({ game_type: toApiGameType(gameId) })
             .then(data => setMatches(data))
             .catch(err => setMatchesError(err.message || 'Failed to load matches'))
             .finally(() => setMatchesLoading(false));
