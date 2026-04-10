@@ -1,6 +1,7 @@
 import importlib
 import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +16,26 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
+DEFAULT_MAX_TURN_TIME_LIMIT: float = 120.0  # seconds
+
+
+def _load_max_turn_time_limit() -> float:
+    raw = os.getenv("MAX_TURN_TIME_LIMIT_SECONDS", str(DEFAULT_MAX_TURN_TIME_LIMIT))
+    try:
+        value = float(raw)
+        if value <= 0:
+            raise ValueError("must be > 0")
+        return value
+    except (TypeError, ValueError):
+        logger.warning(
+            "Invalid MAX_TURN_TIME_LIMIT_SECONDS %r, using default %ss",
+            raw,
+            DEFAULT_MAX_TURN_TIME_LIMIT,
+        )
+        return DEFAULT_MAX_TURN_TIME_LIMIT
+
+
+MAX_TURN_TIME_LIMIT: float = _load_max_turn_time_limit()
 
 
 @dataclass(frozen=True)
@@ -40,6 +61,14 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
     except (TypeError, ValueError):
         logger.warning(f"Invalid turn_time_limit {raw!r}, using default {DEFAULT_TURN_TIME_LIMIT}s")
         return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
+
+    if turn_time_limit > MAX_TURN_TIME_LIMIT:
+        logger.warning(
+            "turn_time_limit %ss exceeds max %ss; clamping to max",
+            turn_time_limit,
+            MAX_TURN_TIME_LIMIT,
+        )
+        turn_time_limit = MAX_TURN_TIME_LIMIT
 
     return MatchConfig(turn_time_limit=turn_time_limit if turn_time_limit > 0 else None)
 
@@ -173,6 +202,14 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         try:
             while not engine.is_game_over(state):
                 current_player = state.turn
+                if current_player < 0 or current_player >= len(agents):
+                    return {
+                        "status": "error",
+                        "reason": (
+                            f"Engine requested player index {current_player}, "
+                            f"but only {len(agents)} agent(s) were provided"
+                        ),
+                    }
                 cur_agent = agents[current_player]
                 turn_count += 1
                 logger.debug(f"[{match_id}] Turn {turn_count}: player {current_player}'s move")
@@ -184,14 +221,20 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     state_json = state.to_json()
                     logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
                     await cur_agent.send_state(state_json)
-                    # Allow some overhead here in time out but expect exact time limit in returned cpu_time
-                    raw_move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
+                    # Allow overhead for communication when a per-turn limit is enabled.
+                    # If the limit is disabled, wait indefinitely for a move.
+                    timeout_with_overhead = (
+                        parsed_config.turn_time_limit + 1.5
+                        if parsed_config.turn_time_limit is not None
+                        else None
+                    )
+                    raw_move_json = await cur_agent.get_move(timeout=timeout_with_overhead)
                     logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
                     parsed_output = json.loads(raw_move_json)
                     move_json = json.dumps(parsed_output.get("move", parsed_output))
                     cpu_time = parsed_output.get("cpu_time", 0.0)
 
-                    if cpu_time > parsed_config.turn_time_limit:
+                    if parsed_config.turn_time_limit is not None and cpu_time > parsed_config.turn_time_limit:
                         raise AgentTimeLimitError(f"Player {current_player} exceeded the per-turn time limit of " +
                                                   f"{parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)")
 
