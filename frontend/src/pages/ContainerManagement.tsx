@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, CardContent, Chip } from '@mui/material';
-import { Close, Refresh, PlayArrow, Stop, Delete, Lock, Storage, Article } from '@mui/icons-material';
+import { Close, Refresh, Stop, Delete, Lock, Storage, Article } from '@mui/icons-material';
 import { palette, overlays } from '../theme';
 import { containersApi } from '../services/api';
 
@@ -16,6 +16,7 @@ interface ContainerInfo {
   cpu: number;
   memory: number;
   agentName: string;
+  logs: string;
 }
 
 const formatUptime = (seconds: number): string => {
@@ -64,18 +65,6 @@ export function ContainerManagement() {
   const [containers, setContainers] = useState<ContainerInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [logs] = useState<string[]>([
-    '[2025-11-01 12:45:23] Container started successfully',
-    '[2025-11-01 12:45:24] Initializing AI agent...',
-    '[2025-11-01 12:45:25] Loading model weights...',
-    '[2025-11-01 12:45:26] Model loaded successfully',
-    '[2025-11-01 12:45:27] Connecting to game server...',
-    '[2025-11-01 12:45:28] Connection established',
-    '[2025-11-01 12:45:30] Ready to process game states',
-    '[2025-11-01 12:46:15] Processing game #12345',
-    '[2025-11-01 12:46:16] Move calculated: (5, 7)',
-    '[2025-11-01 12:46:17] Game #12345 completed - Victory!',
-  ]);
 
   const loadContainers = async () => {
     setIsLoading(true);
@@ -93,6 +82,7 @@ export function ContainerManagement() {
         cpu: Number(item.cpu_percent || 0),
         memory: Number(item.memory_mb || 0),
         agentName: item.agent_name || item.agent_id,
+        logs: item.logs || '',
       }));
       setContainers(mapped);
     } catch (error) {
@@ -130,6 +120,14 @@ export function ContainerManagement() {
   const runningCount = useMemo(() => containers.filter(c => c.status === 'running').length, [containers]);
   const stoppedCount = useMemo(() => containers.filter(c => c.status === 'stopped').length, [containers]);
   const errorCount = useMemo(() => containers.filter(c => c.status === 'error').length, [containers]);
+  const selectedContainerEntry = useMemo(
+    () => containers.find((container) => container.id === selectedContainer) || null,
+    [containers, selectedContainer],
+  );
+  const selectedContainerLogs = useMemo(
+    () => (selectedContainerEntry?.logs ? selectedContainerEntry.logs.split(/\r?\n/) : []),
+    [selectedContainerEntry],
+  );
 
   const statusDotColor = (color: string) => ({
     width: 10,
@@ -238,11 +236,13 @@ export function ContainerManagement() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Button variant="outlined" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
                         {container.status === 'running' && (
                           <>
                             <Button variant="outlined" size="small" color="error"><Stop fontSize="small" /></Button>
                           </>
+                        )}
+                        {container.status === 'stopped' && (
+                          <Button variant="outlined" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
                         )}
                         {container.status === 'error' && (
                           <Button variant="outlined" size="small" color="error"><Delete fontSize="small" /></Button>
@@ -279,14 +279,12 @@ export function ContainerManagement() {
               fontSize: '0.8125rem',
               lineHeight: 1.6,
             }}>
-              {logs.map((log, index) => (
+              {selectedContainerLogs.length === 0 && (
+                <Box sx={{ color: 'text.secondary' }}>No logs available for this container.</Box>
+              )}
+              {selectedContainerLogs.map((log, index) => (
                 <Box key={index} sx={{ mb: 0.5, color: 'text.secondary' }}>{log}</Box>
               ))}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              <Button variant="outlined" size="small">Download Logs</Button>
-              <Button variant="outlined" size="small">Clear</Button>
-              <Button variant="outlined" size="small">Refresh</Button>
             </Box>
           </CardContent>
         </Card>

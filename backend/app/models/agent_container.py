@@ -23,6 +23,7 @@ class AgentContainer(SQLModel, table=True):
     uptime_seconds: float = Field(default=0.0, nullable=False)
     cpu_percent: float = Field(default=0.0, nullable=False)
     memory_mb: float = Field(default=0.0, nullable=False)
+    logs: str | None = Field(default=None)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

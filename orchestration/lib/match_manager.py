@@ -90,6 +90,29 @@ def _uptime_seconds(started_at: datetime | None) -> float:
     return max(0.0, (datetime.now(UTC) - started_at).total_seconds())
 
 
+def _collect_container_logs(agents: list[AgentProcess], match_id: str) -> dict[str, str]:
+    logs_by_container_id: dict[str, str] = {}
+    for agent in agents:
+        container_id = agent.container_id
+        if not container_id:
+            continue
+
+        logs = ""
+        try:
+            logs = agent_manager.get_container_logs(container_id, tail=5000)
+        except Exception as e:
+            logger.debug("[%s] Failed collecting docker logs for %s: %s", match_id, container_id, e)
+
+        stderr_tail = (agent.stderr_tail or "").strip()
+        if stderr_tail:
+            logs = f"{logs}\n{stderr_tail}".strip() if logs else stderr_tail
+
+        if logs:
+            logs_by_container_id[container_id] = logs
+
+    return logs_by_container_id
+
+
 async def _report_all_container_snapshots(
     *,
     api: BackendAPI,
@@ -100,6 +123,7 @@ async def _report_all_container_snapshots(
     started_at: list[datetime | None],
     status: str,
     include_stats: bool,
+    logs_by_container_id: dict[str, str] | None = None,
 ) -> None:
     def _status_from_runtime(runtime_status: str | None, fallback: str) -> str:
         if runtime_status in {"running", "paused", "restarting", "created"}:
@@ -125,6 +149,9 @@ async def _report_all_container_snapshots(
             "cpu_percent": 0.0,
             "memory_mb": 0.0,
         }
+
+        if logs_by_container_id is not None and container_id in logs_by_container_id:
+            payload["logs"] = logs_by_container_id.get(container_id)
 
         try:
             container = agent.client.containers.get(container_id)
@@ -224,6 +251,16 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 logger.debug(f"[{match_id}] Agent player {agent.player_id} init sent successfully")
             except AgentCommunicationError as e:
                 logger.error(f"[{match_id}] Agent player {agent.player_id} failed to start/init: {e}")
+
+                logs_by_container_id = _collect_container_logs(agents, match_id)
+                for a in agents:
+                    await a.cleanup()
+                # Append any stderr emitted during cleanup/termination.
+                logs_by_container_id = {
+                    **logs_by_container_id,
+                    **_collect_container_logs(agents, match_id),
+                }
+
                 await _report_all_container_snapshots(
                     api=api,
                     match_id=match_id,
@@ -233,9 +270,8 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     started_at=started_at,
                     status="error",
                     include_stats=False,
+                    logs_by_container_id=logs_by_container_id,
                 )
-                for a in agents:
-                    await a.cleanup()
                 return {"status": "error", "reason": f"Agent {agent.player_id} failed to start/init: {e}"}
 
         # All agents start in a paused state; they are resumed only when it is
@@ -334,8 +370,17 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             # Clean up all agent subprocesses (cleanup() calls resume() first
             # so paused containers receive the termination signal)
             logger.debug(f"[{match_id}] Cleaning up {len(agents)} agent process(es)")
+
+            logs_by_container_id = _collect_container_logs(agents, match_id)
+
             for agent in agents:
                 await agent.cleanup()
+
+            logs_by_container_id = {
+                **logs_by_container_id,
+                **_collect_container_logs(agents, match_id),
+            }
+
             await _report_all_container_snapshots(
                 api=api,
                 match_id=match_id,
@@ -345,6 +390,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 started_at=started_at,
                 status="stopped",
                 include_stats=False,
+                logs_by_container_id=logs_by_container_id,
             )
             logger.debug(f"[{match_id}] Agent cleanup done (total turns played: {turn_count})")
 

@@ -48,12 +48,12 @@ class AgentContainerRepository:
 
         try:
             if existing:
-                for key, value in payload.model_dump().items():
+                for key, value in payload.model_dump(exclude_none=True).items():
                     setattr(existing, key, value)
                 existing.updated_at = now
                 entity = existing
             else:
-                entity = AgentContainer(**payload.model_dump())
+                entity = AgentContainer(**payload.model_dump(exclude_none=True))
                 entity.updated_at = now
 
             self._session.add(entity)

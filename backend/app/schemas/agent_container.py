@@ -15,6 +15,7 @@ class AgentContainerBase(BaseModel):
     uptime_seconds: float = 0.0
     cpu_percent: float = 0.0
     memory_mb: float = 0.0
+    logs: str | None = None
 
 
 class AgentContainerCreate(AgentContainerBase):
@@ -30,6 +31,7 @@ class AgentContainerUpdate(BaseModel):
     uptime_seconds: float | None = None
     cpu_percent: float | None = None
     memory_mb: float | None = None
+    logs: str | None = None
 
 
 class AgentContainerRead(AgentContainerBase):

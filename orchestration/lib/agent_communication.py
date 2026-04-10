@@ -66,11 +66,17 @@ class AgentProcess:
         self.client = docker.from_env()
         self._cidfile: tempfile._TemporaryFileWrapper | None = None  # type: ignore[name-defined]
         self._container_id: str | None = None
+        self._stderr_tail: str = ""
 
     @property
     def container_id(self) -> str | None:
         """Expose the launched Docker container id for telemetry/reporting."""
         return self._container_id
+
+    @property
+    def stderr_tail(self) -> str:
+        """Best-effort stderr captured from the agent process."""
+        return self._stderr_tail
 
     def verify_image(self) -> None:
         """Must check whether the given image exists."""
@@ -193,6 +199,12 @@ class AgentProcess:
                         err_bytes = await asyncio.wait_for(self.process.stderr.read(), timeout=2.0)
                         if err_bytes:
                             err_out = err_bytes.decode("utf-8", errors="replace").strip()
+                            if err_out:
+                                self._stderr_tail = (
+                                    f"{self._stderr_tail}\n{err_out}".strip()
+                                    if self._stderr_tail
+                                    else err_out
+                                )
                     except Exception:
                         pass
                 msg = "Agent process disconnected unexpectedly."
@@ -239,7 +251,13 @@ class AgentProcess:
                 try:
                     err = await self.process.stderr.read()
                     if err:
-                        logger.debug(f"Agent stdout/err remainder: {err.decode('utf-8', errors='replace')}")
+                        decoded = err.decode("utf-8", errors="replace")
+                        self._stderr_tail = (
+                            f"{self._stderr_tail}\n{decoded}".strip()
+                            if self._stderr_tail
+                            else decoded.strip()
+                        )
+                        logger.debug(f"Agent stdout/err remainder: {decoded}")
                 except Exception:
                     pass
 

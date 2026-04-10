@@ -12,6 +12,7 @@ export interface AgentContainerRead {
     uptime_seconds: number;
     cpu_percent: number;
     memory_mb: number;
+    logs: string | null;
     created_at: string;
     updated_at: string;
 }
