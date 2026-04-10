@@ -2,9 +2,8 @@
 Base class for game agent implementations.
 Provides common functionality and interfaces for different game agents.
 """
-import time
 import json
-
+import time
 from abc import ABC, abstractmethod
 
 from gamelib.gamestate_base import GameStateBase as State

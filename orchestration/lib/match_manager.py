@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from lib.agent_communication import AgentCommunicationError, AgentTimeLimitError, AgentProcess
+from lib.agent_communication import AgentCommunicationError, AgentProcess, AgentTimeLimitError
 from lib.backend_api import BackendAPI
 
 logger = logging.getLogger(__name__)
@@ -192,11 +192,12 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     cpu_time = parsed_output.get("cpu_time", 0.0)
 
                     if cpu_time > parsed_config.turn_time_limit:
-                        raise AgentTimeLimitError(f"Player {current_player} exceeded the per-turn time limit of {parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)")
+                        raise AgentTimeLimitError(f"Player {current_player} exceeded the per-turn time limit of " +
+                                                  f"{parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)")
 
                     move = Move.from_json(move_json)
                 except AgentTimeLimitError as e:
-                    reason = f"Time limit exceeded"
+                    reason = "Time limit exceeded"
                     logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
                     winner_id = 1 - current_player
                     break
