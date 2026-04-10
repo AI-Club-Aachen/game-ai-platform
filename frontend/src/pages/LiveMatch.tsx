@@ -19,7 +19,6 @@ import {
   FiberManualRecord,
   SignalWifiOff,
   CheckCircle,
-  Error as ErrorIcon,
   HourglassEmpty,
   PlayArrow,
   Pause,
@@ -37,6 +36,7 @@ import { getGameRenderer } from '../components/game-renderers';
 import { fromApiGameType, getGameById } from '../config/games';
 import { agentsApi } from '../services/api/agents';
 import { matchesApi } from '../services/api/matches';
+import { containersApi } from '../services/api/containers';
 
 // ─── Status Chip ──────────────────────────────────────────────────────────────
 
@@ -193,12 +193,10 @@ function AgentCard({
 function MatchResultBanner({
   result,
   status,
-  agentIds,
   agentMap,
 }: {
   result: any;
   status: string | null;
-  agentIds: string[];
   agentMap: Record<string, string>;
 }) {
   if (!status || !['completed', 'failed', 'client_error'].includes(status)) return null;
@@ -388,6 +386,16 @@ export function LiveMatch() {
   const [agentMap, setAgentMap] = useState<Record<string, string>>({});
   const [prefetchDone, setPrefetchDone] = useState(false);
   const [prefetchError, setPrefetchError] = useState<string | null>(null);
+  const [containerLogs, setContainerLogs] = useState<Array<{
+    id: string;
+    container_id: string;
+    agent_id: string;
+    agent_name: string | null;
+    name: string | null;
+    status: string;
+    logs: string | null;
+  }>>([]);
+  const [containerLogsError, setContainerLogsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
@@ -406,6 +414,28 @@ export function LiveMatch() {
         setPrefetchError('Failed to load match data.');
         setPrefetchDone(true); // still proceed
       });
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!matchId) return;
+
+    const loadContainerLogs = async () => {
+      try {
+        setContainerLogsError(null);
+        const rows = await containersApi.getMatchContainers(matchId);
+        setContainerLogs(rows);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load container logs';
+        setContainerLogsError(message);
+      }
+    };
+
+    void loadContainerLogs();
+    const id = window.setInterval(() => {
+      void loadContainerLogs();
+    }, 5000);
+
+    return () => window.clearInterval(id);
   }, [matchId]);
 
   const {
@@ -473,6 +503,25 @@ export function LiveMatch() {
   const winnerId = result?.winner;
   const isDraw = winnerId === 'draw';
 
+  const logsPanelContainers = useMemo(
+    () => containerLogs
+      .slice()
+      .sort((a, b) => {
+        const ai = agentIds.indexOf(a.agent_id);
+        const bi = agentIds.indexOf(b.agent_id);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      })
+      .slice(0, 2),
+    [containerLogs, agentIds],
+  );
+  const hasAnyContainerLogs = useMemo(
+    () => logsPanelContainers.some((container) => Boolean(container.logs && container.logs.trim().length > 0)),
+    [logsPanelContainers],
+  );
+
   // Game icon emoji
   const gameIcon = gameInfo?.icon === 'tictactoe' ? '⭕'
     : gameInfo?.icon === 'chess' ? '♟️'
@@ -516,7 +565,6 @@ export function LiveMatch() {
         <MatchResultBanner
           result={result}
           status={matchStatus}
-          agentIds={agentIds}
           agentMap={agentMap}
         />
       )}
@@ -653,6 +701,76 @@ export function LiveMatch() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Container logs (visibility filtered by backend) ── */}
+      {isTerminal && hasAnyContainerLogs && (
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6" fontWeight={700}>Container Logs</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Showing logs for containers you are allowed to view
+              </Typography>
+            </Box>
+
+            {containerLogsError && (
+              <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+                {containerLogsError}
+              </Typography>
+            )}
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                gap: 2,
+              }}
+            >
+              {logsPanelContainers.map((container) => {
+                const agentName = agentMap[container.agent_id]
+                  || container.agent_name
+                  || `${container.agent_id.slice(0, 8)}...`;
+                const lines = container.logs ? container.logs.split(/\r?\n/) : [];
+
+                return (
+                  <Box key={container.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5 }}>
+                    <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', gap: 1, alignItems: 'center' }}>
+                      <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 0 }} noWrap>
+                        {agentName}
+                      </Typography>
+                      <Chip size="small" label={container.status} variant="outlined" />
+                    </Box>
+
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      {container.name || container.container_id.slice(0, 12)}
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        backgroundColor: 'action.hover',
+                        borderRadius: 1,
+                        p: 1,
+                        minHeight: 220,
+                        maxHeight: 320,
+                        overflowY: 'auto',
+                        fontFamily: 'monospace',
+                        fontSize: '0.78rem',
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {lines.map((line, i) => (
+                        <Box key={i}>{line}</Box>
+                      ))}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
     </Container>
   );
 }

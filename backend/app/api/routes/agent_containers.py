@@ -22,11 +22,16 @@ def list_agent_containers(
     match_id: UUID | None = None,
     status: str | None = None,
 ) -> list[AgentContainerRead]:
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    owner_user_id = None if current_user.role == UserRole.ADMIN else current_user.id
 
     try:
-        return service.list_containers(skip=skip, limit=limit, match_id=match_id, status=status)
+        return service.list_containers(
+            skip=skip,
+            limit=limit,
+            match_id=match_id,
+            status=status,
+            owner_user_id=owner_user_id,
+        )
     except AgentContainerServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 

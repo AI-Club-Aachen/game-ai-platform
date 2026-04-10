@@ -30,4 +30,11 @@ export const containersApi = {
 
         return apiRequest<AgentContainerRead[]>(endpoint, { method: 'GET' });
     },
+
+    getMatchContainers: async (matchId: string) => {
+        const queryParams = new URLSearchParams();
+        queryParams.append('match_id', matchId);
+        queryParams.append('limit', '10');
+        return apiRequest<AgentContainerRead[]>(`/agent_containers?${queryParams.toString()}`, { method: 'GET' });
+    },
 };

@@ -25,9 +25,16 @@ class AgentContainerService:
         limit: int = 100,
         match_id: UUID | None = None,
         status: str | None = None,
+        owner_user_id: UUID | None = None,
     ) -> list[AgentContainer]:
         try:
-            return self._repo.list_containers(skip=skip, limit=limit, match_id=match_id, status=status)
+            return self._repo.list_containers(
+                skip=skip,
+                limit=limit,
+                match_id=match_id,
+                status=status,
+                owner_user_id=owner_user_id,
+            )
         except AgentContainerRepositoryError as e:
             logger.exception("Failed to list container snapshots")
             raise AgentContainerServiceError("Failed to list container snapshots") from e

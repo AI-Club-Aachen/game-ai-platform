@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlmodel import Session, select
 
+from app.models.agent import Agent
 from app.models.agent_container import AgentContainer
 from app.schemas.agent_container import AgentContainerCreate, AgentContainerUpdate
 
@@ -31,8 +32,13 @@ class AgentContainerRepository:
         limit: int,
         match_id: UUID | None = None,
         status: str | None = None,
+        owner_user_id: UUID | None = None,
     ) -> list[AgentContainer]:
         statement = select(AgentContainer)
+
+        if owner_user_id is not None:
+            statement = statement.join(Agent, Agent.id == AgentContainer.agent_id)
+            statement = statement.where(Agent.user_id == owner_user_id)
 
         if match_id is not None:
             statement = statement.where(AgentContainer.match_id == match_id)
