@@ -51,3 +51,5 @@ postgres_data/
 
 # testing
 .artifacts/
+ignore/**
+ci_run_log
