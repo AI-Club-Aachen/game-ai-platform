@@ -65,16 +65,16 @@ function CellContent({ value }: { value: number }) {
  *   0 = player 0 wins
  *   1 = player 1 wins
  */
-function getStatusText(status: number): { text: string; color: string } {
+function getStatusText(status: number, name0: string, name1: string): { text: string; color: string } {
   switch (status) {
     case -2:
       return { text: 'Draw!', color: 'warning.main' };
     case -1:
       return { text: 'In Progress', color: 'info.main' };
     case 0:
-      return { text: `Player 1 wins!`, color: '#6366f1' };
+      return { text: `${name0} wins!`, color: '#6366f1' };
     case 1:
-      return { text: `Player 2 wins!`, color: '#f43f5e' };
+      return { text: `${name1} wins!`, color: '#f43f5e' };
     default:
       return { text: 'Unknown', color: 'text.secondary' };
   }
@@ -86,7 +86,14 @@ function getStatusText(status: number): { text: string; color: string } {
  * Expects gameState to have the shape:
  * { board: number[], turn: number, status: number }
  */
-export function TicTacToeRenderer({ gameState, agentIds }: GameRendererProps) {
+export function TicTacToeRenderer({ gameState, agentIds, agentMap, matchStatus, result }: GameRendererProps) {
+  // Resolve a display name for a player index (0 or 1)
+  const agentName = (index: number): string => {
+    const id = agentIds[index];
+    if (!id) return `Player ${index + 1}`;
+    return agentMap?.[id] ?? id.slice(0, 8) + '…';
+  };
+
   if (!gameState || !gameState.board) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -101,8 +108,32 @@ export function TicTacToeRenderer({ gameState, agentIds }: GameRendererProps) {
     status: number;
   };
 
-  const statusInfo = getStatusText(gameStatus);
-  const isGameOver = gameStatus !== -1;
+  const name0 = agentName(0);
+  const name1 = agentName(1);
+  let statusInfo = getStatusText(gameStatus, name0, name1);
+  let isGameOver = gameStatus !== -1;
+
+  // Override status if match ended externally (time limit, crash, etc)
+  const isTerminal = matchStatus === 'completed' || matchStatus === 'failed' || matchStatus === 'client_error';
+  if (isTerminal && gameStatus === -1) {
+    isGameOver = true;
+    if (matchStatus === 'failed' || matchStatus === 'client_error') {
+      statusInfo = { text: 'Match Error', color: '#f43f5e' };
+    } else if (result?.winner) {
+      if (result.winner === 'draw') {
+        statusInfo = { text: 'Draw (Match over)', color: 'warning.main' };
+      } else {
+        const wIndex = agentIds.indexOf(result.winner);
+        statusInfo = wIndex === 0 
+          ? { text: `${name0} wins!`, color: '#6366f1' }
+          : wIndex === 1
+            ? { text: `${name1} wins!`, color: '#f43f5e' }
+            : { text: 'Match Complete', color: 'success.main' };
+      }
+    } else {
+      statusInfo = { text: 'Terminated', color: 'text.secondary' };
+    }
+  }
 
   return (
     <Box
@@ -139,7 +170,7 @@ export function TicTacToeRenderer({ gameState, agentIds }: GameRendererProps) {
             }}
           />
           <Typography variant="body1" fontWeight={600}>
-            {turn === 0 ? 'Player 1' : 'Player 2'}'s turn
+            {turn === 0 ? name0 : name1}'s turn
           </Typography>
         </Box>
         <Chip
@@ -158,14 +189,14 @@ export function TicTacToeRenderer({ gameState, agentIds }: GameRendererProps) {
       <Box sx={{ display: 'flex', gap: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography sx={{ color: '#6366f1', fontWeight: 800, fontSize: '1.2rem' }}>✕</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Player 1 {agentIds[0] ? `(${agentIds[0].slice(0, 8)}…)` : ''}
+          <Typography variant="body2" fontWeight={600} sx={{ color: '#6366f1' }}>
+            {name0}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography sx={{ color: '#f43f5e', fontWeight: 800, fontSize: '1.2rem' }}>○</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Player 2 {agentIds[1] ? `(${agentIds[1].slice(0, 8)}…)` : ''}
+          <Typography variant="body2" fontWeight={600} sx={{ color: '#f43f5e' }}>
+            {name1}
           </Typography>
         </Box>
       </Box>

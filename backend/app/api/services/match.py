@@ -10,7 +10,7 @@ from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
-from app.models.match import Match, MatchStatus
+from app.models.match import Match, MatchConfig, MatchStatus
 
 
 class MatchServiceError(Exception):
@@ -33,7 +33,7 @@ class MatchService:
     async def create_match(
         self,
         game_type: GameType,
-        config: dict[str, Any],
+        config: MatchConfig,
         agent_ids: list[UUID],
     ) -> Match:
         """
@@ -41,8 +41,9 @@ class MatchService:
         """
         self._validate_agents_for_match(game_type, agent_ids)
 
+        config_dict = config.model_dump()
         match = Match(
-            game_type=game_type, status=MatchStatus.QUEUED, config=config, agent_ids=[str(i) for i in agent_ids]
+            game_type=game_type, status=MatchStatus.QUEUED, config=config_dict, agent_ids=[str(i) for i in agent_ids]
         )
         match = self._repository.save(match)
 

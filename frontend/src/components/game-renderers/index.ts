@@ -12,6 +12,12 @@ export interface GameRendererProps {
   gameType: string;
   /** Ordered list of agent UUIDs participating in the match */
   agentIds: string[];
+  /** Optional map of agent UUID → human-readable name */
+  agentMap?: Record<string, string>;
+  /** The overall match status (e.g. "queued", "running", "completed", "failed") */
+  matchStatus?: string | null;
+  /** The match result, containing winner and reason if the match is finished */
+  result?: any | null;
 }
 
 /**

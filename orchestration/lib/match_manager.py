@@ -1,12 +1,52 @@
 import importlib
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any
 
-from lib.agent_communication import AgentCommunicationError, AgentProcess
+from lib.agent_communication import AgentCommunicationError, AgentTimeLimitError, AgentProcess
 from lib.backend_api import BackendAPI
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Config helpers
+# ---------------------------------------------------------------------------
+
+DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
+
+
+@dataclass(frozen=True)
+class MatchConfig:
+    """Normalized match configuration used by the runner."""
+
+    turn_time_limit: float | None = DEFAULT_TURN_TIME_LIMIT
+
+
+def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
+    """
+    Normalize a raw match config dictionary into typed values.
+
+    Invalid ``turn_time_limit`` values fall back to the default; non-positive
+    values disable timeout enforcement.
+    """
+    raw = raw_config.get("turn_time_limit", DEFAULT_TURN_TIME_LIMIT)
+    if raw is None:
+        return MatchConfig(turn_time_limit=None)
+
+    try:
+        turn_time_limit = float(raw)
+    except (TypeError, ValueError):
+        logger.warning(f"Invalid turn_time_limit {raw!r}, using default {DEFAULT_TURN_TIME_LIMIT}s")
+        return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
+
+    return MatchConfig(turn_time_limit=turn_time_limit if turn_time_limit > 0 else None)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[str]:
     image_tags = []
@@ -41,6 +81,11 @@ async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[s
         image_tags.append(tag)
     return image_tags
 
+
+# ---------------------------------------------------------------------------
+# Main match entrypoint
+# ---------------------------------------------------------------------------
+
 async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str], api: BackendAPI) -> dict[str, Any]:
     """
     Execute a real match loop using standard I/O communication with dockerized agents.
@@ -50,6 +95,13 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         match_data = await api.get_match(match_id)
         game_type = match_data["game_type"]
         logger.debug(f"[{match_id}] Game type resolved: {game_type!r}")
+
+        # ---- Parse typed config ----------------------------------------
+        parsed_config = _parse_match_config(config)
+        if parsed_config.turn_time_limit is not None:
+            logger.debug(f"[{match_id}] Per-turn time limit: {parsed_config.turn_time_limit}s")
+        else:
+            logger.debug(f"[{match_id}] No per-turn time limit enforced")
 
         # Dynamically import game engine and state based on game_type
         try:
@@ -103,6 +155,11 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     await a.cleanup()
                 return {"status": "error", "reason": f"Agent {agent.player_id} failed to start/init: {e}"}
 
+        # All agents start in a paused state; they are resumed only when it is
+        # their turn so they cannot compute ahead of time.
+        for agent in agents:
+            agent.pause()
+
         scores = {agent_id: 0 for agent_id in agent_ids}
         winner_id = -1
         reason = ""
@@ -120,18 +177,29 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 turn_count += 1
                 logger.debug(f"[{match_id}] Turn {turn_count}: player {current_player}'s move")
 
+                # Resume the active agent; keep all others paused
+                cur_agent.resume()
+
                 try:
                     state_json = state.to_json()
                     logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
                     await cur_agent.send_state(state_json)
-                    move_json = await cur_agent.get_move()
+                    move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit)
                     logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {move_json!r}")  # noqa: E501
                     move = Move.from_json(move_json)
+                except AgentTimeLimitError as e:
+                    reason = f"Time limit exceeded"
+                    logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
+                    winner_id = 1 - current_player
+                    break
                 except Exception as e:
                     reason = f"Player {current_player} failed to communicate or generated invalid output: {e}"
                     logger.warning(f"[{match_id}] Turn {turn_count}: {reason}")
                     winner_id = 1 - current_player
                     break
+                finally:
+                    # Pause the active agent now that its turn is done (or failed)
+                    cur_agent.pause()
 
                 if not engine.validate_move(state, move):
                     reason = f"Player {current_player} made an invalid move."
@@ -150,7 +218,8 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 except Exception as e:
                     logger.error(f"[{match_id}] Turn {turn_count}: failed to update match game_state: {e}")
         finally:
-            # Clean up all agent subprocesses
+            # Clean up all agent subprocesses (cleanup() calls resume() first
+            # so paused containers receive the termination signal)
             logger.debug(f"[{match_id}] Cleaning up {len(agents)} agent process(es)")
             for agent in agents:
                 await agent.cleanup()
