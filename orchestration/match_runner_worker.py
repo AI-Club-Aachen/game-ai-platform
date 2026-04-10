@@ -38,7 +38,7 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
 
         logger.info("Match finished.")
         status = "completed"
-        valid_reasons = ["Game finished", "Draw", "Turn limit reached"]
+        valid_reasons = ["Game finished", "Draw", "Turn limit reached", "Time limit exceeded"]
         if result.get("reason") not in valid_reasons:
             status = "client_error"
 

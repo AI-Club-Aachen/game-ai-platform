@@ -25,16 +25,39 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  Autocomplete
+  Autocomplete,
+  Divider,
+  InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   PlayCircleOutline as PlayIcon,
-  Visibility as VisibilityIcon
+  Visibility as VisibilityIcon,
+  Settings as SettingsIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import { matchesApi } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
+import { fromApiGameType, getGameById } from '../config/games';
+
+// Mirrors backend MatchConfig – update here when new fields are added.
+interface MatchConfig {
+  turn_time_limit: number;
+}
+
+const MIN_TURN_TIME_LIMIT = 0.1;
+const DEFAULT_TURN_TIME_LIMIT = 10;
+const FALLBACK_MAX_TURN_TIME_LIMIT = 120;
+const rawMaxTurnTimeLimit = Number(import.meta.env.MAX_TURN_TIME_LIMIT_SECONDS);
+const MAX_TURN_TIME_LIMIT = Number.isFinite(rawMaxTurnTimeLimit) && rawMaxTurnTimeLimit >= MIN_TURN_TIME_LIMIT
+  ? rawMaxTurnTimeLimit
+  : FALLBACK_MAX_TURN_TIME_LIMIT;
+
+const DEFAULT_CONFIG: MatchConfig = {
+  turn_time_limit: Math.min(DEFAULT_TURN_TIME_LIMIT, MAX_TURN_TIME_LIMIT),
+};
 
 export function MatchManagement() {
   const navigate = useNavigate();
@@ -50,7 +73,7 @@ export function MatchManagement() {
 
   const [createDialogOpen, setDialogOpen] = useState(false);
   const [newMatchGameType, setNewMatchGameType] = useState('tictactoe');
-  const [newMatchConfig, setNewMatchConfig] = useState('{}');
+  const [matchConfig, setMatchConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
 
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -58,6 +81,11 @@ export function MatchManagement() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const selectedGameConfig = getGameById(fromApiGameType(newMatchGameType));
+  const minRequiredAgents = selectedGameConfig?.minPlayers ?? 2;
+  const maxAllowedAgents = selectedGameConfig?.maxPlayers ?? minRequiredAgents;
+  const hasValidAgentCount = selectedAgents.length >= minRequiredAgents && selectedAgents.length <= maxAllowedAgents;
 
   const fetchMatches = useCallback(async () => {
     setLoading(true);
@@ -68,8 +96,6 @@ export function MatchManagement() {
         game_type: filterGameType !== 'all' ? filterGameType : undefined,
         status: filterStatus !== 'all' ? filterStatus : undefined,
       });
-      // The API returns an array directly, not {data, total} for the matches endpoint as implemented
-      // If there's pagination, we might just use the array length. We'll set it properly.
       setMatches(Array.isArray(response) ? response : (response as any).data || []);
       setError(null);
     } catch (err: any) {
@@ -102,30 +128,34 @@ export function MatchManagement() {
     setPage(0);
   };
 
+  const handleOpenDialog = () => {
+    setMatchConfig(DEFAULT_CONFIG);
+    setSelectedAgents([]);
+    setNewMatchGameType('tictactoe');
+    setDialogOpen(true);
+  };
+
+  const buildConfig = (): MatchConfig => ({
+    turn_time_limit: Math.min(
+      MAX_TURN_TIME_LIMIT,
+      Math.max(MIN_TURN_TIME_LIMIT, matchConfig.turn_time_limit ?? DEFAULT_TURN_TIME_LIMIT)
+    ),
+  });
+
   const handleCreateMatch = async () => {
+    const agentIdsArray = selectedAgents.map(a => a.id);
+    const config = buildConfig();
+
+    setIsCreating(true);
     try {
-      let parsedConfig;
-      if (newMatchConfig.trim() === '') {
-        parsedConfig = {};
-      } else {
-        parsedConfig = JSON.parse(newMatchConfig);
-      }
-
-      const agentIdsArray = selectedAgents.map(a => a.id);
-
-      setIsCreating(true);
       await matchesApi.createMatch({
         game_type: newMatchGameType,
-        config: parsedConfig,
-        agent_ids: agentIdsArray
+        config,
+        agent_ids: agentIdsArray,
       });
 
       setSnackbarMessage('Match created successfully');
       setDialogOpen(false);
-      // Reset form
-      setNewMatchGameType('tictactoe');
-      setNewMatchConfig('{}');
-      setSelectedAgents([]);
       fetchMatches();
     } catch (err: any) {
       console.error('Error creating match', err);
@@ -164,7 +194,7 @@ export function MatchManagement() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setDialogOpen(true)}
+            onClick={handleOpenDialog}
           >
             New Match
           </Button>
@@ -260,9 +290,9 @@ export function MatchManagement() {
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                       {match.agent_ids && match.agent_ids.length > 0
                         ? match.agent_ids.map((id: string) => {
-                            const found = agents.find(a => a.id === id);
-                            return found ? found.name : id.substring(0, 8) + '...';
-                          }).join(', ')
+                          const found = agents.find(a => a.id === id);
+                          return found ? found.name : id.substring(0, 8) + '...';
+                        }).join(', ')
                         : 'None'}
                     </TableCell>
                     <TableCell align="right">
@@ -284,7 +314,7 @@ export function MatchManagement() {
 
         <TablePagination
           component="div"
-          count={-1} // Because our API currently returns a list and no total count
+          count={-1}
           page={page}
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}
@@ -299,11 +329,16 @@ export function MatchManagement() {
         <DialogTitle>Start New Match</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+
+            {/* Game type */}
             <FormControl fullWidth>
               <InputLabel>Game Type</InputLabel>
               <Select
                 value={newMatchGameType}
-                onChange={(e) => setNewMatchGameType(e.target.value)}
+                onChange={(e) => {
+                  setNewMatchGameType(e.target.value);
+                  setSelectedAgents([]);
+                }}
                 label="Game Type"
               >
                 <MenuItem value="tictactoe">Tic-Tac-Toe</MenuItem>
@@ -311,6 +346,8 @@ export function MatchManagement() {
                 <MenuItem value="chess">Chess</MenuItem>
               </Select>
             </FormControl>
+
+            {/* Agent picker */}
             <Autocomplete
               multiple
               options={agents.filter(a => a.game_type === newMatchGameType)}
@@ -318,13 +355,16 @@ export function MatchManagement() {
               value={selectedAgents}
               onChange={(_, newValue) => setSelectedAgents(newValue)}
               filterSelectedOptions
+              disableCloseOnSelect
+              limitTags={2}
               loading={loadingAgents}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label="Select Agents"
                   placeholder="Select participating agents"
-                  helperText="Search and select agents by name or ID. List filtered by selected game type."
+                  helperText={`Select ${minRequiredAgents}-${maxAllowedAgents} agents. List filtered by selected game type.`}
+                  error={!hasValidAgentCount && selectedAgents.length > 0}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
@@ -337,16 +377,51 @@ export function MatchManagement() {
                 />
               )}
             />
-            <TextField
-              label="Configuration (JSON)"
-              value={newMatchConfig}
-              onChange={(e) => setNewMatchConfig(e.target.value)}
-              fullWidth
-              multiline
-              rows={4}
-              placeholder='{"key": "value"}'
-              helperText="Optional JSON configuration for the match."
-            />
+
+            {/* ---- Match Configuration section ---- */}
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <SettingsIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Match Configuration
+                </Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+
+              {/* Turn time limit */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <Typography variant="body2" fontWeight={500}>
+                    Turn Time Limit
+                  </Typography>
+                  <Tooltip title="Maximum seconds an agent may take per turn. Exceeding this forfeits the game. Agents are paused while it is not their turn.">
+                    <InfoIcon fontSize="inherit" color="action" sx={{ cursor: 'help', fontSize: '1rem' }} />
+                  </Tooltip>
+                </Box>
+                <TextField
+                  id="turn-time-limit-input"
+                  type="number"
+                  size="small"
+                  value={matchConfig.turn_time_limit ?? DEFAULT_TURN_TIME_LIMIT}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setMatchConfig(prev => ({
+                      ...prev,
+                      turn_time_limit: isNaN(val)
+                        ? DEFAULT_TURN_TIME_LIMIT
+                        : Math.min(MAX_TURN_TIME_LIMIT, Math.max(MIN_TURN_TIME_LIMIT, val)),
+                    }));
+                  }}
+                  inputProps={{ min: MIN_TURN_TIME_LIMIT, max: MAX_TURN_TIME_LIMIT, step: 0.5 }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">s</InputAdornment>,
+                  }}
+                  helperText={`Required. Max ${MAX_TURN_TIME_LIMIT}s`}
+                  sx={{ width: 180 }}
+                />
+              </Box>
+            </Box>
+
           </Box>
         </DialogContent>
         <DialogActions>
@@ -356,7 +431,7 @@ export function MatchManagement() {
           <Button
             onClick={handleCreateMatch}
             variant="contained"
-            disabled={isCreating}
+            disabled={isCreating || !hasValidAgentCount}
             startIcon={isCreating ? <CircularProgress size={20} /> : <PlayIcon />}
           >
             Start Match

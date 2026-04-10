@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     MAX_PASSWORD_RESET_MINUTES: ClassVar[int] = 1440
     MIN_PORT: ClassVar[int] = 1
     MAX_PORT: ClassVar[int] = 65535
+    MIN_TURN_TIME_LIMIT_SECONDS: ClassVar[float] = 0.1
 
     # Database
     DATABASE_URL: str
@@ -45,6 +46,10 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Game Competition Platform"
     WORKER_API_KEY: str = "dev-worker-key-12345"
+    MAX_TURN_TIME_LIMIT_SECONDS: float = Field(
+        default=120.0,
+        description="Maximum allowed per-turn time limit in seconds for match config.",
+    )
 
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
@@ -184,6 +189,16 @@ class Settings(BaseSettings):
             return v
         if not (cls.MIN_PORT <= v <= cls.MAX_PORT):
             raise ValueError(f"SMTP_PORT must be between {cls.MIN_PORT} and {cls.MAX_PORT}")
+        return v
+
+    @field_validator("MAX_TURN_TIME_LIMIT_SECONDS")
+    @classmethod
+    def validate_max_turn_time_limit(cls, v: float) -> float:
+        if v < cls.MIN_TURN_TIME_LIMIT_SECONDS:
+            raise ValueError(
+                "MAX_TURN_TIME_LIMIT_SECONDS must be at least "
+                f"{cls.MIN_TURN_TIME_LIMIT_SECONDS}"
+            )
         return v
 
     @model_validator(mode="after")

@@ -2,15 +2,15 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.models.game import GameType
-from app.models.match import MatchStatus
+from app.models.match import MatchConfig, MatchStatus
 
 
 class MatchBase(BaseModel):
     game_type: GameType
-    config: dict[str, Any] = {}
+    config: MatchConfig = MatchConfig()
     agent_ids: list[UUID] = []
 
 
@@ -36,6 +36,14 @@ class MatchRead(MatchBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("config", mode="before")
+    @classmethod
+    def coerce_config(cls, v: Any) -> MatchConfig:
+        """Accept a raw dict from the DB and coerce it into a MatchConfig."""
+        if isinstance(v, dict):
+            return MatchConfig(**v)
+        return v
 
 
 class GameInfo(BaseModel):

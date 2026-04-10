@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -9,8 +10,15 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+
 class AgentCommunicationError(Exception):
     pass
+
+
+class AgentTimeLimitError(AgentCommunicationError):
+    """Raised when an agent exceeds its per-turn time limit."""
+    pass
+
 
 def load_secure_defaults() -> dict[str, Any]:
     settings_path = Path(__file__).parent.parent / "secure_default_settings.yaml"
@@ -49,12 +57,15 @@ def build_docker_run_args() -> list[str]:
 
     return args
 
+
 class AgentProcess:
     def __init__(self, image_tag: str, player_id: int):
         self.image_tag = image_tag
         self.player_id = player_id
         self.process: asyncio.subprocess.Process | None = None
         self.client = docker.from_env()
+        self._cidfile: tempfile._TemporaryFileWrapper | None = None  # type: ignore[name-defined]
+        self._container_id: str | None = None
 
     def verify_image(self) -> None:
         """Must check whether the given image exists."""
@@ -66,7 +77,14 @@ class AgentProcess:
             raise AgentCommunicationError(f"Docker API error verifying image {self.image_tag}: {e}")
 
     async def start(self) -> None:
-        cmd_args = ["run", "-i", "--rm"]
+        # Create a temp file for Docker to write the container ID into
+        self._cidfile = tempfile.NamedTemporaryFile(suffix=".cid", delete=False)
+        cid_path = self._cidfile.name
+        self._cidfile.close()
+        # Remove the file so docker can create it (docker requires it to not exist)
+        Path(cid_path).unlink(missing_ok=True)
+
+        cmd_args = ["run", "-i", "--rm", "--cidfile", cid_path]
         cmd_args.extend(build_docker_run_args())
 
         # Environment to indicate to agent it is running in online mode
@@ -84,6 +102,58 @@ class AgentProcess:
         except Exception as e:
             raise AgentCommunicationError(f"Failed to start container process: {e}")
 
+        # Poll the cidfile until Docker writes the container ID (up to 5 s)
+        self._container_id = await self._read_cidfile(cid_path, timeout=5.0)
+        if self._container_id:
+            logger.debug(f"Player {self.player_id} container ID: {self._container_id}")
+        else:
+            logger.warning(f"Player {self.player_id}: could not resolve container ID; pause/resume unavailable")
+
+    async def _read_cidfile(self, cid_path: str, timeout: float) -> str | None:
+        """Poll *cid_path* until Docker writes a non-empty container ID or timeout."""
+        deadline = asyncio.get_event_loop().time() + timeout
+        while asyncio.get_event_loop().time() < deadline:
+            try:
+                text = Path(cid_path).read_text().strip()
+                if text:
+                    return text
+            except (FileNotFoundError, OSError):
+                pass
+            await asyncio.sleep(0.1)
+        return None
+
+    def _get_container(self) -> Any | None:
+        """Return the live Docker container object, or None if unavailable."""
+        if not self._container_id:
+            return None
+        try:
+            return self.client.containers.get(self._container_id)
+        except (docker.errors.NotFound, docker.errors.APIError) as e:
+            logger.warning(f"Player {self.player_id}: could not get container: {e}")
+            return None
+
+    def pause(self) -> None:
+        """Pause the container so it cannot compute while it is not its turn."""
+        container = self._get_container()
+        if container is None:
+            return
+        try:
+            container.pause()
+            logger.debug(f"Player {self.player_id} container paused")
+        except docker.errors.APIError as e:
+            logger.warning(f"Player {self.player_id}: pause failed: {e}")
+
+    def resume(self) -> None:
+        """Resume a previously paused container."""
+        container = self._get_container()
+        if container is None:
+            return
+        try:
+            container.unpause()
+            logger.debug(f"Player {self.player_id} container resumed")
+        except docker.errors.APIError as e:
+            logger.warning(f"Player {self.player_id}: resume failed: {e}")
+
     async def send_init(self) -> None:
         init_data = {"player_id": self.player_id}
         await self._send_json(init_data)
@@ -97,13 +167,20 @@ class AgentProcess:
         except BaseException as e:
             raise AgentCommunicationError(f"Failed to send state: {e}")
 
-    async def get_move(self) -> str:
+    async def get_move(self, timeout: float | None = 30.0) -> str:
+        """
+        Read one line of output from the agent (its move).
+
+        Args:
+            timeout: Maximum seconds to wait. ``None`` means wait indefinitely.
+                     Exceeding the limit raises :exc:`AgentTimeLimitError`.
+        """
         if not self.process or not self.process.stdout:
             raise AgentCommunicationError("Process not started or stdout not available.")
 
         try:
-            # We enforce a timeout for each move
-            line = await asyncio.wait_for(self.process.stdout.readline(), timeout=30.0)
+            coro = self.process.stdout.readline()
+            line = await asyncio.wait_for(coro, timeout=timeout)
             if not line:
                 err_out = ""
                 if getattr(self.process, "stderr", None):
@@ -119,8 +196,10 @@ class AgentProcess:
                 raise AgentCommunicationError(msg)
             return line.decode("utf-8").strip()
         except asyncio.TimeoutError:
-            raise AgentCommunicationError("Timeout waiting for agent move.")
-        except AgentCommunicationError:
+            raise AgentTimeLimitError(
+                f"Player {self.player_id} exceeded the per-turn time limit of {timeout}s (including overhead)."
+            )
+        except (AgentCommunicationError, AgentTimeLimitError):
             raise
         except BaseException as e:
             raise AgentCommunicationError(f"Error reading move: {e}")
@@ -136,6 +215,10 @@ class AgentProcess:
             raise AgentCommunicationError(f"Failed to send json payload: {e}")
 
     async def cleanup(self) -> None:
+        # Ensure the container is unpaused before we try to terminate it,
+        # otherwise SIGTERM won't be delivered to a frozen container.
+        self.resume()
+
         if self.process:
             if self.process.returncode is None:
                 try:
@@ -154,3 +237,7 @@ class AgentProcess:
                         logger.debug(f"Agent stdout/err remainder: {err.decode('utf-8', errors='replace')}")
                 except Exception:
                     pass
+
+        # Clean up the cidfile if it still exists
+        if self._cidfile:
+            Path(self._cidfile.name).unlink(missing_ok=True)
