@@ -15,8 +15,8 @@ export const agentsApi = {
     /**
      * Get all agents for the current user
      */
-    getAgents: async (skip = 0, limit = 20) => {
-        return apiRequest<Agent[]>(`/agents?skip=${skip}&limit=${limit}`, {
+    getAgents: async (skip = 0, limit = 500, all_users = false) => {
+        return apiRequest<Agent[]>(`/agents?skip=${skip}&limit=${limit}&all_users=${all_users}`, {
             method: 'GET',
         });
     },

@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Tournaments } from './pages/Tournaments';
 import { ContainerManagement } from './pages/ContainerManagement';
 import { UserManagement } from './pages/UserManagement';
+import { MatchManagement } from './pages/MatchManagement';
 import { Profile } from './pages/Profile';
 import { Leaderboard } from './pages/Leaderboard';
 import { Matches } from './pages/Matches';
@@ -52,6 +53,7 @@ function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="containers" element={<ContainerManagement />} />
+              <Route path="matches-admin" element={<MatchManagement />} />
               <Route path="agents/new" element={<NewAgent />} />
               <Route path="submissions/new" element={<NewSubmission />} />
               <Route path="submissions/:id" element={<SubmissionDetails />} />

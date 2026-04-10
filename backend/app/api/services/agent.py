@@ -68,12 +68,12 @@ class AgentService:
             raise AgentNotFoundError("Agent not found")
         return agent
 
-    def list_user_agents(self, user_id: UUID, skip: int = 0, limit: int = 20) -> tuple[list[Agent], int]:
-        """List agents for a specific user."""
+    def list_agents(self, skip: int = 0, limit: int = 20, user_id: UUID | None = None) -> tuple[list[Agent], int]:
+        """List agents, optionally filtered by user."""
         try:
             return self._repo.list_agents(skip=skip, limit=limit, user_id=user_id)
         except AgentRepositoryError as e:
-            logger.exception("Error listing agents for user %s", user_id)
+            logger.exception("Error listing agents")
             raise AgentServiceError("Failed to list agents") from e
 
     def update_agent(

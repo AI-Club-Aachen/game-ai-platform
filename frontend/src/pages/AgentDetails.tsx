@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { agentsApi, Agent } from '../services/api/agents';
 import { fromApiGameType, getActiveGames } from '../config/games';
+import { matchesApi } from '../services/api/matches';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { overlays, palette } from '../theme';
@@ -56,6 +57,7 @@ export function AgentDetails() {
     const [switchingSubmissionId, setSwitchingSubmissionId] = useState<string | null>(null);
     const [switchMessage, setSwitchMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [matches, setMatches] = useState<any[]>([]);
 
     useEffect(() => {
         if (!id) return;
@@ -72,6 +74,14 @@ export function AgentDetails() {
                 setSubmissions(sortSubmissions(filterSubmissionsForGame(submissionsData, gameId), agentData.active_submission_id));
                 setSwitchMessage(null);
                 setError(null);
+                
+                try {
+                    const matchData = await matchesApi.getMatches({ game_type: agentData.game_type, limit: 100 });
+                    const agentMatches = matchData.filter(m => m.agent_ids?.includes(id));
+                    setMatches(agentMatches);
+                } catch (e) {
+                    console.error('Failed to load matches', e);
+                }
             } catch (err: any) {
                 console.error('Failed to fetch details:', err);
                 setError('Failed to load agent details. Please try again.');
@@ -160,6 +170,8 @@ export function AgentDetails() {
     const gameId = fromApiGameType(agent.game_type || stats?.game_id || 'chess');
     const game = games.find(g => g.id === gameId);
     const hasActiveSubmission = submissions.some(submission => submission.id === agent.active_submission_id);
+
+    const recentMatches = matches.slice(0, 3);
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -270,7 +282,20 @@ export function AgentDetails() {
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Game</Typography>
-                                    <Typography variant="body1">{game?.name || gameId}</Typography>
+                                    <Typography 
+                                        variant="body1" 
+                                        onClick={() => navigate(`/games/${gameId}`)}
+                                        sx={{ 
+                                            cursor: 'pointer', 
+                                            transition: 'color 0.2s',
+                                            '&:hover': {
+                                                textDecoration: 'underline',
+                                                color: 'primary.main',
+                                            }
+                                        }}
+                                    >
+                                        {game?.name || gameId}
+                                    </Typography>
                                 </Box>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Created</Typography>
@@ -397,6 +422,70 @@ export function AgentDetails() {
                                     </TableBody>
                                 </Table>
                             </TableContainer>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+            {/* Recent Matches Section */}
+            <Grid container spacing={4} sx={{ mb: 4, mt: 0 }}>
+                <Grid size={12}>
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                <Typography variant="h6">Recent Matches</Typography>
+                                <Button 
+                                    component={Link} 
+                                    to={`/games/matches?game=${gameId}`}
+                                    variant="text" 
+                                    size="small"
+                                >
+                                    View All {game?.name} Matches
+                                </Button>
+                            </Box>
+                            
+                            {recentMatches.length === 0 ? (
+                                <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
+                                    No matches found for this agent
+                                </Typography>
+                            ) : (
+                                <Grid container spacing={2}>
+                                    {recentMatches.map((match) => (
+                                        <Grid size={{ xs: 12, md: 4 }} key={match.id}>
+                                            <Card variant="outlined">
+                                                <CardContent>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                                        <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                                                            {match.id.substring(0, 8)}...
+                                                        </Typography>
+                                                        <Typography 
+                                                            variant="body2" 
+                                                            sx={{ 
+                                                                color: getStatusColor(match.status),
+                                                                textTransform: 'capitalize',
+                                                                fontWeight: 600
+                                                            }}
+                                                        >
+                                                            {match.status}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                                                        {new Date(match.created_at).toLocaleString()}
+                                                    </Typography>
+                                                    <Button 
+                                                        component={Link}
+                                                        to={`/games/live/${match.id}`}
+                                                        variant="outlined" 
+                                                        size="small" 
+                                                        fullWidth
+                                                    >
+                                                        View Match
+                                                    </Button>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                    ))}
+                                </Grid>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>

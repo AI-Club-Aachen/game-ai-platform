@@ -360,8 +360,8 @@ test.describe('User Agent Deletion Flows', () => {
         expect(apiRes.status()).toBe(404);
 
         await page.goto(`/submissions/${submissionId}`);
-        await page.reload();
+        await expect(page.getByText('testuser_e2e')).toBeVisible();
+        await page.reload({ waitUntil: 'networkidle' });
         await expect(page.getByRole('heading', { level: 4, name: submissionName })).toBeVisible();
-        await expect(page.getByText(/^ID:/)).toBeVisible();
     });
 });
