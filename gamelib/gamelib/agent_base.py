@@ -2,6 +2,8 @@
 Base class for game agent implementations.
 Provides common functionality and interfaces for different game agents.
 """
+import time
+import json
 
 from abc import ABC, abstractmethod
 
@@ -20,12 +22,21 @@ class AgentBase(ABC):
         Should only be used by competition servers.
         Use DevRunner for local testing instead.
         """
+
         init_data = self._read_init()
         self.initialize(init_data)
         while True:
             state: State = self._read_state()
+
+            start_time = time.perf_counter()
             move: Move = self.get_move(state)
-            self._write_output(move.to_json())
+            cpu_time = time.perf_counter() - start_time
+
+            output = {
+                "move": json.loads(move.to_json()),
+                "cpu_time": cpu_time
+            }
+            self._write_output(json.dumps(output))
 
     def _read_input(self) -> str:
         """

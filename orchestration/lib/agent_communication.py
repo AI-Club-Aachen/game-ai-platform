@@ -197,7 +197,7 @@ class AgentProcess:
             return line.decode("utf-8").strip()
         except asyncio.TimeoutError:
             raise AgentTimeLimitError(
-                f"Player {self.player_id} exceeded the per-turn time limit of {timeout}s."
+                f"Player {self.player_id} exceeded the per-turn time limit of {timeout}s (including overhead)."
             )
         except (AgentCommunicationError, AgentTimeLimitError):
             raise

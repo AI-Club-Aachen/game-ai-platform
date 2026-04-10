@@ -184,8 +184,16 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     state_json = state.to_json()
                     logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
                     await cur_agent.send_state(state_json)
-                    move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit)
-                    logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {move_json!r}")  # noqa: E501
+                    # Allow some overhead here in time out but expect exact time limit in returned cpu_time
+                    raw_move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
+                    logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
+                    parsed_output = json.loads(raw_move_json)
+                    move_json = json.dumps(parsed_output.get("move", parsed_output))
+                    cpu_time = parsed_output.get("cpu_time", 0.0)
+
+                    if cpu_time > parsed_config.turn_time_limit:
+                        raise AgentTimeLimitError(f"Player {current_player} exceeded the per-turn time limit of {parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)")
+
                     move = Move.from_json(move_json)
                 except AgentTimeLimitError as e:
                     reason = f"Time limit exceeded"
