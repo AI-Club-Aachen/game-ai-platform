@@ -67,6 +67,11 @@ class AgentProcess:
         self._cidfile: tempfile._TemporaryFileWrapper | None = None  # type: ignore[name-defined]
         self._container_id: str | None = None
 
+    @property
+    def container_id(self) -> str | None:
+        """Expose the launched Docker container id for telemetry/reporting."""
+        return self._container_id
+
     def verify_image(self) -> None:
         """Must check whether the given image exists."""
         try:

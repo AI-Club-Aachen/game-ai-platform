@@ -29,6 +29,7 @@ from app.api.deps.permissions import (
 )
 from app.api.deps.services import (
     get_agent_service,
+    get_agent_container_service,
     get_auth_service,
     get_email_client,
     get_email_notification_service,
@@ -42,6 +43,7 @@ from app.api.deps.services import (
 __all__ = [
     # Service factories
     "get_agent_service",
+    "get_agent_container_service",
     "get_auth_service",
     "get_email_client",
     "get_email_notification_service",

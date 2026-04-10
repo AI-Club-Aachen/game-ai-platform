@@ -19,7 +19,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from starlette.responses import Response
 
-from app.api.routes import agents, auth, email, jobs, matches, submissions, users
+from app.api.routes import agent_containers, agents, auth, email, jobs, matches, submissions, users
 from app.core.config import settings
 from scripts.seed_db import seed
 
@@ -261,6 +261,11 @@ app.include_router(submissions.router, prefix=f"{settings.API_V1_PREFIX}/submiss
 app.include_router(agents.router, prefix=f"{settings.API_V1_PREFIX}/agents", tags=["Agents"])
 app.include_router(matches.router, prefix=f"{settings.API_V1_PREFIX}/matches", tags=["Matches"])
 app.include_router(jobs.router, prefix=f"{settings.API_V1_PREFIX}/jobs", tags=["Jobs"])
+app.include_router(
+    agent_containers.router,
+    prefix=f"{settings.API_V1_PREFIX}/agent_containers",
+    tags=["Agent Containers"],
+)
 
 
 # Health check endpoint

@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, CardContent, Chip } from '@mui/material';
 import { Close, Refresh, PlayArrow, Stop, Delete, Lock, Storage, Article } from '@mui/icons-material';
 import { palette, overlays } from '../theme';
+import { containersApi } from '../services/api';
 
 interface ContainerInfo {
   id: string;
+  containerId: string;
   name: string;
   status: 'running' | 'stopped' | 'error';
   image: string;
@@ -16,9 +18,52 @@ interface ContainerInfo {
   agentName: string;
 }
 
+const formatUptime = (seconds: number): string => {
+  if (!seconds || seconds <= 0) {
+    return '-';
+  }
+
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${secs}s`;
+  }
+  return `${secs}s`;
+};
+
+const formatCreated = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return date.toLocaleString();
+};
+
+const normalizeStatus = (status: string): ContainerInfo['status'] => {
+  if (status === 'running' || status === 'stopped' || status === 'error') {
+    return status;
+  }
+  if (status === 'paused' || status === 'created' || status === 'restarting') {
+    return 'running';
+  }
+  if (status === 'exited' || status === 'dead' || status === 'removing') {
+    return 'stopped';
+  }
+  return 'error';
+};
+
 export function ContainerManagement() {
   const { isAdmin } = useAuth();
   const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
+  const [containers, setContainers] = useState<ContainerInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [logs] = useState<string[]>([
     '[2025-11-01 12:45:23] Container started successfully',
     '[2025-11-01 12:45:24] Initializing AI agent...',
@@ -32,13 +77,40 @@ export function ContainerManagement() {
     '[2025-11-01 12:46:17] Game #12345 completed - Victory!',
   ]);
 
-  const containers: ContainerInfo[] = [
-    { id: 'cont_1', name: 'alphabot-v1-2', status: 'running', image: 'python:3.11-slim', created: '2025-11-01 10:30', uptime: '2h 15m', cpu: 45.2, memory: 512, agentName: 'AlphaBot v1.2' },
-    { id: 'cont_2', name: 'betaai-v2-0', status: 'running', image: 'node:20-alpine', created: '2025-11-01 09:15', uptime: '3h 30m', cpu: 32.8, memory: 384, agentName: 'BetaAI v2.0' },
-    { id: 'cont_3', name: 'gammanet-v1-5', status: 'running', image: 'python:3.11-slim', created: '2025-11-01 11:00', uptime: '1h 45m', cpu: 67.5, memory: 768, agentName: 'GammaNet v1.5' },
-    { id: 'cont_4', name: 'deltabot-v1-0', status: 'stopped', image: 'python:3.10', created: '2025-10-31 14:20', uptime: '-', cpu: 0, memory: 0, agentName: 'DeltaBot v1.0' },
-    { id: 'cont_5', name: 'epsilonai-v3-1', status: 'error', image: 'node:18-alpine', created: '2025-11-01 12:00', uptime: '-', cpu: 0, memory: 0, agentName: 'EpsilonAI v3.1' },
-  ];
+  const loadContainers = async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const data = await containersApi.getContainers({ limit: 200 });
+      const mapped: ContainerInfo[] = data.map((item) => ({
+        id: item.id,
+        containerId: item.container_id,
+        name: item.name || item.container_id.slice(0, 12),
+        status: normalizeStatus(item.status),
+        image: item.image,
+        created: formatCreated(item.created_at),
+        uptime: formatUptime(item.uptime_seconds),
+        cpu: Number(item.cpu_percent || 0),
+        memory: Number(item.memory_mb || 0),
+        agentName: item.agent_name || item.agent_id,
+      }));
+      setContainers(mapped);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load containers';
+      setFetchError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadContainers();
+    const id = window.setInterval(() => {
+      void loadContainers();
+    }, 5000);
+
+    return () => window.clearInterval(id);
+  }, []);
 
   const getStatusColor = (status: ContainerInfo['status']) => {
     const colors = { running: 'success' as const, stopped: 'default' as const, error: 'error' as const };
@@ -55,9 +127,9 @@ export function ContainerManagement() {
     );
   }
 
-  const runningCount = containers.filter(c => c.status === 'running').length;
-  const stoppedCount = containers.filter(c => c.status === 'stopped').length;
-  const errorCount = containers.filter(c => c.status === 'error').length;
+  const runningCount = useMemo(() => containers.filter(c => c.status === 'running').length, [containers]);
+  const stoppedCount = useMemo(() => containers.filter(c => c.status === 'stopped').length, [containers]);
+  const errorCount = useMemo(() => containers.filter(c => c.status === 'error').length, [containers]);
 
   const statusDotColor = (color: string) => ({
     width: 10,
@@ -74,6 +146,13 @@ export function ContainerManagement() {
           <Storage /> Container Management
         </Typography>
         <Typography color="text.secondary">Monitor and manage Docker containers for AI agents</Typography>
+        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => void loadContainers()}>
+            Refresh
+          </Button>
+          {isLoading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
+          {fetchError && <Typography variant="body2" color="error">{fetchError}</Typography>}
+        </Box>
       </Box>
 
       {/* Status Cards */}
@@ -117,6 +196,7 @@ export function ContainerManagement() {
                 <TableRow>
                   <TableCell>Status</TableCell>
                   <TableCell>Container Name</TableCell>
+                  <TableCell>Container ID</TableCell>
                   <TableCell>Agent</TableCell>
                   <TableCell>Image</TableCell>
                   <TableCell>Created</TableCell>
@@ -135,6 +215,11 @@ export function ContainerManagement() {
                     <TableCell>
                       <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
                         {container.name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
+                        {container.containerId.slice(0, 12)}
                       </Typography>
                     </TableCell>
                     <TableCell>{container.agentName}</TableCell>
@@ -156,12 +241,8 @@ export function ContainerManagement() {
                         <Button variant="outlined" size="small" onClick={() => setSelectedContainer(container.id)}>Logs</Button>
                         {container.status === 'running' && (
                           <>
-                            <Button variant="outlined" size="small"><Refresh fontSize="small" /></Button>
                             <Button variant="outlined" size="small" color="error"><Stop fontSize="small" /></Button>
                           </>
-                        )}
-                        {container.status === 'stopped' && (
-                          <Button variant="outlined" size="small" color="success"><PlayArrow fontSize="small" /></Button>
                         )}
                         {container.status === 'error' && (
                           <Button variant="outlined" size="small" color="error"><Delete fontSize="small" /></Button>
