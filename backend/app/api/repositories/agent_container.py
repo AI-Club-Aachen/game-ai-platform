@@ -65,7 +65,7 @@ class AgentContainerRepository:
             self._session.add(entity)
             self._session.commit()
             self._session.refresh(entity)
-            return entity
+            return entity  # noqa: TRY300
         except Exception as e:
             self._session.rollback()
             logger.exception("Failed to upsert agent container snapshot")
@@ -84,7 +84,7 @@ class AgentContainerRepository:
             self._session.add(entity)
             self._session.commit()
             self._session.refresh(entity)
-            return entity
+            return entity  # noqa: TRY300
         except Exception as e:
             self._session.rollback()
             logger.exception("Failed to update agent container snapshot")
