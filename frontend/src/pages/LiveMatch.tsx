@@ -416,28 +416,6 @@ export function LiveMatch() {
       });
   }, [matchId]);
 
-  useEffect(() => {
-    if (!matchId) return;
-
-    const loadContainerLogs = async () => {
-      try {
-        setContainerLogsError(null);
-        const rows = await containersApi.getMatchContainers(matchId);
-        setContainerLogs(rows);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load container logs';
-        setContainerLogsError(message);
-      }
-    };
-
-    void loadContainerLogs();
-    const id = window.setInterval(() => {
-      void loadContainerLogs();
-    }, 5000);
-
-    return () => window.clearInterval(id);
-  }, [matchId]);
-
   const {
     gameState,
     matchStatus,
@@ -447,6 +425,57 @@ export function LiveMatch() {
     isConnected,
     error,
   } = useMatchStream(matchId);
+
+  const isLoading = matchStatus === null;
+  const isTerminal = matchStatus === 'completed' || matchStatus === 'failed' || matchStatus === 'client_error';
+  const isError = matchStatus === 'failed' || matchStatus === 'client_error';
+
+  useEffect(() => {
+    if (!matchId || !isTerminal) return;
+
+    let pollCount = 0;
+    const MAX_POLLS = 3;
+    let active = true;
+
+    const loadLogs = async () => {
+      if (!active || pollCount >= MAX_POLLS) return;
+      pollCount++;
+
+      try {
+        setContainerLogsError(null);
+        const rows = await containersApi.getMatchContainers(matchId);
+        if (!active) return;
+
+        setContainerLogs(rows);
+        const hasLogs = rows.some(r => r.logs && r.logs.trim().length > 0);
+
+        // Stop if we found logs OR we reached the limit
+        if (hasLogs || pollCount >= MAX_POLLS) {
+          active = false;
+          return;
+        }
+      } catch (err) {
+        if (!active) return;
+        const message = err instanceof Error ? err.message : 'Failed to load container logs';
+        setContainerLogsError(message);
+
+        if (pollCount >= MAX_POLLS) {
+          active = false;
+          return;
+        }
+      }
+
+      // If still active and under limit, schedule next check
+      if (active && pollCount < MAX_POLLS) {
+        setTimeout(() => {
+          void loadLogs();
+        }, 5000);
+      }
+    };
+
+    void loadLogs();
+    return () => { active = false; };
+  }, [matchId, isTerminal]);
 
   // Resolve game metadata from config
   const gameInfo = useMemo(() => {
@@ -460,10 +489,6 @@ export function LiveMatch() {
     if (!gameType) return null;
     return getGameRenderer(gameType);
   }, [gameType]);
-
-  const isLoading = matchStatus === null;
-  const isTerminal = matchStatus === 'completed' || matchStatus === 'failed' || matchStatus === 'client_error';
-  const isError = matchStatus === 'failed' || matchStatus === 'client_error';
 
   // ── Replay State ──
   const history: any[] = useMemo(() => result?.history || [], [result?.history]);

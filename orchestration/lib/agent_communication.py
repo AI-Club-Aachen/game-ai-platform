@@ -178,6 +178,10 @@ class AgentProcess:
         except BaseException as e:
             raise AgentCommunicationError(f"Failed to send state: {e}")
 
+    # Maximum bytes accepted from agent stdout per response (1 MiB).
+    # An agent producing more than this is either broken or adversarial.
+    _MAX_RESPONSE_BYTES: int = 1 * 1024 * 1024
+
     async def get_move(self, timeout: float | None = 30.0) -> str:
         """
         Read one line of output from the agent (its move).
@@ -185,13 +189,17 @@ class AgentProcess:
         Args:
             timeout: Maximum seconds to wait. ``None`` means wait indefinitely.
                      Exceeding the limit raises :exc:`AgentTimeLimitError`.
+
+        The response is capped at :attr:`_MAX_RESPONSE_BYTES` to guard against
+        memory-exhaustion attacks.  Non-UTF-8 bytes are silently dropped rather
+        than raising an exception.
         """
         if not self.process or not self.process.stdout:
             raise AgentCommunicationError("Process not started or stdout not available.")
 
         try:
             coro = self.process.stdout.readline()
-            line = await asyncio.wait_for(coro, timeout=timeout)
+            line: bytes = await asyncio.wait_for(coro, timeout=timeout)
             if not line:
                 err_out = ""
                 if getattr(self.process, "stderr", None):
@@ -211,6 +219,15 @@ class AgentProcess:
                 if err_out:
                     msg += f" Stderr: {err_out}"
                 raise AgentCommunicationError(msg)
+
+            # Enforce hard size cap before decoding to prevent memory exhaustion.
+            if len(line) > self._MAX_RESPONSE_BYTES:
+                raise AgentCommunicationError(
+                    f"Player {self.player_id} stdout response exceeds the "
+                    f"{self._MAX_RESPONSE_BYTES // 1024} KiB safety limit "
+                    f"({len(line)} bytes received)."
+                )
+
             return line.decode("utf-8").strip()
         except asyncio.TimeoutError:
             raise AgentTimeLimitError(

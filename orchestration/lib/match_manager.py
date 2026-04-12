@@ -325,15 +325,49 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     # Allow some overhead here in time out but expect exact time limit in returned cpu_time
                     raw_move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
                     logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
-                    parsed_output = json.loads(raw_move_json)
-                    move_json = json.dumps(parsed_output.get("move", parsed_output))
-                    cpu_time = parsed_output.get("cpu_time", 0.0)
+
+                    # --- Safe JSON parsing ---------------------------------------
+                    try:
+                        parsed_output = json.loads(raw_move_json)
+                    except json.JSONDecodeError as e:
+                        raise AgentCommunicationError(
+                            f"Player {current_player} returned invalid JSON: {e}"
+                        )
+
+                    # parsed_output must be a mapping; reject any other type
+                    # (e.g. a bare list or string) to prevent type confusion.
+                    if not isinstance(parsed_output, dict):
+                        raise AgentCommunicationError(
+                            f"Player {current_player} returned unexpected JSON type "
+                            f"{type(parsed_output).__name__!r}; expected an object."
+                        )
+
+                    # cpu_time must be a real number; coerce defensively.
+                    raw_cpu_time = parsed_output.get("cpu_time", 0.0)
+                    try:
+                        cpu_time = float(raw_cpu_time)
+                    except (TypeError, ValueError):
+                        logger.warning(
+                            f"[{match_id}] Turn {turn_count}: "
+                            f"player {current_player} sent non-numeric cpu_time "
+                            f"{raw_cpu_time!r}; defaulting to 0.0"
+                        )
+                        cpu_time = 0.0
 
                     if cpu_time > parsed_config.turn_time_limit:
-                        raise AgentTimeLimitError(f"Player {current_player} exceeded the per-turn time limit of " +
-                                                  f"{parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)")
+                        raise AgentTimeLimitError(
+                            f"Player {current_player} exceeded the per-turn time limit of "
+                            f"{parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)"
+                        )
 
-                    move = Move.from_json(move_json)
+                    # Extract the move sub-object if present, otherwise treat the whole response as the move.
+                    move_data = parsed_output.get("move", parsed_output)
+                    if not isinstance(move_data, dict):
+                        raise AgentCommunicationError(
+                            f"Player {current_player} move field has unexpected type "
+                            f"{type(move_data).__name__!r}; expected an object."
+                        )
+                    move = Move.model_validate(move_data, strict=True)
                 except AgentTimeLimitError as e:
                     reason = "Time limit exceeded"
                     logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
