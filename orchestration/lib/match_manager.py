@@ -1,10 +1,11 @@
 import importlib
 import json
 import logging
-import os
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
+from lib import agent_manager
 from lib.agent_communication import AgentCommunicationError, AgentProcess, AgentTimeLimitError
 from lib.backend_api import BackendAPI
 
@@ -16,26 +17,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
-DEFAULT_MAX_TURN_TIME_LIMIT: float = 120.0  # seconds
-
-
-def _load_max_turn_time_limit() -> float:
-    raw = os.getenv("MAX_TURN_TIME_LIMIT_SECONDS", str(DEFAULT_MAX_TURN_TIME_LIMIT))
-    try:
-        value = float(raw)
-        if value <= 0:
-            raise ValueError("must be > 0")
-        return value
-    except (TypeError, ValueError):
-        logger.warning(
-            "Invalid MAX_TURN_TIME_LIMIT_SECONDS %r, using default %ss",
-            raw,
-            DEFAULT_MAX_TURN_TIME_LIMIT,
-        )
-        return DEFAULT_MAX_TURN_TIME_LIMIT
-
-
-MAX_TURN_TIME_LIMIT: float = _load_max_turn_time_limit()
 
 
 @dataclass(frozen=True)
@@ -61,14 +42,6 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
     except (TypeError, ValueError):
         logger.warning(f"Invalid turn_time_limit {raw!r}, using default {DEFAULT_TURN_TIME_LIMIT}s")
         return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
-
-    if turn_time_limit > MAX_TURN_TIME_LIMIT:
-        logger.warning(
-            "turn_time_limit %ss exceeds max %ss; clamping to max",
-            turn_time_limit,
-            MAX_TURN_TIME_LIMIT,
-        )
-        turn_time_limit = MAX_TURN_TIME_LIMIT
 
     return MatchConfig(turn_time_limit=turn_time_limit if turn_time_limit > 0 else None)
 
@@ -109,6 +82,101 @@ async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[s
 
         image_tags.append(tag)
     return image_tags
+
+
+def _uptime_seconds(started_at: datetime | None) -> float:
+    if started_at is None:
+        return 0.0
+    return max(0.0, (datetime.now(UTC) - started_at).total_seconds())
+
+
+def _collect_container_logs(agents: list[AgentProcess], match_id: str) -> dict[str, str]:
+    logs_by_container_id: dict[str, str] = {}
+    for agent in agents:
+        container_id = agent.container_id
+        if not container_id:
+            continue
+
+        logs = ""
+        try:
+            logs = agent_manager.get_container_logs(container_id, tail=5000)
+        except Exception as e:
+            logger.debug("[%s] Failed collecting docker logs for %s: %s", match_id, container_id, e)
+
+        stderr_tail = (agent.stderr_tail or "").strip()
+        if stderr_tail:
+            logs = f"{logs}\n{stderr_tail}".strip() if logs else stderr_tail
+
+        if logs:
+            logs_by_container_id[container_id] = logs
+
+    return logs_by_container_id
+
+
+async def _report_all_container_snapshots(
+    *,
+    api: BackendAPI,
+    match_id: str,
+    agent_ids: list[str],
+    image_tags: list[str],
+    agents: list[AgentProcess],
+    started_at: list[datetime | None],
+    status: str,
+    include_stats: bool,
+    logs_by_container_id: dict[str, str] | None = None,
+) -> None:
+    def _status_from_runtime(runtime_status: str | None, fallback: str) -> str:
+        if runtime_status in {"running", "paused", "restarting", "created"}:
+            return "running"
+        if runtime_status in {"exited", "dead", "removing"}:
+            return "stopped"
+        return fallback
+
+    for i, agent in enumerate(agents):
+        container_id = agent.container_id
+        if not container_id:
+            continue
+
+        payload: dict[str, Any] = {
+            "container_id": container_id,
+            "match_id": match_id,
+            "agent_id": agent_ids[i],
+            "agent_name": agent_ids[i],
+            "name": container_id[:12],
+            "status": status,
+            "image": image_tags[i],
+            "uptime_seconds": _uptime_seconds(started_at[i]),
+            "cpu_percent": 0.0,
+            "memory_mb": 0.0,
+        }
+
+        if logs_by_container_id is not None and container_id in logs_by_container_id:
+            payload["logs"] = logs_by_container_id.get(container_id)
+
+        try:
+            container = agent.client.containers.get(container_id)
+            payload["name"] = container.name or payload["name"]
+
+            # Only let runtime state drive status while the match is active.
+            # For terminal snapshots (e.g., stopped/error), keep explicit status.
+            if status == "running":
+                payload["status"] = _status_from_runtime(container.status, status)
+        except Exception:
+            pass
+
+        if include_stats:
+            try:
+                stats = agent_manager.get_container_stats(container_id)
+                memory_usage = float(stats.get("memory_usage") or 0.0)
+                payload["cpu_percent"] = float(stats.get("cpu_percent") or 0.0)
+                payload["memory_mb"] = memory_usage / (1024.0 * 1024.0)
+            except Exception as e:
+                logger.debug("[%s] Failed reading stats for container %s: %s", match_id, container_id, e)
+
+        try:
+            await api.report_container_stats(payload)
+        except Exception as e:
+            logger.warning("[%s] Failed reporting container snapshot for %s: %s", match_id, container_id, e)
 
 
 # ---------------------------------------------------------------------------
@@ -152,9 +220,11 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             return {"status": "error", "reason": str(e)}
 
         agents = []
+        started_at: list[datetime | None] = []
         for i, tag in enumerate(image_tags):
             logger.debug(f"[{match_id}] Creating AgentProcess for player {i} with image {tag!r}")
             agents.append(AgentProcess(tag, player_id=i))
+            started_at.append(None)
 
         # Check whether the given image exists for all playing agents
         for agent in agents:
@@ -177,17 +247,48 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 await agent.start()
                 logger.debug(f"[{match_id}] Agent process started for player {agent.player_id}, sending init")
                 await agent.send_init()
+                started_at[agent.player_id] = datetime.now(UTC)
                 logger.debug(f"[{match_id}] Agent player {agent.player_id} init sent successfully")
             except AgentCommunicationError as e:
                 logger.error(f"[{match_id}] Agent player {agent.player_id} failed to start/init: {e}")
+
+                logs_by_container_id = _collect_container_logs(agents, match_id)
                 for a in agents:
                     await a.cleanup()
+                # Append any stderr emitted during cleanup/termination.
+                logs_by_container_id = {
+                    **logs_by_container_id,
+                    **_collect_container_logs(agents, match_id),
+                }
+
+                await _report_all_container_snapshots(
+                    api=api,
+                    match_id=match_id,
+                    agent_ids=agent_ids,
+                    image_tags=image_tags,
+                    agents=agents,
+                    started_at=started_at,
+                    status="error",
+                    include_stats=False,
+                    logs_by_container_id=logs_by_container_id,
+                )
                 return {"status": "error", "reason": f"Agent {agent.player_id} failed to start/init: {e}"}
 
         # All agents start in a paused state; they are resumed only when it is
         # their turn so they cannot compute ahead of time.
         for agent in agents:
             agent.pause()
+
+        await _report_all_container_snapshots(
+            api=api,
+            match_id=match_id,
+            agent_ids=agent_ids,
+            image_tags=image_tags,
+            agents=agents,
+            started_at=started_at,
+            status="running",
+            include_stats=False,
+        )
 
         scores = {agent_id: 0 for agent_id in agent_ids}
         winner_id = -1
@@ -221,20 +322,14 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     state_json = state.to_json()
                     logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
                     await cur_agent.send_state(state_json)
-                    # Allow overhead for communication when a per-turn limit is enabled.
-                    # If the limit is disabled, wait indefinitely for a move.
-                    timeout_with_overhead = (
-                        parsed_config.turn_time_limit + 1.5
-                        if parsed_config.turn_time_limit is not None
-                        else None
-                    )
-                    raw_move_json = await cur_agent.get_move(timeout=timeout_with_overhead)
+                    # Allow some overhead here in time out but expect exact time limit in returned cpu_time
+                    raw_move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
                     logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
                     parsed_output = json.loads(raw_move_json)
                     move_json = json.dumps(parsed_output.get("move", parsed_output))
                     cpu_time = parsed_output.get("cpu_time", 0.0)
 
-                    if parsed_config.turn_time_limit is not None and cpu_time > parsed_config.turn_time_limit:
+                    if cpu_time > parsed_config.turn_time_limit:
                         raise AgentTimeLimitError(f"Player {current_player} exceeded the per-turn time limit of " +
                                                   f"{parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)")
 
@@ -266,6 +361,16 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     state_dict = json.loads(state_json_str)
                     history.append(state_dict)
                     await api.update_match(match_id, status="running", game_state=state_dict)
+                    await _report_all_container_snapshots(
+                        api=api,
+                        match_id=match_id,
+                        agent_ids=agent_ids,
+                        image_tags=image_tags,
+                        agents=agents,
+                        started_at=started_at,
+                        status="running",
+                        include_stats=True,
+                    )
                     logger.debug(f"[{match_id}] Turn {turn_count}: backend state updated")
                 except Exception as e:
                     logger.error(f"[{match_id}] Turn {turn_count}: failed to update match game_state: {e}")
@@ -273,8 +378,28 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             # Clean up all agent subprocesses (cleanup() calls resume() first
             # so paused containers receive the termination signal)
             logger.debug(f"[{match_id}] Cleaning up {len(agents)} agent process(es)")
+
+            logs_by_container_id = _collect_container_logs(agents, match_id)
+
             for agent in agents:
                 await agent.cleanup()
+
+            logs_by_container_id = {
+                **logs_by_container_id,
+                **_collect_container_logs(agents, match_id),
+            }
+
+            await _report_all_container_snapshots(
+                api=api,
+                match_id=match_id,
+                agent_ids=agent_ids,
+                image_tags=image_tags,
+                agents=agents,
+                started_at=started_at,
+                status="stopped",
+                include_stats=False,
+                logs_by_container_id=logs_by_container_id,
+            )
             logger.debug(f"[{match_id}] Agent cleanup done (total turns played: {turn_count})")
 
         game_status = engine.get_status(state)

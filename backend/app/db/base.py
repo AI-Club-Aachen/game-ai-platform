@@ -4,6 +4,7 @@
 from sqlmodel import SQLModel  # noqa: F401
 
 from app.models.agent import Agent  # noqa: F401
+from app.models.agent_container import AgentContainer  # noqa: F401
 from app.models.job import BuildJob, MatchJob  # noqa: F401
 from app.models.match import Match  # noqa: F401
 from app.models.submission import Submission  # noqa: F401

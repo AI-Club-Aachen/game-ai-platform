@@ -27,6 +27,8 @@ import {
   CircularProgress,
   Autocomplete,
   Divider,
+  Switch,
+  FormControlLabel,
   InputAdornment,
   Tooltip,
 } from '@mui/material';
@@ -44,7 +46,7 @@ import { fromApiGameType, getGameById } from '../config/games';
 
 // Mirrors backend MatchConfig – update here when new fields are added.
 interface MatchConfig {
-  turn_time_limit: number;
+  turn_time_limit: number | null;
 }
 
 const MIN_TURN_TIME_LIMIT = 0.1;
@@ -74,6 +76,7 @@ export function MatchManagement() {
   const [createDialogOpen, setDialogOpen] = useState(false);
   const [newMatchGameType, setNewMatchGameType] = useState('tictactoe');
   const [matchConfig, setMatchConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
+  const [timeLimitEnabled, setTimeLimitEnabled] = useState(true);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
 
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -130,16 +133,14 @@ export function MatchManagement() {
 
   const handleOpenDialog = () => {
     setMatchConfig(DEFAULT_CONFIG);
+    setTimeLimitEnabled(true);
     setSelectedAgents([]);
     setNewMatchGameType('tictactoe');
     setDialogOpen(true);
   };
 
   const buildConfig = (): MatchConfig => ({
-    turn_time_limit: Math.min(
-      MAX_TURN_TIME_LIMIT,
-      Math.max(MIN_TURN_TIME_LIMIT, matchConfig.turn_time_limit ?? DEFAULT_TURN_TIME_LIMIT)
-    ),
+    turn_time_limit: timeLimitEnabled ? (matchConfig.turn_time_limit ?? 10) : null,
   });
 
   const handleCreateMatch = async () => {
@@ -389,35 +390,50 @@ export function MatchManagement() {
               <Divider sx={{ mb: 2 }} />
 
               {/* Turn time limit */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    Turn Time Limit
-                  </Typography>
-                  <Tooltip title="Maximum seconds an agent may take per turn. Exceeding this forfeits the game. Agents are paused while it is not their turn.">
-                    <InfoIcon fontSize="inherit" color="action" sx={{ cursor: 'help', fontSize: '1rem' }} />
-                  </Tooltip>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      Turn Time Limit
+                    </Typography>
+                    <Tooltip title="Maximum seconds an agent may take per turn. Exceeding this forfeits the game. Agents are paused while it is not their turn.">
+                      <InfoIcon fontSize="inherit" color="action" sx={{ cursor: 'help', fontSize: '1rem' }} />
+                    </Tooltip>
+                  </Box>
+                  <TextField
+                    id="turn-time-limit-input"
+                    type="number"
+                    size="small"
+                    disabled={!timeLimitEnabled}
+                    value={timeLimitEnabled ? (matchConfig.turn_time_limit ?? 10) : ''}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setMatchConfig(prev => ({
+                        ...prev,
+                        turn_time_limit: isNaN(val) ? null : Math.max(0.1, val),
+                      }));
+                    }}
+                    inputProps={{ min: 0.1, step: 0.5 }}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">s</InputAdornment>,
+                    }}
+                    sx={{ width: 140 }}
+                  />
                 </Box>
-                <TextField
-                  id="turn-time-limit-input"
-                  type="number"
-                  size="small"
-                  value={matchConfig.turn_time_limit ?? DEFAULT_TURN_TIME_LIMIT}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setMatchConfig(prev => ({
-                      ...prev,
-                      turn_time_limit: isNaN(val)
-                        ? DEFAULT_TURN_TIME_LIMIT
-                        : Math.min(MAX_TURN_TIME_LIMIT, Math.max(MIN_TURN_TIME_LIMIT, val)),
-                    }));
-                  }}
-                  inputProps={{ min: MIN_TURN_TIME_LIMIT, max: MAX_TURN_TIME_LIMIT, step: 0.5 }}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">s</InputAdornment>,
-                  }}
-                  helperText={`Required. Max ${MAX_TURN_TIME_LIMIT}s`}
-                  sx={{ width: 180 }}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={timeLimitEnabled}
+                      onChange={(e) => setTimeLimitEnabled(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      {timeLimitEnabled ? 'Enabled' : 'Disabled'}
+                    </Typography>
+                  }
+                  sx={{ mt: 3, mr: 0 }}
                 />
               </Box>
             </Box>

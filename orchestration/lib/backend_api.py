@@ -104,6 +104,34 @@ class BackendAPI:
             logger.error(f"Error calling GET {url}: {e}")
             raise BackendAPIError(f"Failed to call {endpoint}: {e}") from e
 
+    async def _post(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Send POST request to backend API.
+
+        Args:
+            endpoint: API endpoint path
+            data: Request payload
+
+        Returns:
+            Response JSON
+
+        Raises:
+            BackendAPIError: If request fails
+        """
+        url = f"{self.backend_url}{endpoint}"
+        try:
+            response = await self._client.post(url, json=data)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error {e.response.status_code} for POST {url}: {e.response.text}")
+            raise BackendAPIError(
+                f"Failed to POST {endpoint}: {e.response.status_code} {e.response.text}"
+            ) from e
+        except Exception as e:
+            logger.error(f"Error calling POST {url}: {e}")
+            raise BackendAPIError(f"Failed to call {endpoint}: {e}") from e
+
     # Submission methods
 
     async def update_build_job(
@@ -204,6 +232,10 @@ class BackendAPI:
             Match data
         """
         return await self._get(f"/matches/{match_id}")
+
+    async def report_container_stats(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Upsert a container telemetry snapshot."""
+        return await self._post("/agent_containers/upsert", data)
 
 
 def get_backend_api(backend_url: str | None = None) -> BackendAPI:
