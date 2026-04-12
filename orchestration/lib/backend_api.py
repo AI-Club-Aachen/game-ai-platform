@@ -196,6 +196,7 @@ class BackendAPI:
         self,
         match_id: str,
         status: str,
+        logs: str | None = None,
         result: dict[str, Any] | None = None,
         game_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -205,6 +206,7 @@ class BackendAPI:
         Args:
             match_id: Match UUID
             status: New status (queued, running, completed, failed)
+            logs: Optional log lines to append
             result: Optional match result data (scores, winner, etc.)
             game_state: Optional current game state dictionary
 
@@ -212,6 +214,9 @@ class BackendAPI:
             Updated match data
         """
         data: dict[str, Any] = {"status": status}
+
+        if logs is not None:
+            data["logs"] = logs
 
         if result is not None:
             data["result"] = result

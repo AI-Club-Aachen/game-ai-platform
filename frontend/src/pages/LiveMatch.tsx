@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -422,6 +422,7 @@ export function LiveMatch() {
     gameType,
     agentIds,
     result,
+    logs,
     isConnected,
     error,
   } = useMatchStream(matchId);
@@ -429,6 +430,14 @@ export function LiveMatch() {
   const isLoading = matchStatus === null;
   const isTerminal = matchStatus === 'completed' || matchStatus === 'failed' || matchStatus === 'client_error';
   const isError = matchStatus === 'failed' || matchStatus === 'client_error';
+
+  // State to hold the log element for auto-scrolling
+  const logEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
 
   useEffect(() => {
     if (!matchId || !isTerminal) return;
@@ -726,6 +735,40 @@ export function LiveMatch() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Match Logs ── */}
+      {logs.trim() && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
+              Match Logs
+            </Typography>
+            <Box
+              sx={{
+                backgroundColor: 'action.hover',
+                borderRadius: 2,
+                p: 2,
+                minHeight: 120,
+                maxHeight: 240,
+                overflowY: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+                lineHeight: 1.6,
+                color: 'text.primary',
+                border: 1,
+                borderColor: 'divider',
+              }}
+            >
+              {logs.split('\n').map((line, i) => (
+                <Box key={i} sx={{ py: 0.1 }}>
+                  {line}
+                </Box>
+              ))}
+              <div ref={logEndRef} />
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Container logs (visibility filtered by backend) ── */}
       {isTerminal && hasAnyContainerLogs && (

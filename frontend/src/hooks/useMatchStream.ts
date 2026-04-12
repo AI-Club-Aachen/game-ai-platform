@@ -12,6 +12,8 @@ export interface MatchStreamState {
   agentIds: string[];
   /** Match result data (scores, winner, etc.) */
   result: any | null;
+  /** Logs from the match execution */
+  logs: string;
   /** Whether the SSE connection is active */
   isConnected: boolean;
   /** Error message if connection failed */
@@ -31,6 +33,7 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
   const [gameType, setGameType] = useState<string | null>(null);
   const [agentIds, setAgentIds] = useState<string[]>([]);
   const [result, setResult] = useState<any | null>(null);
+  const [logs, setLogs] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +65,9 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
         setGameType(data.game_type ?? null);
         setAgentIds(data.agent_ids ?? []);
         setResult(data.result ?? null);
+        if (data.logs !== undefined) {
+          setLogs(data.logs ?? '');
+        }
 
         // If match is in a terminal state, close the connection
         const terminalStatuses = ['completed', 'failed', 'client_error'];
@@ -113,6 +119,7 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
     gameType,
     agentIds,
     result,
+    logs,
     isConnected,
     error,
   };

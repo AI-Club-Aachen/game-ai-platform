@@ -41,6 +41,7 @@ class MatchEventPublisher:
         match_id: str,
         game_state: dict[str, Any],
         status: str,
+        logs: str | None = None,
         result: dict[str, Any] | None = None,
     ) -> None:
         """Publish a game state update event for a match."""
@@ -49,6 +50,7 @@ class MatchEventPublisher:
         payload = json.dumps({
             "game_state": game_state,
             "status": status,
+            "logs": logs,
             "result": result,
         })
         await redis.publish(channel, payload)

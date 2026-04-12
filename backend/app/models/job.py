@@ -54,11 +54,5 @@ class MatchJob(SQLModel, table=True):
 
     status: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
 
-    # Logs from the match execution
-    logs: str = Field(default="")
-
-    # Result of the match (scores, winner, etc.)
-    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
-
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

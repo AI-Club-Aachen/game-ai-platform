@@ -180,6 +180,18 @@ async def _report_all_container_snapshots(
 
 
 # ---------------------------------------------------------------------------
+# Logging helper
+# ---------------------------------------------------------------------------
+
+async def _log(api: BackendAPI, match_id: str, status: str, msg: str) -> None:
+    """Push a single log line to the backend without raising on failure."""
+    try:
+        await api.update_match(match_id, status=status, logs=msg)
+    except Exception as exc:
+        logger.warning("[%s] Failed to push log to backend: %s", match_id, exc)
+
+
+# ---------------------------------------------------------------------------
 # Main match entrypoint
 # ---------------------------------------------------------------------------
 
@@ -195,6 +207,9 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
 
         # ---- Parse typed config ----------------------------------------
         parsed_config = _parse_match_config(config)
+        turn_limit_str = (
+            f"{parsed_config.turn_time_limit}s" if parsed_config.turn_time_limit is not None else "none"
+        )
         if parsed_config.turn_time_limit is not None:
             logger.debug(f"[{match_id}] Per-turn time limit: {parsed_config.turn_time_limit}s")
         else:
@@ -239,6 +254,10 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         engine = Engine()
         state = State.initial()
         logger.debug(f"[{match_id}] Game engine and initial state created")
+        await _log(
+            api, match_id, "running",
+            f"[INIT] Game={game_type} | Players={len(agent_ids)} | TurnTimeLimit={turn_limit_str}",
+        )
 
         # Start and initialize each agent
         for agent in agents:
@@ -249,8 +268,16 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 await agent.send_init()
                 started_at[agent.player_id] = datetime.now(UTC)
                 logger.debug(f"[{match_id}] Agent player {agent.player_id} init sent successfully")
+                await _log(
+                    api, match_id, "running",
+                    f"[INIT] Player {agent.player_id} started (image={image_tags[agent.player_id]!r})",
+                )
             except AgentCommunicationError as e:
                 logger.error(f"[{match_id}] Agent player {agent.player_id} failed to start/init: {e}")
+                await _log(
+                    api, match_id, "running",
+                    f"[ERROR] Player {agent.player_id} failed to start: {e}",
+                )
 
                 logs_by_container_id = _collect_container_logs(agents, match_id)
                 for a in agents:
@@ -295,9 +322,15 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         reason = ""
         turn_count = 0
 
-        # Initialize history with initial state
+        # Initialize history with initial state and push it to the backend
         state_dict = json.loads(state.to_json())
         history = [state_dict]
+        await api.update_match(
+            match_id,
+            status="running",
+            game_state=state_dict,
+            logs="[INIT] Initial game state set",
+        )
 
         # Send states and get moves from agents
         try:
@@ -368,15 +401,27 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                             f"{type(move_data).__name__!r}; expected an object."
                         )
                     move = Move.model_validate(move_data, strict=True)
+
+                    move_repr = json.dumps(move_data, separators=(",", ":"))
                 except AgentTimeLimitError as e:
                     reason = "Time limit exceeded"
                     logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
                     winner_id = 1 - current_player
+                    await _log(
+                        api, match_id, "running",
+                        f"[TURN {turn_count}] Player {current_player} exceeded time limit "
+                        f"({parsed_config.turn_time_limit}s) — Player {winner_id} wins",
+                    )
                     break
                 except Exception as e:
                     reason = f"Player {current_player} failed to communicate or generated invalid output: {e}"
                     logger.warning(f"[{match_id}] Turn {turn_count}: {reason}")
                     winner_id = 1 - current_player
+                    await _log(
+                        api, match_id, "running",
+                        f"[TURN {turn_count}] Player {current_player} communication error: {e} "
+                        f"— Player {winner_id} wins",
+                    )
                     break
                 finally:
                     # Pause the active agent now that its turn is done (or failed)
@@ -384,8 +429,13 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
 
                 if not engine.validate_move(state, move):
                     reason = f"Player {current_player} made an invalid move."
-                    logger.warning(f"[{match_id}] Turn {turn_count}: {reason} move={move_json!r}")
+                    logger.warning(f"[{match_id}] Turn {turn_count}: {reason} move={move_repr!r}")
                     winner_id = 1 - current_player
+                    await _log(
+                        api, match_id, "running",
+                        f"[TURN {turn_count}] Player {current_player} invalid move: {move_repr} "
+                        f"— Player {winner_id} wins",
+                    )
                     break
 
                 state = engine.apply_move(state, move)
@@ -394,7 +444,8 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     state_json_str = state.to_json()
                     state_dict = json.loads(state_json_str)
                     history.append(state_dict)
-                    await api.update_match(match_id, status="running", game_state=state_dict)
+                    move_log = f"[TURN {turn_count}] Player {current_player} move: {move_repr} (cpu={cpu_time:.3f}s)"
+                    await api.update_match(match_id, status="running", game_state=state_dict, logs=move_log)
                     await _report_all_container_snapshots(
                         api=api,
                         match_id=match_id,
@@ -452,13 +503,23 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         else:
             winner_result = "draw"
 
+        # Log final result
+        if winner_result == "draw":
+            result_summary = f"Draw after {turn_count} turn(s). Reason: {reason}"
+        else:
+            result_summary = (
+                f"Player {winner_id} (agent {winner_result}) wins after {turn_count} turn(s). "
+                f"Reason: {reason}"
+            )
+        await _log(api, match_id, "running", f"[RESULT] {result_summary}")
+        logger.debug(f"[{match_id}] Match result: winner={winner_result!r} reason={reason!r} turns={turn_count}")
+
         result = {
             "winner": winner_result,
             "scores": scores,
             "reason": reason,
             "history": history,
         }
-        logger.debug(f"[{match_id}] Match result: {result}")
         return result
 
     except Exception as e:

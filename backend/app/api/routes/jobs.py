@@ -84,9 +84,6 @@ async def update_match_job(
     job = await match_service.update_match_job(
         str(job_id),
         update.status,
-        update.logs,
-        update.result,
-        update.game_state,
     )
     if not job:
         raise HTTPException(
