@@ -42,14 +42,23 @@ import {
 } from '@mui/icons-material';
 import { matchesApi } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
+import { fromApiGameType, getGameById } from '../config/games';
 
 // Mirrors backend MatchConfig – update here when new fields are added.
 interface MatchConfig {
   turn_time_limit: number | null;
 }
 
+const MIN_TURN_TIME_LIMIT = 0.1;
+const DEFAULT_TURN_TIME_LIMIT = 10;
+const FALLBACK_MAX_TURN_TIME_LIMIT = 120;
+const rawMaxTurnTimeLimit = Number(import.meta.env.MAX_TURN_TIME_LIMIT_SECONDS);
+const MAX_TURN_TIME_LIMIT = Number.isFinite(rawMaxTurnTimeLimit) && rawMaxTurnTimeLimit >= MIN_TURN_TIME_LIMIT
+  ? rawMaxTurnTimeLimit
+  : FALLBACK_MAX_TURN_TIME_LIMIT;
+
 const DEFAULT_CONFIG: MatchConfig = {
-  turn_time_limit: 10,
+  turn_time_limit: Math.min(DEFAULT_TURN_TIME_LIMIT, MAX_TURN_TIME_LIMIT),
 };
 
 export function MatchManagement() {
@@ -75,6 +84,11 @@ export function MatchManagement() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const selectedGameConfig = getGameById(fromApiGameType(newMatchGameType));
+  const minRequiredAgents = selectedGameConfig?.minPlayers ?? 2;
+  const maxAllowedAgents = selectedGameConfig?.maxPlayers ?? minRequiredAgents;
+  const hasValidAgentCount = selectedAgents.length >= minRequiredAgents && selectedAgents.length <= maxAllowedAgents;
 
   const fetchMatches = useCallback(async () => {
     setLoading(true);
@@ -342,13 +356,16 @@ export function MatchManagement() {
               value={selectedAgents}
               onChange={(_, newValue) => setSelectedAgents(newValue)}
               filterSelectedOptions
+              disableCloseOnSelect
+              limitTags={2}
               loading={loadingAgents}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label="Select Agents"
                   placeholder="Select participating agents"
-                  helperText="Search and select agents by name or ID. List filtered by selected game type."
+                  helperText={`Select ${minRequiredAgents}-${maxAllowedAgents} agents. List filtered by selected game type.`}
+                  error={!hasValidAgentCount && selectedAgents.length > 0}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
@@ -430,7 +447,7 @@ export function MatchManagement() {
           <Button
             onClick={handleCreateMatch}
             variant="contained"
-            disabled={isCreating}
+            disabled={isCreating || !hasValidAgentCount}
             startIcon={isCreating ? <CircularProgress size={20} /> : <PlayIcon />}
           >
             Start Match

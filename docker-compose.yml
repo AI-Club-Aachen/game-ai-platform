@@ -32,6 +32,7 @@ services:
       - "3000:3000"
     environment:
       - VITE_BACKEND_URL=http://backend:8000
+      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:-120}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -71,6 +72,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-key-12345}
+      MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:-120}
     depends_on:
       db:
         condition: service_healthy
@@ -126,6 +128,7 @@ services:
       - REDIS_URL=${REDIS_URL}
       - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
+      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:-120}
     depends_on:
       backend:
         condition: service_healthy

@@ -303,6 +303,14 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         try:
             while not engine.is_game_over(state):
                 current_player = state.turn
+                if current_player < 0 or current_player >= len(agents):
+                    return {
+                        "status": "error",
+                        "reason": (
+                            f"Engine requested player index {current_player}, "
+                            f"but only {len(agents)} agent(s) were provided"
+                        ),
+                    }
                 cur_agent = agents[current_player]
                 turn_count += 1
                 logger.debug(f"[{match_id}] Turn {turn_count}: player {current_player}'s move")

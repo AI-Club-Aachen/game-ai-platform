@@ -128,6 +128,7 @@ Create `.env` from `.env.example` and set:
 - `ENVIRONMENT`: `development`, `staging`, or `production`
 - `DATABASE_URL`: PostgreSQL connection string
 - `JWT_SECRET_KEY`, `JWT_ACCESS_TOKEN_EXPIRE_HOURS`
+- `MAX_TURN_TIME_LIMIT_SECONDS`: Upper bound for per-turn match time limit (seconds)
 - `ALLOW_ORIGINS`: CORS origins for your frontend
 - SMTP (optional in development, required in staging/production):
   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_ADDRESS`

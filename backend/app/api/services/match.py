@@ -6,6 +6,7 @@ from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.submission_builds import submission_has_successful_build
+from app.core.config import settings
 from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
 from app.models.game import GameType
@@ -39,6 +40,12 @@ class MatchService:
         """
         Create a match and queue it for execution.
         """
+        if config.turn_time_limit is not None and config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
+            raise MatchServiceError(
+                "turn_time_limit cannot exceed "
+                f"{settings.MAX_TURN_TIME_LIMIT_SECONDS}s"
+            )
+
         self._validate_agents_for_match(game_type, agent_ids)
 
         config_dict = config.model_dump()
@@ -132,6 +139,12 @@ class MatchService:
         return self._repository.list_matches(skip, limit, game_type=game_type, status=status)
 
     def _validate_agents_for_match(self, game_type: GameType, agent_ids: list[UUID]) -> None:
+        if not (game_type.min_players <= len(agent_ids) <= game_type.max_players):
+            raise MatchServiceError(
+                f"Game '{game_type.value}' requires between {game_type.min_players} and "
+                f"{game_type.max_players} agents. Received {len(agent_ids)}."
+            )
+
         agents = self._agent_repository.list_by_ids(agent_ids)
         if len(agents) != len(agent_ids):
             raise MatchServiceError("One or more agents were not found")

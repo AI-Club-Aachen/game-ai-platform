@@ -75,6 +75,7 @@ frontend/
 
 The application uses environment variables for configuration.
 - `VITE_API_URL`: Backend API URL (default: `http://localhost:8000`)
+- `MAX_TURN_TIME_LIMIT_SECONDS`: UI cap for per-turn time limit (default: `120`)
 
 ## Tech Stack
 

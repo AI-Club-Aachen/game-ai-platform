@@ -770,7 +770,8 @@ export function LiveMatch() {
             </Box>
           </CardContent>
         </Card>
-      )}
-    </Container>
+      )
+      }
+    </Container >
   );
 }
