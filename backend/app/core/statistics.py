@@ -287,7 +287,8 @@ def run_simulation(n_players=10, n_games=5000, tau=0.5):
 
 
 # Run
-results = run_simulation(n_players=10, n_games=1000000)
+if __name__ == "__main__":
+    results = run_simulation(n_players=10, n_games=1000000)
 
 for name, rating, rd, games, wins, losses, wr in results:
     print(
