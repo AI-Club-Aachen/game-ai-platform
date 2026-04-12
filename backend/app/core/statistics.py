@@ -165,4 +165,137 @@ def test_glicko2_canonical():
     assert abs(RD_p - 151.52) < 0.1
     assert abs(sigma_p - 0.05999) < 1e-4
 
-test_glicko2_canonical()
+#test_glicko2_canonical()
+
+import numpy as np
+import random
+
+SCALE = 173.7178
+
+
+class SimPlayer:
+    def __init__(self, name, mu, phi, sigma):
+        self.name = name
+        self.mu = mu
+        self.phi = phi
+        self.sigma = sigma
+
+        self.games = 0
+        self.wins = 0
+        self.losses = 0
+
+
+def create_players(n_players):
+    R = 1500
+    RD = 200
+    sigma = 0.06
+
+    mu = (R - 1500) / SCALE
+    phi = RD / SCALE
+
+    players = []
+
+    for i in range(n_players):
+        players.append(
+            SimPlayer(
+                name=f"Player_{i}",
+                mu=mu,
+                phi=phi,
+                sigma=sigma
+            )
+        )
+
+    return players
+
+
+def pick_match(players):
+    return random.sample(players, 2)
+
+
+def random_result():
+    if random.random() < 0.5:
+        return 1.0, 0.0
+    else:
+        return 0.0, 1.0
+
+
+def play_match(p1, p2, tau):
+
+    s1, s2 = random_result()
+
+    # Update stats
+    if s1 == 1.0:
+        p1.wins += 1
+        p2.losses += 1
+    else:
+        p2.wins += 1
+        p1.losses += 1
+
+    # Player 1 update
+    mu1, phi1, sigma1 = glicko2_update(
+        p1.mu,
+        p1.phi,
+        p1.sigma,
+        np.array([p2.mu]),
+        np.array([p2.phi]),
+        np.array([s1]),
+        tau
+    )
+
+    # Player 2 update
+    mu2, phi2, sigma2 = glicko2_update(
+        p2.mu,
+        p2.phi,
+        p2.sigma,
+        np.array([p1.mu]),
+        np.array([p1.phi]),
+        np.array([s2]),
+        tau
+    )
+
+    p1.mu, p1.phi, p1.sigma = mu1, phi1, sigma1
+    p2.mu, p2.phi, p2.sigma = mu2, phi2, sigma2
+
+    p1.games += 1
+    p2.games += 1
+
+
+def run_simulation(n_players=10, n_games=5000, tau=0.5):
+
+    players = create_players(n_players)
+
+    for _ in range(n_games):
+
+        p1, p2 = pick_match(players)
+        play_match(p1, p2, tau)
+
+    results = []
+
+    for p in players:
+
+        R = p.mu * SCALE + 1500
+        RD = p.phi * SCALE
+        winrate = p.wins / p.games if p.games else 0
+
+        results.append(
+            (p.name, R, RD, p.games, p.wins, p.losses, winrate)
+        )
+
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    return results
+
+
+# Run
+results = run_simulation(n_players=10, n_games=1000000)
+
+for name, rating, rd, games, wins, losses, wr in results:
+    print(
+        f"{name:10s} "
+        f"rating={rating:7.2f} "
+        f"RD={rd:6.2f} "
+        f"games={games:4d} "
+        f"W={wins:4d} "
+        f"L={losses:4d} "
+        f"WR={wr:.3f}"
+    )
