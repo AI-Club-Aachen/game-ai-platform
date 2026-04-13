@@ -276,7 +276,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 logger.error(f"[{match_id}] Agent player {agent.player_id} failed to start/init: {e}")
                 await _log(
                     api, match_id, "running",
-                    f"[ERROR] Player {agent.player_id} failed to start: {e}",
+                    f"[ERROR] Player {agent.player_id} failed to start",
                 )
 
                 logs_by_container_id = _collect_container_logs(agents, match_id)
@@ -299,7 +299,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     include_stats=False,
                     logs_by_container_id=logs_by_container_id,
                 )
-                return {"status": "error", "reason": f"Agent {agent.player_id} failed to start/init: {e}"}
+                return {"status": "error", "reason": f"Agent {agent.player_id} failed to start/init"}
 
         # All agents start in a paused state; they are resumed only when it is
         # their turn so they cannot compute ahead of time.
@@ -414,12 +414,12 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     )
                     break
                 except Exception as e:
-                    reason = f"Player {current_player} failed to communicate or generated invalid output: {e}"
-                    logger.warning(f"[{match_id}] Turn {turn_count}: {reason}")
+                    reason = f"Player {current_player} failed to communicate or generated invalid output"
+                    logger.warning(f"[{match_id}] Turn {turn_count}: {reason}" + f": {e}")
                     winner_id = 1 - current_player
                     await _log(
                         api, match_id, "running",
-                        f"[TURN {turn_count}] Player {current_player} communication error: {e} "
+                        f"[TURN {turn_count}] Player {current_player} communication error "
                         f"— Player {winner_id} wins",
                     )
                     break
