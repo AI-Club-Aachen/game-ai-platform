@@ -98,15 +98,12 @@ async def test_match_job_flow(
     assert data["status"] == "queued"
 
     # 3. Test UPDATE (Worker reports success)
-    update_payload = {"status": "completed", "logs": "Match finished", "result": {"winner": "player1"}}
+    update_payload = {"status": "completed"}
     response = await api_client.patch(f"/api/v1/jobs/match/{job.id}", json=update_payload)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
-    assert data["result"] == {"winner": "player1"}
-    assert data["logs"] == "Match finished\n"
 
     # 4. Verify Sync with Match
     db_session.refresh(match)
     assert match.status == MatchStatus.COMPLETED
-    assert match.result == {"winner": "player1"}
