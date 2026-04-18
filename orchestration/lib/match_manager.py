@@ -23,19 +23,21 @@ DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
 class MatchConfig:
     """Normalized match configuration used by the runner."""
 
-    turn_time_limit: float | None = DEFAULT_TURN_TIME_LIMIT
+    turn_time_limit: float = DEFAULT_TURN_TIME_LIMIT
 
 
 def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
     """
     Normalize a raw match config dictionary into typed values.
 
-    Invalid ``turn_time_limit`` values fall back to the default; non-positive
-    values disable timeout enforcement.
+    Invalid turn_time_limit values fall back to the default.
+    Ensures a minimum of 0.1s.
     """
     raw = raw_config.get("turn_time_limit", DEFAULT_TURN_TIME_LIMIT)
+    
+    # If explicitly passed as None (null in JSON), use default
     if raw is None:
-        return MatchConfig(turn_time_limit=None)
+        return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
 
     try:
         turn_time_limit = float(raw)
@@ -43,7 +45,7 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
         logger.warning(f"Invalid turn_time_limit {raw!r}, using default {DEFAULT_TURN_TIME_LIMIT}s")
         return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
 
-    return MatchConfig(turn_time_limit=turn_time_limit if turn_time_limit > 0 else None)
+    return MatchConfig(turn_time_limit=max(0.1, turn_time_limit))
 
 
 # ---------------------------------------------------------------------------
@@ -207,13 +209,8 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
 
         # ---- Parse typed config ----------------------------------------
         parsed_config = _parse_match_config(config)
-        turn_limit_str = (
-            f"{parsed_config.turn_time_limit}s" if parsed_config.turn_time_limit is not None else "none"
-        )
-        if parsed_config.turn_time_limit is not None:
-            logger.debug(f"[{match_id}] Per-turn time limit: {parsed_config.turn_time_limit}s")
-        else:
-            logger.debug(f"[{match_id}] No per-turn time limit enforced")
+        turn_limit_str = f"{parsed_config.turn_time_limit}s"
+        logger.debug(f"[{match_id}] Per-turn time limit: {parsed_config.turn_time_limit}s")
 
         # Dynamically import game engine and state based on game_type
         try:

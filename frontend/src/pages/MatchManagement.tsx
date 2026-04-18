@@ -46,7 +46,7 @@ import { fromApiGameType, getGameById } from '../config/games';
 
 // Mirrors backend MatchConfig – update here when new fields are added.
 interface MatchConfig {
-  turn_time_limit: number | null;
+  turn_time_limit: number;
 }
 
 const MIN_TURN_TIME_LIMIT = 0.1;
@@ -76,7 +76,6 @@ export function MatchManagement() {
   const [createDialogOpen, setDialogOpen] = useState(false);
   const [newMatchGameType, setNewMatchGameType] = useState('tictactoe');
   const [matchConfig, setMatchConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
-  const [timeLimitEnabled, setTimeLimitEnabled] = useState(true);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
 
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -133,14 +132,13 @@ export function MatchManagement() {
 
   const handleOpenDialog = () => {
     setMatchConfig(DEFAULT_CONFIG);
-    setTimeLimitEnabled(true);
     setSelectedAgents([]);
     setNewMatchGameType('tictactoe');
     setDialogOpen(true);
   };
 
   const buildConfig = (): MatchConfig => ({
-    turn_time_limit: timeLimitEnabled ? (matchConfig.turn_time_limit ?? 10) : null,
+    turn_time_limit: matchConfig.turn_time_limit ?? 10,
   });
 
   const handleCreateMatch = async () => {
@@ -404,13 +402,12 @@ export function MatchManagement() {
                     id="turn-time-limit-input"
                     type="number"
                     size="small"
-                    disabled={!timeLimitEnabled}
-                    value={timeLimitEnabled ? (matchConfig.turn_time_limit ?? 10) : ''}
+                    value={matchConfig.turn_time_limit ?? 10}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
                       setMatchConfig(prev => ({
                         ...prev,
-                        turn_time_limit: isNaN(val) ? null : Math.max(0.1, val),
+                        turn_time_limit: isNaN(val) ? DEFAULT_TURN_TIME_LIMIT : Math.max(0.1, val),
                       }));
                     }}
                     inputProps={{ min: 0.1, step: 0.5 }}
@@ -420,23 +417,8 @@ export function MatchManagement() {
                     sx={{ width: 140 }}
                   />
                 </Box>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={timeLimitEnabled}
-                      onChange={(e) => setTimeLimitEnabled(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" color="text.secondary">
-                      {timeLimitEnabled ? 'Enabled' : 'Disabled'}
-                    </Typography>
-                  }
-                  sx={{ mt: 3, mr: 0 }}
-                />
+                </Box>
               </Box>
-            </Box>
 
           </Box>
         </DialogContent>

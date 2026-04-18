@@ -36,8 +36,7 @@ class MatchConfig(BaseModel):
     new per-match settings without touching the DB schema.
     """
 
-    # Maximum seconds an agent may take per turn (None = no enforced limit).
-    turn_time_limit: float | None = 10.0
+    turn_time_limit: float = 10.0
 
 
 class Match(SQLModel, table=True):

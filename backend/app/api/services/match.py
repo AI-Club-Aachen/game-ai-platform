@@ -40,10 +40,9 @@ class MatchService:
         """
         Create a match and queue it for execution.
         """
-        if config.turn_time_limit is not None and config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
+        if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(
-                "turn_time_limit cannot exceed "
-                f"{settings.MAX_TURN_TIME_LIMIT_SECONDS}s"
+                f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s"
             )
 
         self._validate_agents_for_match(game_type, agent_ids)
