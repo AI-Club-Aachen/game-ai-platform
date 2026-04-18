@@ -34,7 +34,7 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
     Ensures a minimum of 0.1s.
     """
     raw = raw_config.get("turn_time_limit", DEFAULT_TURN_TIME_LIMIT)
-    
+
     # If explicitly passed as None (null in JSON), use default
     if raw is None:
         return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
