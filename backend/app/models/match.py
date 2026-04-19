@@ -36,8 +36,7 @@ class MatchConfig(BaseModel):
     new per-match settings without touching the DB schema.
     """
 
-    # Maximum seconds an agent may take per turn (None = no enforced limit).
-    turn_time_limit: float | None = 10.0
+    turn_time_limit: float = 10.0
 
 
 class Match(SQLModel, table=True):
@@ -65,6 +64,9 @@ class Match(SQLModel, table=True):
 
     # The current state of the game
     game_state: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+
+    # Logs from the match execution
+    logs: str = Field(default="")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

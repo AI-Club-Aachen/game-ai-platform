@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 if TYPE_CHECKING:
@@ -53,12 +53,6 @@ class MatchJob(SQLModel, table=True):
     match_id: UUID = Field(index=True, nullable=False)
 
     status: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
-
-    # Logs from the match execution
-    logs: str = Field(default="")
-
-    # Result of the match (scores, winner, etc.)
-    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

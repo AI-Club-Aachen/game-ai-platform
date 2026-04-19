@@ -40,10 +40,9 @@ class MatchService:
         """
         Create a match and queue it for execution.
         """
-        if config.turn_time_limit is not None and config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
+        if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(
-                "turn_time_limit cannot exceed "
-                f"{settings.MAX_TURN_TIME_LIMIT_SECONDS}s"
+                f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s"
             )
 
         self._validate_agents_for_match(game_type, agent_ids)
@@ -70,6 +69,7 @@ class MatchService:
         self,
         match_id: str,
         status: str,
+        logs: str | None = None,
         result: dict[str, Any] | None = None,
         game_state: dict[str, Any] | None = None,
     ) -> Match | None:
@@ -79,6 +79,9 @@ class MatchService:
             return None
 
         match.status = MatchStatus(status)
+
+        if logs is not None:
+            match.logs += logs + "\n"
 
         if result is not None:
             match.result = result
@@ -93,6 +96,7 @@ class MatchService:
             match_id=match_id,
             game_state=saved.game_state or {},
             status=saved.status.value,
+            logs=saved.logs,
             result=saved.result,
         )
 
@@ -102,9 +106,6 @@ class MatchService:
         self,
         job_id: str,
         status: str,
-        logs: str | None = None,
-        result: dict[str, Any] | None = None,
-        game_state: dict[str, Any] | None = None,
     ) -> MatchJob | None:
         """Update match job and sync status to match."""
         job = self._job_repository.get_match_job(job_id)
@@ -112,19 +113,12 @@ class MatchService:
             return None
 
         job.status = JobStatus(status)
-        if logs is not None:
-            job.logs += logs + "\n"
-        if result is not None:
-            job.result = result
-
         job = self._job_repository.save_match_job(job)
 
-        # Sync with match
+        # Sync status to the match
         await self.update_match(
             str(job.match_id),
             status,
-            result=result,
-            game_state=game_state,
         )
 
         return job

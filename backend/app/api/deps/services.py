@@ -6,11 +6,13 @@ from fastapi import Depends
 from sqlmodel import Session
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.agent_container import AgentContainerRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.api.repositories.user import UserRepository
 from app.api.services.agent import AgentService
+from app.api.services.agent_container import AgentContainerService
 from app.api.services.auth import AuthService
 from app.api.services.email import EmailNotificationService
 from app.api.services.match import MatchService
@@ -55,6 +57,13 @@ def get_agent_repository(
     return AgentRepository(session)
 
 
+def get_agent_container_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> AgentContainerRepository:
+    """Provide an AgentContainerRepository bound to the current DB session."""
+    return AgentContainerRepository(session)
+
+
 def get_user_service(
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> UserService:
@@ -86,6 +95,13 @@ def get_agent_service(
 ) -> AgentService:
     """Provide an AgentService with an injected AgentRepository."""
     return AgentService(repository, submission_repository)
+
+
+def get_agent_container_service(
+    repository: Annotated[AgentContainerRepository, Depends(get_agent_container_repository)],
+) -> AgentContainerService:
+    """Provide an AgentContainerService with an injected AgentContainerRepository."""
+    return AgentContainerService(repository)
 
 
 def get_email_client() -> EmailClient:

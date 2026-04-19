@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -33,17 +32,12 @@ class MatchJobUpdate(BaseModel):
     """Schema for updating a match job (used by workers)."""
 
     status: JobStatus
-    logs: str | None = None
-    result: dict[str, Any] | None = None
-    game_state: dict[str, Any] | None = None
 
 
 class MatchJobRead(BaseModel):
     id: UUID
     match_id: UUID
     status: JobStatus
-    logs: str | None
-    result: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
 

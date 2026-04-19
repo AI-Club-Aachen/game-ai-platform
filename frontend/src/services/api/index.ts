@@ -8,3 +8,4 @@ export * from './submissions';
 export * from './agents';
 export * from './leaderboard';
 export * from './tournaments';
+export * from './containers';

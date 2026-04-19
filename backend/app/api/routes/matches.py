@@ -66,6 +66,7 @@ async def update_match(
     match = await service.update_match(
         match_id,
         status=update_data.status.value,
+        logs=update_data.logs,
         result=update_data.result,
         game_state=update_data.game_state,
     )
@@ -116,6 +117,7 @@ async def stream_match(
             "status": match.status.value,
             "game_type": match.game_type.value,
             "agent_ids": [str(aid) for aid in (match.agent_ids or [])],
+            "logs": match.logs,
             "result": match.result,
         }
         yield f"data: {json.dumps(initial_event)}\n\n"
@@ -139,6 +141,7 @@ async def stream_match(
                         "status": data.get("status"),
                         "game_type": match.game_type.value,
                         "agent_ids": [str(aid) for aid in (match.agent_ids or [])],
+                        "logs": data.get("logs"),
                         "result": data.get("result"),
                     }
                     yield f"data: {json.dumps(event)}\n\n"
