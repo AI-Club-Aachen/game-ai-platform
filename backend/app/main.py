@@ -21,6 +21,9 @@ from starlette.responses import Response
 
 from app.api.routes import agent_containers, agents, auth, email, jobs, matches, submissions, users
 from app.core.config import settings
+from app.core.tasks import BackgroundTaskRunner
+from app.core.match_scheduler import MatchScheduler
+from app.core.queue import job_queue
 from scripts.seed_db import seed
 
 
@@ -92,11 +95,26 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     except PermissionError:
         logger.exception(f"Failed to create submissions directory '{settings.SUBMISSIONS_DIR}'")
 
+    # Initialize background task runner and register tasks
+    task_runner = BackgroundTaskRunner()
+    
+    # Register match scheduler
+    match_scheduler = MatchScheduler()
+    task_runner.add_task(
+        func=match_scheduler.check_and_queue_matches,
+        interval_seconds=10.0,
+        name="match_scheduler",
+    )
+    
+    task_runner.start()
+
     try:
         yield
     finally:
         # Shutdown
         logger.info("Shutting down application")
+        await task_runner.stop()
+        
         if redis is not None:
             try:
                 await redis.close()
