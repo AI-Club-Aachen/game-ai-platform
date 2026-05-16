@@ -22,7 +22,7 @@ from starlette.responses import Response
 from app.api.routes import agent_containers, agents, auth, email, jobs, matches, submissions, users
 from app.core.config import settings
 from app.core.tasks import BackgroundTaskRunner
-from app.core.match_scheduler import MatchScheduler
+from app.api.services.match_scheduler import MatchSchedulerService
 from app.core.queue import job_queue
 from scripts.seed_db import seed
 
@@ -99,7 +99,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     task_runner = BackgroundTaskRunner()
     
     # Register match scheduler
-    match_scheduler = MatchScheduler()
+    match_scheduler = MatchSchedulerService()
     task_runner.add_task(
         func=match_scheduler.check_and_queue_matches,
         interval_seconds=10.0,

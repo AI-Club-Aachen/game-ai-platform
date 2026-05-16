@@ -118,7 +118,6 @@ def _get_or_create_seed_agent(session: Session, user: User) -> Agent:
             name="seed-agent",
             game_type=GameType.CHESS,
             active_submission_id=None,
-            stats={"rating": 1500, "matches_played": 0},
         )
         session.add(agent)
         session.commit()

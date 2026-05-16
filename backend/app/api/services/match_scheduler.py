@@ -2,30 +2,24 @@ import logging
 import random
 from collections import defaultdict
 
+from sqlmodel import Session
+
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.match import MatchService
 from app.api.services.submission_builds import submission_has_successful_build
+from app.db.connection import engine
 from app.models.game import GameType
 from app.models.match import MatchConfig, MatchStatus
 
 logger = logging.getLogger(__name__)
 
 
-class MatchScheduler:
+class MatchSchedulerService:
     """
     Manages the scheduling of matches based on certain criteria.
     """
-
-    def __init__(
-        self,
-        match_repository: MatchRepository,
-        agent_repository: AgentRepository,
-        match_service: MatchService,
-    ):
-        self._match_repository = match_repository
-        self._agent_repository = agent_repository
-        self._match_service = match_service
 
     async def check_and_queue_matches(self):
         """
@@ -34,51 +28,57 @@ class MatchScheduler:
         """
         logger.info("Checking if new matches need to be queued...")
 
-        # Check the current match queue and determine if new matches should be added
-        if not self.check_match_queue():
-            logger.info("No new matches need to be queued at this time.")
-            return
+        with Session(engine) as session:
+            match_repository = MatchRepository(session)
+            agent_repository = AgentRepository(session)
+            job_repository = JobRepository(session)
+            match_service = MatchService(match_repository, job_repository, agent_repository)
 
-        # Get available agents that can be scheduled for matches
-        available_agents = self.get_available_agents()
+            # Check the current match queue and determine if new matches should be added
+            if not self._check_match_queue(match_repository):
+                logger.info("No new matches need to be queued at this time.")
+                return
 
-        # remove game types with less than 2 available agents
-        available_agents = {game_type: agents for game_type, agents in available_agents.items() if len(agents) >= 2}
-        if not available_agents:
-            logger.info("No game types have enough available agents to schedule matches.")
-            return
+            # Get available agents that can be scheduled for matches
+            available_agents = self._get_available_agents(agent_repository)
 
-        # randomly choose a game type and agents for the match
-        game_type_str = random.choice(list(available_agents.keys()))
-        agents_for_match = self.choose_agents_for_match(available_agents[game_type_str])
+            # remove game types with less than 2 available agents
+            available_agents = {game_type: agents for game_type, agents in available_agents.items() if len(agents) >= 2}
+            if not available_agents:
+                logger.info("No game types have enough available agents to schedule matches.")
+                return
 
-        # Create and enqueue a new match with the selected agents
-        try:
-            game_type = GameType(game_type_str)
-            config = MatchConfig()
-            match = await self._match_service.create_match(
-                game_type=game_type,
-                config=config,
-                agent_ids=agents_for_match,
-            )
-            logger.info(f"Queued a new match for game type '{game_type_str}' with agents: {agents_for_match}, match_id: {match.id}")
-        except Exception as e:
-            logger.exception(f"Error creating match for game type '{game_type_str}' with agents {agents_for_match}")
+            # randomly choose a game type and agents for the match
+            game_type_str = random.choice(list(available_agents.keys()))
+            agents_for_match = self._choose_agents_for_match(available_agents[game_type_str])
 
-    def check_match_queue(self) -> bool:
+            # Create and enqueue a new match with the selected agents
+            try:
+                game_type = GameType(game_type_str)
+                config = MatchConfig()
+                match = await match_service.create_match(
+                    game_type=game_type,
+                    config=config,
+                    agent_ids=agents_for_match,
+                )
+                logger.info(f"Queued a new match for game type '{game_type_str}' with agents: {agents_for_match}, match_id: {match.id}")
+            except Exception:
+                logger.exception(f"Error creating match for game type '{game_type_str}' with agents {agents_for_match}")
+
+    def _check_match_queue(self, match_repository: MatchRepository) -> bool:
         """
         Check the current match queue and determine if new matches should be added.
         Matches are added as long as no match is in queue or running for any game type.
         """
         # Check if any matches are currently queued
-        queued_matches = self._match_repository.list_matches(
+        queued_matches = match_repository.list_matches(
             skip=0, limit=1, status=MatchStatus.QUEUED.value
         )
         if queued_matches:
             return False
 
         # Check if any matches are currently running
-        running_matches = self._match_repository.list_matches(
+        running_matches = match_repository.list_matches(
             skip=0, limit=1, status=MatchStatus.RUNNING.value
         )
         if running_matches:
@@ -87,7 +87,7 @@ class MatchScheduler:
         # No matches are queued or running, so new matches can be queued
         return True
 
-    def get_available_agents(self) -> dict:
+    def _get_available_agents(self, agent_repository: AgentRepository) -> dict:
         """
         Get a list of available agents that can be scheduled for matches.
         Returns a dictionary of game type to agent ids.
@@ -99,7 +99,7 @@ class MatchScheduler:
         limit = 100
 
         while True:
-            agents, total = self._agent_repository.list_agents(skip=skip, limit=limit)
+            agents, total = agent_repository.list_agents(skip=skip, limit=limit)
             if not agents:
                 break
 
@@ -114,7 +114,7 @@ class MatchScheduler:
 
         return dict(available_by_game_type)   
 
-    def choose_agents_for_match(self, available_agents) -> list:
+    def _choose_agents_for_match(self, available_agents) -> list:
         """
         Choose a set of agents to participate in a new match based on your scheduling criteria.
         This is a placeholder method and should be implemented with your specific logic.

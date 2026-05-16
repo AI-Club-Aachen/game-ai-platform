@@ -2,26 +2,13 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.game import GameType
 
 
 if TYPE_CHECKING:
     from app.models.submission import Submission
-
-
-class AgentStats(BaseModel):
-    """
-    Represents statistics for an agent across matches.
-    """
-
-    wins: int = 0
-    losses: int = 0
-    draws: int = 0
-    matches_played: int = 0
-    elo: int | None = None
 
 
 class Agent(SQLModel, table=True):
@@ -45,7 +32,12 @@ class Agent(SQLModel, table=True):
     )
     active_submission: Optional["Submission"] = Relationship(back_populates="agents")
 
-    stats: AgentStats = Field(default_factory=AgentStats, sa_column=Column(JSON, nullable=False))
+    # Stats
+    wins: int = 0
+    losses: int = 0
+    draws: int = 0
+    matches_played: int = 0
+    elo: int | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)

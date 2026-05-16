@@ -83,7 +83,7 @@ export function NewAgent() {
             const agent = await agentsApi.createAgent({
                 user_id: user.id,
                 game_type: toApiGameType(gameId),
-                name: agentName.trim() || undefined,
+                name: agentName.trim(),
                 active_submission_id: null,
             });
             setCreatedAgentId(agent.id);
@@ -94,7 +94,7 @@ export function NewAgent() {
             }
 
             setStatusMessage('Uploading your submission...');
-            const submission = await submissionsApi.submitAgent(file, toApiGameType(gameId), submissionName.trim() || undefined);
+            const submission = await submissionsApi.submitAgent(file, toApiGameType(gameId), submissionName.trim());
             setCreatedSubmissionId(submission.id);
 
             setStatusMessage('Building your submission and linking it to the agent if it succeeds...');

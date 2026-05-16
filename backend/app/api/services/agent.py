@@ -100,8 +100,17 @@ class AgentService:
                 )
                 agent.active_submission_id = agent_update.active_submission_id
 
-        if agent_update.stats is not None:
-            agent.stats = agent_update.stats
+        # Update individual stat fields if provided
+        if agent_update.wins is not None:
+            agent.wins = agent_update.wins
+        if agent_update.losses is not None:
+            agent.losses = agent_update.losses
+        if agent_update.draws is not None:
+            agent.draws = agent_update.draws
+        if agent_update.matches_played is not None:
+            agent.matches_played = agent_update.matches_played
+        if agent_update.elo is not None:
+            agent.elo = agent_update.elo
 
         agent.updated_at = datetime.now(UTC)
 
