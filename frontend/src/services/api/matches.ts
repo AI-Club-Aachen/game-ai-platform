@@ -86,4 +86,29 @@ export const matchesApi = {
     getMatchStreamUrl: (matchId: string): string => {
         return `${API_BASE_URL}/matches/${matchId}/stream`;
     },
+
+    /**
+     * Get scheduler configuration
+     */
+    getSchedulerConfig: async () => {
+        return apiRequest<{
+            enabled: boolean;
+            interval_seconds: number;
+        }>('/matches/scheduler/config', {
+            method: 'GET',
+        });
+    },
+
+    /**
+     * Update scheduler configuration
+     */
+    updateSchedulerConfig: async (config: { enabled: boolean; interval_seconds: number }) => {
+        return apiRequest<{
+            enabled: boolean;
+            interval_seconds: number;
+        }>('/matches/scheduler/config', {
+            method: 'PUT',
+            body: JSON.stringify(config),
+        });
+    },
 };

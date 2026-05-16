@@ -107,6 +107,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     )
     
     task_runner.start()
+    _app.state.task_runner = task_runner
 
     try:
         yield

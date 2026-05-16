@@ -3,21 +3,77 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.api.deps import get_current_user, get_match_service
 from app.api.services.match import MatchService, MatchServiceError
 from app.core.match_events import subscribe_match_events
 from app.models.game import GameType
 from app.models.match import MatchStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.match import MatchCreate, MatchRead, MatchUpdate
 
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+class MatchSchedulerConfig(BaseModel):
+    enabled: bool
+    interval_seconds: float
+
+
+@router.get("/scheduler/config", response_model=MatchSchedulerConfig)
+def get_scheduler_config(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> MatchSchedulerConfig:
+    """Get the current match scheduler configuration."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    task_runner = getattr(request.app.state, "task_runner", None)
+    if not task_runner:
+        raise HTTPException(status_code=500, detail="Task runner not found")
+        
+    for task in task_runner.tasks:
+        if task.name == "match_scheduler":
+            return MatchSchedulerConfig(
+                enabled=task.is_enabled,
+                interval_seconds=task.interval_seconds
+            )
+            
+    raise HTTPException(status_code=404, detail="Scheduler task not found")
+
+
+@router.put("/scheduler/config", response_model=MatchSchedulerConfig)
+def update_scheduler_config(
+    config: MatchSchedulerConfig,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> MatchSchedulerConfig:
+    """Update the match scheduler configuration."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    task_runner = getattr(request.app.state, "task_runner", None)
+    if not task_runner:
+        raise HTTPException(status_code=500, detail="Task runner not found")
+        
+    for task in task_runner.tasks:
+        if task.name == "match_scheduler":
+            task.is_enabled = config.enabled
+            task.interval_seconds = config.interval_seconds
+            return MatchSchedulerConfig(
+                enabled=task.is_enabled,
+                interval_seconds=task.interval_seconds
+            )
+            
+    raise HTTPException(status_code=404, detail="Scheduler task not found")
+
 
 
 # POST /api/v1/matches/

@@ -39,6 +39,7 @@ import {
   Visibility as VisibilityIcon,
   Settings as SettingsIcon,
   InfoOutlined as InfoIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { matchesApi } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
@@ -83,6 +84,10 @@ export function MatchManagement() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
+  const [schedulerConfig, setSchedulerConfig] = useState({ enabled: true, interval_seconds: 10 });
+  const [isSavingScheduler, setIsSavingScheduler] = useState(false);
 
   const selectedGameConfig = getGameById(fromApiGameType(newMatchGameType));
   const minRequiredAgents = selectedGameConfig?.minPlayers ?? 2;
@@ -164,6 +169,31 @@ export function MatchManagement() {
     }
   };
 
+  const handleOpenSchedulerDialog = async () => {
+    try {
+      const config = await matchesApi.getSchedulerConfig();
+      setSchedulerConfig(config);
+      setSchedulerDialogOpen(true);
+    } catch (err: any) {
+      console.error('Failed to get scheduler config:', err);
+      setSnackbarMessage('Failed to get scheduler configuration');
+    }
+  };
+
+  const handleSaveSchedulerConfig = async () => {
+    setIsSavingScheduler(true);
+    try {
+      await matchesApi.updateSchedulerConfig(schedulerConfig);
+      setSnackbarMessage('Scheduler configuration saved successfully');
+      setSchedulerDialogOpen(false);
+    } catch (err: any) {
+      console.error('Failed to update scheduler config:', err);
+      setSnackbarMessage('Failed to update scheduler configuration. ' + (err.message || ''));
+    } finally {
+      setIsSavingScheduler(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed': return 'success';
@@ -189,6 +219,14 @@ export function MatchManagement() {
             sx={{ mr: 2 }}
           >
             Refresh
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<ScheduleIcon />}
+            onClick={handleOpenSchedulerDialog}
+            sx={{ mr: 2 }}
+          >
+            Scheduler Settings
           </Button>
           <Button
             variant="contained"
@@ -433,6 +471,49 @@ export function MatchManagement() {
             startIcon={isCreating ? <CircularProgress size={20} /> : <PlayIcon />}
           >
             Start Match
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Scheduler Settings Dialog */}
+      <Dialog open={schedulerDialogOpen} onClose={() => setSchedulerDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Scheduler Settings</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={schedulerConfig.enabled}
+                  onChange={(e) => setSchedulerConfig({ ...schedulerConfig, enabled: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label="Enable Match Scheduler"
+            />
+            
+            <TextField
+              label="Interval (Seconds)"
+              type="number"
+              fullWidth
+              value={schedulerConfig.interval_seconds}
+              onChange={(e) => setSchedulerConfig({ ...schedulerConfig, interval_seconds: parseFloat(e.target.value) || 10 })}
+              disabled={!schedulerConfig.enabled}
+              inputProps={{ min: 1, step: 1 }}
+              helperText="How often the scheduler checks for queued matches."
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSchedulerDialogOpen(false)} variant="outlined" disabled={isSavingScheduler}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveSchedulerConfig}
+            variant="contained"
+            disabled={isSavingScheduler}
+            startIcon={isSavingScheduler ? <CircularProgress size={20} /> : <SettingsIcon />}
+          >
+            Save
           </Button>
         </DialogActions>
       </Dialog>

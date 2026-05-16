@@ -13,6 +13,7 @@ class RecurringTask:
     func: Callable[[], Awaitable[Any]]
     interval_seconds: float
     task_obj: asyncio.Task | None = None
+    is_enabled: bool = True
 
 
 class BackgroundTaskRunner:
@@ -67,15 +68,22 @@ class BackgroundTaskRunner:
         """The main loop for a single recurring task."""
         while self._running:
             try:
-                logger.debug(f"Running background task: {task.name}")
-                await task.func()
+                if task.is_enabled:
+                    logger.debug(f"Running background task: {task.name}")
+                    await task.func()
             except asyncio.CancelledError:
                 break
             except Exception:
                 logger.exception(f"Error in background task {task.name}")
             
-            # Wait for next interval or cancellation
+            # Wait for next interval or cancellation, responsive to dynamic interval changes
             try:
-                await asyncio.sleep(task.interval_seconds)
+                waited = 0.0
+                # Sleep in short increments so that if interval_seconds is reduced, we wake up sooner.
+                while waited < task.interval_seconds:
+                    if not self._running:
+                        break
+                    await asyncio.sleep(0.5)
+                    waited += 0.5
             except asyncio.CancelledError:
                 break
