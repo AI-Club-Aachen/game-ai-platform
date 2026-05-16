@@ -25,7 +25,7 @@ class BackgroundTaskRunner:
         self.tasks: list[RecurringTask] = []
         self._running = False
 
-    def add_task(self, func: Callable[[], Awaitable[Any]], interval_seconds: float, name: str | None = None) -> None:
+    def add_task(self, func: Callable[[], Awaitable[Any]], interval_seconds: float, name: str | None = None, is_enabled: bool = True) -> None:
         """
         Explicitly add an async function as a recurring background task.
         """
@@ -34,7 +34,8 @@ class BackgroundTaskRunner:
             RecurringTask(
                 name=task_name,
                 func=func,
-                interval_seconds=interval_seconds
+                interval_seconds=interval_seconds,
+                is_enabled=is_enabled
             )
         )
         logger.info(f"Registered background task '{task_name}' with interval {interval_seconds}s")

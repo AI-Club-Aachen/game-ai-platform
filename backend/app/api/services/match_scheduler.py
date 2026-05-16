@@ -10,6 +10,7 @@ from app.api.repositories.match import MatchRepository
 from app.api.services.match import MatchService
 from app.api.services.submission_builds import submission_has_successful_build
 from app.db.connection import engine
+from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.match import MatchConfig, MatchStatus
 
@@ -21,12 +22,15 @@ class MatchSchedulerService:
     Manages the scheduling of matches based on certain criteria.
     """
 
+    def __init__(self):
+        self.strategy = "least_played"
+
     async def check_and_queue_matches(self):
         """
         Check if new matches need to be queued and enqueue them if necessary.
         This method can be called periodically by a background task.
         """
-        logger.info("Checking if new matches need to be queued...")
+        logger.info(f"Checking if new matches need to be queued (Strategy: {self.strategy})...")
 
         with Session(engine) as session:
             match_repository = MatchRepository(session)
@@ -48,7 +52,7 @@ class MatchSchedulerService:
                 logger.info("No game types have enough available agents to schedule matches.")
                 return
 
-            # randomly choose a game type and agents for the match
+            # randomly choose a game type
             game_type_str = random.choice(list(available_agents.keys()))
             agents_for_match = self._choose_agents_for_match(available_agents[game_type_str])
 
@@ -90,7 +94,7 @@ class MatchSchedulerService:
     def _get_available_agents(self, agent_repository: AgentRepository) -> dict:
         """
         Get a list of available agents that can be scheduled for matches.
-        Returns a dictionary of game type to agent ids.
+        Returns a dictionary of game type to Agent objects.
         """
         # Get all agents, fetching in batches
         available_by_game_type = defaultdict(list)
@@ -106,7 +110,7 @@ class MatchSchedulerService:
             # Filter agents that have active submissions with successful builds
             for agent in agents:
                 if agent.active_submission and submission_has_successful_build(agent.active_submission):
-                    available_by_game_type[agent.game_type].append(agent.id)
+                    available_by_game_type[agent.game_type].append(agent)
 
             skip += limit
             if skip >= total:
@@ -114,10 +118,19 @@ class MatchSchedulerService:
 
         return dict(available_by_game_type)   
 
-    def _choose_agents_for_match(self, available_agents) -> list:
+    def _choose_agents_for_match(self, available_agents: list[Agent]) -> list:
         """
-        Choose a set of agents to participate in a new match based on your scheduling criteria.
-        This is a placeholder method and should be implemented with your specific logic.
+        Choose a set of agents to participate in a new match based on strategy.
         """
-        # Implement logic to select agents for a match based on criteria (e.g., skill level, recent activity)
-        return available_agents[:2]  # Example: just take the first 2 available agents
+        if self.strategy == "least_played":
+            # Shuffle first to handle ties randomly (Python's sort is stable)
+            shuffled_agents = list(available_agents)
+            random.shuffle(shuffled_agents)
+            # Sort by matches_played and take the first two
+            sorted_agents = sorted(shuffled_agents, key=lambda a: a.matches_played)
+            chosen = sorted_agents[:2]
+        else:
+            # Default: random
+            chosen = random.sample(available_agents, 2)
+            
+        return [str(agent.id) for agent in chosen]

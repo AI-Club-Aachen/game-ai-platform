@@ -24,6 +24,7 @@ router = APIRouter()
 class MatchSchedulerConfig(BaseModel):
     enabled: bool
     interval_seconds: float
+    strategy: str
 
 
 @router.get("/scheduler/config", response_model=MatchSchedulerConfig)
@@ -41,9 +42,11 @@ def get_scheduler_config(
         
     for task in task_runner.tasks:
         if task.name == "match_scheduler":
+            strategy = getattr(task.func.__self__, "strategy", "random") if hasattr(task.func, "__self__") else "random"
             return MatchSchedulerConfig(
                 enabled=task.is_enabled,
-                interval_seconds=task.interval_seconds
+                interval_seconds=task.interval_seconds,
+                strategy=strategy
             )
             
     raise HTTPException(status_code=404, detail="Scheduler task not found")
@@ -67,9 +70,13 @@ def update_scheduler_config(
         if task.name == "match_scheduler":
             task.is_enabled = config.enabled
             task.interval_seconds = config.interval_seconds
+            if hasattr(task.func, "__self__"):
+                task.func.__self__.strategy = config.strategy
+                
             return MatchSchedulerConfig(
                 enabled=task.is_enabled,
-                interval_seconds=task.interval_seconds
+                interval_seconds=task.interval_seconds,
+                strategy=config.strategy
             )
             
     raise HTTPException(status_code=404, detail="Scheduler task not found")

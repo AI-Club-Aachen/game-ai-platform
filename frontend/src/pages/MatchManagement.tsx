@@ -86,7 +86,7 @@ export function MatchManagement() {
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
-  const [schedulerConfig, setSchedulerConfig] = useState({ enabled: true, interval_seconds: 10 });
+  const [schedulerConfig, setSchedulerConfig] = useState({ enabled: false, interval_seconds: 10, strategy: 'least_played' });
   const [isSavingScheduler, setIsSavingScheduler] = useState(false);
 
   const selectedGameConfig = getGameById(fromApiGameType(newMatchGameType));
@@ -455,8 +455,8 @@ export function MatchManagement() {
                     sx={{ width: 140 }}
                   />
                 </Box>
-                </Box>
               </Box>
+            </Box>
 
           </Box>
         </DialogContent>
@@ -490,7 +490,7 @@ export function MatchManagement() {
               }
               label="Enable Match Scheduler"
             />
-            
+
             <TextField
               label="Interval (Seconds)"
               type="number"
@@ -501,6 +501,18 @@ export function MatchManagement() {
               inputProps={{ min: 1, step: 1 }}
               helperText="How often the scheduler checks for queued matches."
             />
+
+            <FormControl fullWidth disabled={!schedulerConfig.enabled}>
+              <InputLabel>Scheduling Strategy</InputLabel>
+              <Select
+                value={schedulerConfig.strategy}
+                label="Scheduling Strategy"
+                onChange={(e) => setSchedulerConfig({ ...schedulerConfig, strategy: e.target.value })}
+              >
+                <MenuItem value="random">Random</MenuItem>
+                <MenuItem value="least_played">Least Played (prioritize agents with fewer games)</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>

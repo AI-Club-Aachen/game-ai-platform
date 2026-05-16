@@ -104,6 +104,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         func=match_scheduler.check_and_queue_matches,
         interval_seconds=10.0,
         name="match_scheduler",
+        is_enabled=False,
     )
     
     task_runner.start()
