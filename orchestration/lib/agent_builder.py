@@ -95,6 +95,7 @@ def build_from_zip(
                     dockerfile=str(dockerfile_base_path),
                     tag=base_image,
                     rm=True,
+                    nocache=True,
                 )
             else:
                 logger.info("Local gamelib found, injecting into base image build context...")
@@ -130,6 +131,7 @@ def build_from_zip(
                         dockerfile="Dockerfile.base",
                         tag=base_image,
                         rm=True,
+                        nocache=True,
                     )
 
             logger.info(f"Successfully built local base image: {base_image}")
@@ -192,6 +194,7 @@ def build_from_zip(
             labels=labels,
             rm=True,
             pull=False,
+            nocache=True,
             buildargs={"AGENT_FILE": entry_file},
             network_mode="default",  # allow this for the build, but not for the containers later
         )
