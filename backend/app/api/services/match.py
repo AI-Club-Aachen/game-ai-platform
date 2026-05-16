@@ -1,6 +1,10 @@
 from collections.abc import Sequence
+import logging
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
@@ -78,6 +82,8 @@ class MatchService:
         if not match:
             return None
 
+        old_status = match.status
+
         match.status = MatchStatus(status)
 
         if logs is not None:
@@ -90,6 +96,9 @@ class MatchService:
             match.game_state = game_state
 
         saved = self._repository.save(match)
+
+        if old_status != MatchStatus.COMPLETED and saved.status == MatchStatus.COMPLETED:
+            self._update_agent_stats(saved)
 
         # Publish game state update to Redis for SSE subscribers
         await match_event_publisher.publish_game_state(
@@ -152,3 +161,74 @@ class MatchService:
                 raise MatchServiceError(f"Agent {agent.id} does not have an active submission")
             if not submission_has_successful_build(agent.active_submission):
                 raise MatchServiceError(f"Agent {agent.id} does not have a successful active submission")
+
+    def _update_agent_stats(self, match: Match) -> None:
+        logger.info(f"Updating agent stats for match {match.id}. Result: {match.result}")
+        if not match.result or "winner" not in match.result:
+            logger.warning(f"Match {match.id} has no result or winner. Skipping stats update.")
+            return
+
+        agent_ids = match.agent_ids
+        agents = self._agent_repository.list_by_ids(agent_ids)
+        agents_by_id = {a.id: a for a in agents}
+
+        winner = match.result.get("winner")
+        winner_uuid = None
+        if winner and winner != "draw":
+            try:
+                winner_uuid = UUID(winner)
+                logger.info(f"Parsed winner UUID: {winner_uuid}")
+            except ValueError:
+                logger.warning(f"Failed to parse winner UUID from {winner}")
+                pass
+
+        logger.info(f"Processing agent IDs: {match.agent_ids}")
+        for a_id in match.agent_ids:
+            agent = agents_by_id.get(a_id)
+            if not agent:
+                logger.error(f"Agent {a_id} not found in database")
+                continue
+
+            agent.matches_played += 1
+            if winner == "draw":
+                agent.draws += 1
+                logger.info(f"Agent {a_id} recorded a draw")
+            elif winner_uuid == a_id:
+                agent.wins += 1
+                logger.info(f"Agent {a_id} recorded a win")
+            else:
+                agent.losses += 1
+                logger.info(f"Agent {a_id} recorded a loss (winner was {winner_uuid})")
+
+        # Calculate Elo if it's a 1v1 match
+        if len(match.agent_ids) == 2:
+            a_id1, a_id2 = match.agent_ids[0], match.agent_ids[1]
+            if a_id1 != a_id2:  # Don't update Elo if playing against itself
+                agent1 = agents_by_id.get(a_id1)
+                agent2 = agents_by_id.get(a_id2)
+
+                if agent1 and agent2:
+                    elo1 = agent1.elo if agent1.elo is not None else 1200
+                    elo2 = agent2.elo if agent2.elo is not None else 1200
+
+                    expected1 = 1 / (1 + 10 ** ((elo2 - elo1) / 400))
+                    expected2 = 1 / (1 + 10 ** ((elo1 - elo2) / 400))
+
+                    if winner == "draw":
+                        score1, score2 = 0.5, 0.5
+                    elif winner_uuid == a_id1:
+                        score1, score2 = 1.0, 0.0
+                    elif winner_uuid == a_id2:
+                        score1, score2 = 0.0, 1.0
+                    else:
+                        score1, score2 = 0.5, 0.5  # Should not happen
+
+                    k = 32
+                    agent1.elo = int(elo1 + k * (score1 - expected1))
+                    agent2.elo = int(elo2 + k * (score2 - expected2))
+                    logger.info(f"Elo updated: Agent {a_id1} ({elo1} -> {agent1.elo}), Agent {a_id2} ({elo2} -> {agent2.elo})")
+
+        for agent in agents_by_id.values():
+            agent.updated_at = datetime.now(UTC)
+            self._agent_repository.save(agent)
+            logger.info(f"Saved stats for agent {agent.id}")

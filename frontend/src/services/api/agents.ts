@@ -62,4 +62,13 @@ export const agentsApi = {
             method: 'DELETE',
         });
     },
+
+    /**
+     * Get the leaderboard for a specific game type
+     */
+    getLeaderboard: async (gameType: string, limit = 100) => {
+        return apiRequest<any[]>(`/agents/leaderboard/${gameType}?limit=${limit}`, {
+            method: 'GET',
+        });
+    },
 };

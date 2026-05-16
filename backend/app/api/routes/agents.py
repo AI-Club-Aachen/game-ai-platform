@@ -32,6 +32,17 @@ def create_agent(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
+@router.get("/leaderboard/{game_type}", response_model=list[dict])
+def get_leaderboard(
+    game_type: str,
+    service: AgentService = Depends(get_agent_service),
+    limit: int = 100,
+) -> list[dict]:
+    """
+    Get leaderboard for a specific game type.
+    """
+    return service.get_leaderboard(game_type, limit)
+
 @router.get("/{agent_id}", response_model=AgentRead)
 def get_agent(
     agent_id: UUID,

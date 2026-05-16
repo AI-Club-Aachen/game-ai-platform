@@ -159,15 +159,15 @@ export function AgentDetails() {
         );
     }
 
-    const { stats } = agent;
-    const wins = stats?.wins || 0;
-    const losses = stats?.losses || 0;
-    const matchesPlayed = stats?.matches_played || (wins + losses);
+    // Removed stats
+    const wins = agent.wins || 0;
+    const losses = agent.losses || 0;
+    const matchesPlayed = agent.matches_played || (wins + losses);
     const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
 
     // Attempt to guess the game if stats has a game_id, otherwise fallback
     const games = getActiveGames();
-    const gameId = fromApiGameType(agent.game_type || stats?.game_id || 'chess');
+    const gameId = fromApiGameType(agent.game_type || 'chess');
     const game = games.find(g => g.id === gameId);
     const hasActiveSubmission = submissions.some(submission => submission.id === agent.active_submission_id);
 
@@ -250,9 +250,9 @@ export function AgentDetails() {
                                 </Box>
                                 <Box>
                                     <Typography variant="h3" color="warning.main">
-                                        {stats?.rank ? `#${stats.rank}` : '-'}
+                                        {agent.elo ? agent.elo : '-'}
                                     </Typography>
-                                    <Typography variant="body2" color="text.secondary">Current Rank</Typography>
+                                    <Typography variant="body2" color="text.secondary">Current Elo</Typography>
                                 </Box>
                             </Box>
 

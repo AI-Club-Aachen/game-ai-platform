@@ -133,6 +133,14 @@ class AgentService:
             logger.exception("Error deleting agent %s", agent_id)
             raise AgentServiceError("Failed to delete agent") from e
 
+    def get_leaderboard(self, game_type: str, limit: int = 100) -> list[dict]:
+        """Fetch the leaderboard for a specific game."""
+        try:
+            return self._repo.get_leaderboard(game_type, limit)
+        except AgentRepositoryError as e:
+            logger.exception("Error fetching leaderboard")
+            raise AgentServiceError("Failed to fetch leaderboard") from e
+
     def _validate_submission_for_agent(self, submission_id: UUID, user_id: UUID) -> Submission:
         submission = self._submission_repository.get_by_id(submission_id)
         if not submission:
