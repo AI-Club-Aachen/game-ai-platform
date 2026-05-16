@@ -1,10 +1,8 @@
-from collections.abc import Sequence
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
-
-logger = logging.getLogger(__name__)
 
 from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
@@ -13,10 +11,13 @@ from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
+from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
 from app.models.match import Match, MatchConfig, MatchStatus
 
+
+logger = logging.getLogger(__name__)
 
 class MatchServiceError(Exception):
     """Base exception for match service errors."""
@@ -163,30 +164,59 @@ class MatchService:
                 raise MatchServiceError(f"Agent {agent.id} does not have a successful active submission")
 
     def _update_agent_stats(self, match: Match) -> None:
+        """Update agent stats for a match."""
         logger.info(f"Updating agent stats for match {match.id}. Result: {match.result}")
         if not match.result or "winner" not in match.result:
             logger.warning(f"Match {match.id} has no result or winner. Skipping stats update.")
             return
 
-        agent_ids_str = match.agent_ids
-        try:
-            agent_uuids = [UUID(aid) for aid in agent_ids_str]
-        except ValueError:
-            logger.error(f"Failed to parse agent IDs as UUIDs: {agent_ids_str}")
+        agents_by_id = self._fetch_agents_by_ids(match.agent_ids)
+        if not agents_by_id:
             return
-            
-        agents = self._agent_repository.list_by_ids(agent_uuids)
-        agents_by_id = {str(a.id): a for a in agents}
 
         winner = match.result.get("winner")
         winner_str = str(winner) if winner and winner != "draw" else None
 
-        logger.info(f"Processing agent IDs: {match.agent_ids}")
-        for a_id in match.agent_ids:
+        self._update_basic_stats(match.agent_ids, agents_by_id, winner, winner_str)
+        self._update_elo_stats(match.agent_ids, agents_by_id, winner, winner_str)
+
+        for agent in agents_by_id.values():
+            agent.updated_at = datetime.now(UTC)
+            self._agent_repository.save(agent)
+            logger.info(f"Saved stats for agent {agent.id}")
+
+    def _fetch_agents_by_ids(self, agent_ids: list[UUID] | list[str]) -> dict[str, Agent]:
+        """Fetch agents by their IDs and return a mapping."""
+        agent_uuids: list[UUID] = []
+        for aid in agent_ids:
+            if isinstance(aid, UUID):
+                agent_uuids.append(aid)
+            else:
+                try:
+                    agent_uuids.append(UUID(aid))
+                except ValueError:
+                    logger.exception(f"Failed to parse agent ID as UUID: {aid}")
+                    continue
+
+        if not agent_uuids:
+            return {}
+
+        agents = self._agent_repository.list_by_ids(agent_uuids)
+        return {str(a.id): a for a in agents}
+
+    def _update_basic_stats(
+        self,
+        agent_ids: list[UUID] | list[str],
+        agents_by_id: dict[str, Agent],
+        winner: Any,
+        winner_str: str | None
+    ) -> None:
+        """Update matches_played, wins, losses, and draws for agents."""
+        for a_id in agent_ids:
             a_id_str = str(a_id)
             agent = agents_by_id.get(a_id_str)
             if not agent:
-                logger.error(f"Agent {a_id_str} not found in database")
+                logger.exception(f"Agent {a_id_str} not found in database")
                 continue
 
             agent.matches_played += 1
@@ -200,35 +230,66 @@ class MatchService:
                 agent.losses += 1
                 logger.info(f"Agent {a_id_str} recorded a loss (winner was {winner_str})")
 
-        # Calculate Elo if it's a 1v1 match
-        if len(match.agent_ids) == 2:
-            a_id1, a_id2 = str(match.agent_ids[0]), str(match.agent_ids[1])
-            if a_id1 != a_id2:  # Don't update Elo if playing against itself
-                agent1 = agents_by_id.get(a_id1)
-                agent2 = agents_by_id.get(a_id2)
+    def _update_elo_stats(
+        self,
+        agent_ids: list[UUID] | list[str],
+        agents_by_id: dict[str, Agent],
+        winner: Any,
+        winner_str: str | None
+    ) -> None:
+        """Calculate and update Elo ratings for a 1v1 match."""
+        if len(agent_ids) != 2:  # noqa: PLR2004
+            return
 
-                if agent1 and agent2:
-                    elo1 = agent1.elo if agent1.elo is not None else 1200
-                    elo2 = agent2.elo if agent2.elo is not None else 1200
+        a_id1, a_id2 = str(agent_ids[0]), str(agent_ids[1])
+        if a_id1 == a_id2:
+            return
 
-                    expected1 = 1 / (1 + 10 ** ((elo2 - elo1) / 400))
-                    expected2 = 1 / (1 + 10 ** ((elo1 - elo2) / 400))
+        agent1 = agents_by_id.get(a_id1)
+        agent2 = agents_by_id.get(a_id2)
 
-                    if winner == "draw":
-                        score1, score2 = 0.5, 0.5
-                    elif winner_str == a_id1:
-                        score1, score2 = 1.0, 0.0
-                    elif winner_str == a_id2:
-                        score1, score2 = 0.0, 1.0
-                    else:
-                        score1, score2 = 0.5, 0.5  # Should not happen
+        if not (agent1 and agent2):
+            return
 
-                    k = 32
-                    agent1.elo = int(elo1 + k * (score1 - expected1))
-                    agent2.elo = int(elo2 + k * (score2 - expected2))
-                    logger.info(f"Elo updated: Agent {a_id1} ({elo1} -> {agent1.elo}), Agent {a_id2} ({elo2} -> {agent2.elo})")
+        elo1 = agent1.elo if agent1.elo is not None else 1200
+        elo2 = agent2.elo if agent2.elo is not None else 1200
 
-        for agent in agents_by_id.values():
-            agent.updated_at = datetime.now(UTC)
-            self._agent_repository.save(agent)
-            logger.info(f"Saved stats for agent {agent.id}")
+        score1 = 0.5
+        if winner == "draw":
+            score1 = 0.5
+        elif winner_str == a_id1:
+            score1 = 1.0
+        elif winner_str == a_id2:
+            score1 = 0.0
+
+        agent1.elo, agent2.elo = self._calculate_elo_update(elo1, elo2, score1)
+        logger.info(f"Elo updated: Agent {a_id1} ({elo1} -> {agent1.elo}), Agent {a_id2} ({elo2} -> {agent2.elo})")
+
+    def _calculate_elo_update(
+        self,
+        elo1: float,
+        elo2: float,
+        score1: float,
+        k_factor: int = 32
+    ) -> tuple[int, int]:
+        """
+        Calculate new Elo ratings for two agents.
+
+        Args:
+            elo1: Current Elo of agent 1.
+            elo2: Current Elo of agent 2.
+            score1: Score of agent 1 (1.0 for win, 0.5 for draw, 0.0 for loss).
+            k_factor: K-factor for Elo calculation.
+
+        Returns:
+            Tuple of (new_elo1, new_elo2).
+        """
+        expected1 = 1 / (1 + 10 ** ((elo2 - elo1) / 400))
+        expected2 = 1 - expected1
+
+        score2 = 1.0 - score1
+
+        new_elo1 = int(elo1 + k_factor * (score1 - expected1))
+        new_elo2 = int(elo2 + k_factor * (score2 - expected2))
+
+        return new_elo1, new_elo2

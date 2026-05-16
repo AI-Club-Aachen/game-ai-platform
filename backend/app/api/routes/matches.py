@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -35,11 +35,11 @@ def get_scheduler_config(
     """Get the current match scheduler configuration."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     task_runner = getattr(request.app.state, "task_runner", None)
     if not task_runner:
         raise HTTPException(status_code=500, detail="Task runner not found")
-        
+
     for task in task_runner.tasks:
         if task.name == "match_scheduler":
             strategy = getattr(task.func.__self__, "strategy", "random") if hasattr(task.func, "__self__") else "random"
@@ -48,7 +48,7 @@ def get_scheduler_config(
                 interval_seconds=task.interval_seconds,
                 strategy=strategy
             )
-            
+
     raise HTTPException(status_code=404, detail="Scheduler task not found")
 
 
@@ -61,24 +61,24 @@ def update_scheduler_config(
     """Update the match scheduler configuration."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admin access required")
-        
+
     task_runner = getattr(request.app.state, "task_runner", None)
     if not task_runner:
         raise HTTPException(status_code=500, detail="Task runner not found")
-        
+
     for task in task_runner.tasks:
         if task.name == "match_scheduler":
             task.is_enabled = config.enabled
             task.interval_seconds = config.interval_seconds
             if hasattr(task.func, "__self__"):
                 task.func.__self__.strategy = config.strategy
-                
+
             return MatchSchedulerConfig(
                 enabled=task.is_enabled,
                 interval_seconds=task.interval_seconds,
                 strategy=config.strategy
             )
-            
+
     raise HTTPException(status_code=404, detail="Scheduler task not found")
 
 

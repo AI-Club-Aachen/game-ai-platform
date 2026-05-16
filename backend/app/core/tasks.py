@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,7 +26,13 @@ class BackgroundTaskRunner:
         self.tasks: list[RecurringTask] = []
         self._running = False
 
-    def add_task(self, func: Callable[[], Awaitable[Any]], interval_seconds: float, name: str | None = None, is_enabled: bool = True) -> None:
+    def add_task(
+        self,
+        func: Callable[[], Awaitable[Any]],
+        interval_seconds: float,
+        name: str | None = None,
+        is_enabled: bool = True,
+    ) -> None:
         """
         Explicitly add an async function as a recurring background task.
         """
@@ -59,7 +66,7 @@ class BackgroundTaskRunner:
         for task in self.tasks:
             if task.task_obj and not task.task_obj.done():
                 task.task_obj.cancel()
-        
+
         # Wait for cancellation to complete
         running_tasks = [t.task_obj for t in self.tasks if t.task_obj]
         if running_tasks:
@@ -76,7 +83,7 @@ class BackgroundTaskRunner:
                 break
             except Exception:
                 logger.exception(f"Error in background task {task.name}")
-            
+
             # Wait for next interval or cancellation, responsive to dynamic interval changes
             try:
                 waited = 0.0

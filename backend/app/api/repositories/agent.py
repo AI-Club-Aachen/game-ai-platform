@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlmodel import Session, func, select
 
 from app.models.agent import Agent
+from app.models.user import User
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,6 @@ class AgentRepository:
     # --- Commands ---
 
     def get_leaderboard(self, game_type: str, limit: int) -> list[dict]:
-        from app.models.user import User
         statement = (
             select(Agent, User.username)
             .join(User, Agent.user_id == User.id)
