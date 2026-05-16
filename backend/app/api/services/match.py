@@ -168,41 +168,41 @@ class MatchService:
             logger.warning(f"Match {match.id} has no result or winner. Skipping stats update.")
             return
 
-        agent_ids = match.agent_ids
-        agents = self._agent_repository.list_by_ids(agent_ids)
-        agents_by_id = {a.id: a for a in agents}
+        agent_ids_str = match.agent_ids
+        try:
+            agent_uuids = [UUID(aid) for aid in agent_ids_str]
+        except ValueError:
+            logger.error(f"Failed to parse agent IDs as UUIDs: {agent_ids_str}")
+            return
+            
+        agents = self._agent_repository.list_by_ids(agent_uuids)
+        agents_by_id = {str(a.id): a for a in agents}
 
         winner = match.result.get("winner")
-        winner_uuid = None
-        if winner and winner != "draw":
-            try:
-                winner_uuid = UUID(winner)
-                logger.info(f"Parsed winner UUID: {winner_uuid}")
-            except ValueError:
-                logger.warning(f"Failed to parse winner UUID from {winner}")
-                pass
+        winner_str = str(winner) if winner and winner != "draw" else None
 
         logger.info(f"Processing agent IDs: {match.agent_ids}")
         for a_id in match.agent_ids:
-            agent = agents_by_id.get(a_id)
+            a_id_str = str(a_id)
+            agent = agents_by_id.get(a_id_str)
             if not agent:
-                logger.error(f"Agent {a_id} not found in database")
+                logger.error(f"Agent {a_id_str} not found in database")
                 continue
 
             agent.matches_played += 1
             if winner == "draw":
                 agent.draws += 1
-                logger.info(f"Agent {a_id} recorded a draw")
-            elif winner_uuid == a_id:
+                logger.info(f"Agent {a_id_str} recorded a draw")
+            elif winner_str == a_id_str:
                 agent.wins += 1
-                logger.info(f"Agent {a_id} recorded a win")
+                logger.info(f"Agent {a_id_str} recorded a win")
             else:
                 agent.losses += 1
-                logger.info(f"Agent {a_id} recorded a loss (winner was {winner_uuid})")
+                logger.info(f"Agent {a_id_str} recorded a loss (winner was {winner_str})")
 
         # Calculate Elo if it's a 1v1 match
         if len(match.agent_ids) == 2:
-            a_id1, a_id2 = match.agent_ids[0], match.agent_ids[1]
+            a_id1, a_id2 = str(match.agent_ids[0]), str(match.agent_ids[1])
             if a_id1 != a_id2:  # Don't update Elo if playing against itself
                 agent1 = agents_by_id.get(a_id1)
                 agent2 = agents_by_id.get(a_id2)
@@ -216,9 +216,9 @@ class MatchService:
 
                     if winner == "draw":
                         score1, score2 = 0.5, 0.5
-                    elif winner_uuid == a_id1:
+                    elif winner_str == a_id1:
                         score1, score2 = 1.0, 0.0
-                    elif winner_uuid == a_id2:
+                    elif winner_str == a_id2:
                         score1, score2 = 0.0, 1.0
                     else:
                         score1, score2 = 0.5, 0.5  # Should not happen
