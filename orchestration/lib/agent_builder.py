@@ -160,6 +160,14 @@ def build_from_zip(
         ctx = Path(td)
         _safe_extract_zip(zip_bytes, ctx)
 
+        # Flatten directory if the user zipped a folder instead of its contents
+        top_level_items = [p for p in ctx.iterdir() if p.name not in ("__MACOSX", ".DS_Store")]
+        if len(top_level_items) == 1 and top_level_items[0].is_dir():
+            inner_dir = top_level_items[0]
+            for item in inner_dir.iterdir():
+                shutil.move(str(item), str(ctx / item.name))
+            shutil.rmtree(str(inner_dir), ignore_errors=True)
+
         entry_file = _find_agent_entry(ctx)
 
         # copy base_requirements into the build-directory
