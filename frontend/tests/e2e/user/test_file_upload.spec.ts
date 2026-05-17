@@ -1,4 +1,26 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
+
+const getDropZone = (page: Page) =>
+    page
+        .getByText('Select a ZIP file to upload')
+        .locator('xpath=ancestor::div[contains(@class, "MuiBox-root")][1]');
+
+const getBackgroundColor = async (locator: Locator) =>
+    locator.evaluate((element) => window.getComputedStyle(element).backgroundColor);
+
+const createDragDataTransfer = async (
+    page: Page,
+    file: { name: string; mimeType: string; size: number }
+) =>
+    page.evaluateHandle(({ name, mimeType, size }) => {
+        const dataTransfer = new DataTransfer();
+        const bytes = new Uint8Array(size);
+        const uploadedFile = new File([bytes], name, { type: mimeType });
+
+        dataTransfer.items.add(uploadedFile);
+
+        return dataTransfer;
+    }, file);
 
 test.describe('File Upload Formatting', () => {
     test('should correctly format file sizes as Bytes, KB, and MB', async ({ page }) => {
@@ -13,7 +35,6 @@ test.describe('File Upload Formatting', () => {
             mimeType: 'application/zip',
             buffer: Buffer.alloc(500)
         });
-        console.log("asdasdasd")
         await expect(page.getByText('500 Bytes')).toBeVisible();
 
         // Test 500 KB (500 * 1024 = 512000 bytes)
@@ -31,5 +52,38 @@ test.describe('File Upload Formatting', () => {
             buffer: Buffer.alloc(5242880)
         });
         await expect(page.getByText('5.00 MB')).toBeVisible();
+    });
+
+    test('should highlight during drag and accept a dropped ZIP file', async ({ page }) => {
+        await page.goto('/submissions/new');
+
+        const dropZone = getDropZone(page);
+        await expect(dropZone).toBeVisible();
+
+        const defaultBackgroundColor = await getBackgroundColor(dropZone);
+        const dragDataTransfer = await createDragDataTransfer(page, {
+            name: 'dragged-agent.zip',
+            mimeType: 'application/zip',
+            size: 2048,
+        });
+
+        await dropZone.dispatchEvent('dragover', { dataTransfer: dragDataTransfer });
+        await expect
+            .poll(() => getBackgroundColor(dropZone))
+            .not.toBe(defaultBackgroundColor);
+
+        await dropZone.dispatchEvent('dragleave', { dataTransfer: dragDataTransfer });
+        await expect
+            .poll(() => getBackgroundColor(dropZone))
+            .toBe(defaultBackgroundColor);
+
+        await dropZone.dispatchEvent('dragover', { dataTransfer: dragDataTransfer });
+        await dropZone.dispatchEvent('drop', { dataTransfer: dragDataTransfer });
+
+        await expect(page.getByText('dragged-agent.zip')).toBeVisible();
+        await expect(page.getByText('2.00 KB')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Submit Agent' })).toBeEnabled();
+
+        await dragDataTransfer.dispose();
     });
 });
