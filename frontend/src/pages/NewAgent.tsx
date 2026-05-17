@@ -232,7 +232,11 @@ export function NewAgent() {
                             </Typography>
                             {file && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    {file.size < 1024
+                                        ? `${file.size} Bytes`
+                                        : file.size < 1024 * 1024
+                                            ? `${(file.size / 1024).toFixed(2)} KB`
+                                            : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
                                 </Typography>
                             )}
                             <Button variant={file ? 'outlined' : 'contained'} component="label" disabled={loading}>
