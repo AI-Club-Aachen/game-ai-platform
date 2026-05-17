@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, TextField, MenuItem } from '@mui/material';
-import { ArrowBack, CloudUpload } from '@mui/icons-material';
+import { ArrowBack } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { getLatestBuildJob, submissionsApi } from '../services/api/submissions';
 import { agentsApi } from '../services/api/agents';
 import { fromApiGameType, getActiveGames, toApiGameType } from '../config/games';
-import { overlays, palette } from '../theme';
+import { FileUploadBox } from '../components/common/FileUploadBox';
 
 const BUILD_POLL_MS = 2000;
 const BUILD_POLL_ATTEMPTS = 60;
@@ -51,13 +51,6 @@ export function NewSubmission() {
 
         loadAgentGame();
     }, [agentId]);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setFile(e.target.files[0]);
-            setError(null);
-        }
-    };
 
     const handleSubmit = async () => {
         if (!file) {
@@ -167,42 +160,14 @@ export function NewSubmission() {
                         sx={{ mb: 3 }}
                     />
 
-                    <Box sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        p: 6,
-                        mt: 2,
-                        mb: 4,
-                        border: '2px dashed',
-                        borderColor: file ? 'primary.main' : 'divider',
-                        borderRadius: 2,
-                        backgroundColor: file ? `${palette.primary}10` : overlays.overlayLight,
-                        transition: 'all 0.2s',
-                    }}>
-                        <CloudUpload sx={{ fontSize: 48, color: file ? 'primary.main' : 'text.secondary', mb: 2 }} />
-                        <Typography variant="body1" sx={{ mb: 1, fontWeight: 500 }}>
-                            {file ? file.name : 'Select a ZIP file to upload'}
-                        </Typography>
-                        {file && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                                {(file.size / 1024 / 1024).toFixed(2)} MB
-                            </Typography>
-                        )}
-                        <Button
-                            variant={file ? 'outlined' : 'contained'}
-                            component="label"
-                        >
-                            {file ? 'Change File' : 'Browse Files'}
-                            <input
-                                type="file"
-                                hidden
-                                accept=".zip,application/zip"
-                                onChange={handleFileChange}
-                            />
-                        </Button>
-                    </Box>
+                    <FileUploadBox
+                        file={file}
+                        onFileChange={setFile}
+                        onError={setError}
+                        disabled={loading}
+                        title="Select a ZIP file to upload"
+                        sx={{ mt: 2, mb: 4 }}
+                    />
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                         <Button variant="outlined" onClick={() => navigate('/dashboard')} disabled={loading}>
