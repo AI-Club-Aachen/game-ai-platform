@@ -1,7 +1,7 @@
-from uuid import UUID
 import logging
 import random
 from collections import defaultdict
+from uuid import UUID
 
 from sqlmodel import Session
 
