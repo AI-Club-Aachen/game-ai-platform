@@ -1,3 +1,4 @@
+from uuid import UUID
 import logging
 import random
 from collections import defaultdict
@@ -94,13 +95,13 @@ class MatchSchedulerService:
 
         return not running_matches
 
-    def _get_available_agents(self, agent_repository: AgentRepository) -> dict:
+    def _get_available_agents(self, agent_repository: AgentRepository) -> dict[GameType, list[Agent]]:
         """
         Get a list of available agents that can be scheduled for matches.
         Returns a dictionary of game type to Agent objects.
         """
         # Get all agents, fetching in batches
-        available_by_game_type = defaultdict(list)
+        available_by_game_type: dict[GameType, list[Agent]] = defaultdict(list)
 
         skip = 0
         limit = 100
@@ -121,7 +122,7 @@ class MatchSchedulerService:
 
         return dict(available_by_game_type)
 
-    def _choose_agents_for_match(self, available_agents: list[Agent]) -> list:
+    def _choose_agents_for_match(self, available_agents: list[Agent]) -> list[UUID]:
         """
         Choose a set of agents to participate in a new match based on strategy.
         """
@@ -136,4 +137,4 @@ class MatchSchedulerService:
             # Default: random
             chosen = random.sample(available_agents, 2)
 
-        return [str(agent.id) for agent in chosen]
+        return [agent.id for agent in chosen]
