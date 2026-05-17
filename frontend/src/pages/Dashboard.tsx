@@ -62,11 +62,11 @@ export function Dashboard() {
   }
 
   // Calculate stats
-  const totalGames = agents.reduce((acc, agent) => acc + (agent.stats?.matches_played || 0), 0);
-  const totalWins = agents.reduce((acc, agent) => acc + (agent.stats?.wins || 0), 0);
+  const totalGames = agents.reduce((acc, agent) => acc + (agent.matches_played || 0), 0);
+  const totalWins = agents.reduce((acc, agent) => acc + (agent.wins || 0), 0);
   const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-  const bestRank = agents.length > 0
-    ? Math.min(...agents.filter(a => a.stats?.rank).map(a => a.stats.rank as number))
+  const bestElo = agents.length > 0
+    ? Math.max(...agents.filter(a => a.elo).map(a => a.elo as number), 0) || null
     : null;
 
   return (
@@ -100,7 +100,7 @@ export function Dashboard() {
               { value: agents.length.toString(), label: 'Active Agents' },
               { value: totalGames.toString(), label: 'Total Games' },
               { value: `${winRate}%`, label: 'Win Rate' },
-              { value: bestRank !== null && bestRank !== Infinity ? `#${bestRank}` : '-', label: 'Best Rank' },
+              { value: bestElo !== null ? bestElo.toString() : '-', label: 'Best Elo' },
             ].map((stat, i) => (
               <Card key={i}>
                 <CardContent sx={{ textAlign: 'center' }}>
@@ -121,7 +121,7 @@ export function Dashboard() {
                     <TableRow>
                       <TableCell>Agent ID</TableCell>
                       <TableCell>W/L</TableCell>
-                      <TableCell>Rank</TableCell>
+                      <TableCell>Elo</TableCell>
                       <TableCell>Created</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
@@ -142,12 +142,12 @@ export function Dashboard() {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography component="span" sx={{ color: 'success.main' }}>{agent.stats?.wins || 0}W</Typography>
+                            <Typography component="span" sx={{ color: 'success.main' }}>{agent.wins || 0}W</Typography>
                             {' / '}
-                            <Typography component="span" sx={{ color: 'error.main' }}>{agent.stats?.losses || 0}L</Typography>
+                            <Typography component="span" sx={{ color: 'error.main' }}>{agent.losses || 0}L</Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip label={agent.stats?.rank ? `#${agent.stats.rank}` : 'Unranked'} color="primary" size="small" />
+                            <Chip label={agent.elo ? agent.elo : 'Unranked'} color="primary" size="small" />
                           </TableCell>
                           <TableCell>{new Date(agent.created_at).toLocaleDateString()}</TableCell>
                           <TableCell>

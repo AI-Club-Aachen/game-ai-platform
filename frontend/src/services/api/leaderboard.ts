@@ -8,17 +8,19 @@ export const leaderboardApi = {
      * Get leaderboard for a specific game
      */
     getLeaderboard: async (gameId: string) => {
-        return apiRequest<Array<{
-            rank: number;
-            user_id: string;
-            username: string;
-            score: number;
-            wins: number;
-            losses: number;
-            draws: number;
-            total_matches: number;
-        }>>(`/leaderboard/${gameId}`, {
+        const data = await apiRequest<any[]>(`/agents/leaderboard/${gameId}`, {
             method: 'GET',
         });
+
+        return data.map((d: any, index: number) => ({
+            rank: index + 1,
+            user_id: d.id, // using agent id as unique key
+            username: d.username,
+            score: d.elo || 0,
+            wins: d.wins,
+            losses: d.losses,
+            draws: d.draws,
+            total_matches: d.matches_played || (d.wins + d.losses)
+        }));
     },
 };

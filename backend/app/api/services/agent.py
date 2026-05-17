@@ -100,8 +100,17 @@ class AgentService:
                 )
                 agent.active_submission_id = agent_update.active_submission_id
 
-        if agent_update.stats is not None:
-            agent.stats = agent_update.stats
+        # Update individual stat fields if provided
+        if agent_update.wins is not None:
+            agent.wins = agent_update.wins
+        if agent_update.losses is not None:
+            agent.losses = agent_update.losses
+        if agent_update.draws is not None:
+            agent.draws = agent_update.draws
+        if agent_update.matches_played is not None:
+            agent.matches_played = agent_update.matches_played
+        if agent_update.elo is not None:
+            agent.elo = agent_update.elo
 
         agent.updated_at = datetime.now(UTC)
 
@@ -123,6 +132,14 @@ class AgentService:
         except AgentRepositoryError as e:
             logger.exception("Error deleting agent %s", agent_id)
             raise AgentServiceError("Failed to delete agent") from e
+
+    def get_leaderboard(self, game_type: str, limit: int = 100) -> list[dict]:
+        """Fetch the leaderboard for a specific game."""
+        try:
+            return self._repo.get_leaderboard(game_type, limit)
+        except AgentRepositoryError as e:
+            logger.exception("Error fetching leaderboard")
+            raise AgentServiceError("Failed to fetch leaderboard") from e
 
     def _validate_submission_for_agent(self, submission_id: UUID, user_id: UUID) -> Submission:
         submission = self._submission_repository.get_by_id(submission_id)

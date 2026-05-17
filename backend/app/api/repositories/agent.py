@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlmodel import Session, func, select
 
 from app.models.agent import Agent
+from app.models.user import User
 
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,31 @@ class AgentRepository:
         return agents, total
 
     # --- Commands ---
+
+    def get_leaderboard(self, game_type: str, limit: int) -> list[dict]:
+        statement = (
+            select(Agent, User.username)
+            .join(User, Agent.user_id == User.id)
+            .where(Agent.game_type == game_type)
+            .where(Agent.elo.is_not(None))
+            .order_by(Agent.elo.desc())
+            .limit(limit)
+        )
+        results = self._session.exec(statement).all()
+        return [
+            {
+                "id": str(agent.id),
+                "agent_name": agent.name,
+                "username": username,
+                "elo": agent.elo,
+                "wins": agent.wins,
+                "losses": agent.losses,
+                "draws": agent.draws,
+                "matches_played": agent.matches_played,
+                "game_type": agent.game_type.value,
+            }
+            for agent, username in results
+        ]
 
     def save(self, agent: Agent) -> Agent:
         """Persist agent, handling commit/rollback."""

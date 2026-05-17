@@ -10,7 +10,7 @@ from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from tests.api.test_users import _create_verified_user_and_token
-from tests.utils import random_email, random_username, strong_password
+from tests.utils import random_email, random_lower_string, random_username, strong_password
 
 
 API_PREFIX = settings.API_V1_PREFIX
@@ -75,6 +75,7 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
         f"{API_PREFIX}/agents",
         headers={"Authorization": bearer_token},
         json={
+            "name": random_lower_string(8),
             "user_id": user_id,
             "game_type": GameType.TICTACTOE.value,
             "active_submission_id": submission_id,
@@ -96,6 +97,7 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
         f"{API_PREFIX}/agents",
         headers={"Authorization": bearer_token},
         json={
+            "name": random_lower_string(8),
             "user_id": user_id,
             "game_type": GameType.TICTACTOE.value,
             "active_submission_id": submission_id,
@@ -178,6 +180,7 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
             f"{API_PREFIX}/agents",
             headers={"Authorization": bearer_token},
             json={
+                "name": f"Agent {submission_id[:8]}",
                 "user_id": user_id,
                 "game_type": GameType.CHESS.value,
                 "active_submission_id": submission_id,

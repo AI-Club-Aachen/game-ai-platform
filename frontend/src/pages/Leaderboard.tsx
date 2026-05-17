@@ -1,37 +1,64 @@
-import { useState } from 'react';
-import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card, Button } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card, Button, FormControl, Select, MenuItem, TableSortLabel } from '@mui/material';
 import { EmojiEvents, ArrowBack } from '@mui/icons-material';
 import { overlays } from '../theme';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { getActiveGames, toApiGameType } from '../config/games';
 
 interface LeaderboardEntry {
+  id: string;
   rank: number;
   username: string;
   agentName: string;
-  score: number;
+  elo: number;
   wins: number;
   losses: number;
   winRate: number;
-  language: string;
   gameId: string;
 }
 
 export function Leaderboard() {
-  const [selectedGame] = useState<string>('chess');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const gameFromQuery = searchParams.get('game');
+  const [selectedGame, setSelectedGame] = useState<string>(gameFromQuery || 'chess');
   const goBack = useSmartBack('/dashboard');
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const entries: LeaderboardEntry[] = [
-    { rank: 1, username: 'AImaster', agentName: 'GammaNet', score: 2450, wins: 52, losses: 8, winRate: 86.7, language: 'Python', gameId: selectedGame },
-    { rank: 2, username: 'BotBuilder', agentName: 'DeepMind', score: 2380, wins: 48, losses: 10, winRate: 82.8, language: 'Python', gameId: selectedGame },
-    { rank: 3, username: 'demo_user', agentName: 'AlphaBot', score: 2250, wins: 45, losses: 12, winRate: 78.9, language: 'Python', gameId: selectedGame },
-    { rank: 4, username: 'CodeNinja', agentName: 'SwiftAI', score: 2180, wins: 42, losses: 15, winRate: 73.7, language: 'JavaScript', gameId: selectedGame },
-    { rank: 5, username: 'MLEngineer', agentName: 'TensorBot', score: 2140, wins: 40, losses: 16, winRate: 71.4, language: 'Python', gameId: selectedGame },
-    { rank: 6, username: 'GameDev', agentName: 'StrategyX', score: 2090, wins: 39, losses: 18, winRate: 68.4, language: 'TypeScript', gameId: selectedGame },
-    { rank: 7, username: 'RoboticsExpert', agentName: 'BetaAI', score: 2020, wins: 38, losses: 19, winRate: 66.7, language: 'JavaScript', gameId: selectedGame },
-    { rank: 8, username: 'Competitor', agentName: 'AlgoMaster', score: 1980, wins: 35, losses: 20, winRate: 63.6, language: 'Python', gameId: selectedGame },
-    { rank: 9, username: 'NewPlayer', agentName: 'FirstBot', score: 1920, wins: 32, losses: 23, winRate: 58.2, language: 'JavaScript', gameId: selectedGame },
-    { rank: 10, username: 'Learner', agentName: 'BasicAI', score: 1850, wins: 28, losses: 27, winRate: 50.9, language: 'Python', gameId: selectedGame },
-  ];
+  type Order = 'asc' | 'desc';
+  const [order, setOrder] = useState<Order>('desc');
+  const [orderBy, setOrderBy] = useState<keyof LeaderboardEntry>('elo');
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        setLoading(true);
+        const { agentsApi } = await import('../services/api/agents');
+        const data = await agentsApi.getLeaderboard(toApiGameType(selectedGame));
+        setEntries(data.map((d: any, index: number) => {
+          const matchesPlayed = d.matches_played || (d.wins + d.losses);
+          const winRate = matchesPlayed > 0 ? (d.wins / matchesPlayed) * 100 : 0;
+          return {
+            id: d.id,
+            rank: index + 1,
+            username: d.username,
+            agentName: d.agent_name,
+            elo: d.elo || 0,
+            wins: d.wins,
+            losses: d.losses,
+            winRate: winRate,
+            gameId: d.game_type
+          };
+        }));
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLeaderboard();
+  }, [selectedGame]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -40,18 +67,55 @@ export function Leaderboard() {
     return `#${rank}`;
   };
 
+  const handleRequestSort = (property: keyof LeaderboardEntry) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const sortedEntries = [...entries].sort((a, b) => {
+    let valA = a[orderBy];
+    let valB = b[orderBy];
+
+    // Handle string comparisons
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+
+    if (valA < valB) return order === 'asc' ? -1 : 1;
+    if (valA > valB) return order === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
         Back
       </Button>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <EmojiEvents sx={{ fontSize: 32 }} /> Leaderboard
-        </Typography>
-        <Typography color="text.secondary">
-          Top performing AI agents across all games
-        </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EmojiEvents sx={{ fontSize: 32 }} /> Leaderboard
+          </Typography>
+          <Typography color="text.secondary">
+            Top performing AI agents across all games
+          </Typography>
+        </Box>
+        <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+          <Select
+            value={selectedGame}
+            onChange={(e) => {
+              const newGame = e.target.value as string;
+              setSelectedGame(newGame);
+              setSearchParams({ game: newGame });
+            }}
+          >
+            {getActiveGames().map(game => (
+              <MenuItem key={game.id} value={game.id}>{game.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       <Card>
@@ -59,20 +123,75 @@ export function Leaderboard() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Rank</TableCell>
-                <TableCell>User</TableCell>
-                <TableCell>Agent</TableCell>
-                <TableCell>Language</TableCell>
-                <TableCell align="right">Score</TableCell>
-                <TableCell align="right">Wins</TableCell>
-                <TableCell align="right">Losses</TableCell>
-                <TableCell>Win Rate</TableCell>
+                <TableCell sortDirection={orderBy === 'rank' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'rank'}
+                    direction={orderBy === 'rank' ? order : 'asc'}
+                    onClick={() => handleRequestSort('rank')}
+                  >
+                    Rank
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={orderBy === 'username' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'username'}
+                    direction={orderBy === 'username' ? order : 'asc'}
+                    onClick={() => handleRequestSort('username')}
+                  >
+                    User
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={orderBy === 'agentName' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'agentName'}
+                    direction={orderBy === 'agentName' ? order : 'asc'}
+                    onClick={() => handleRequestSort('agentName')}
+                  >
+                    Agent
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right" sortDirection={orderBy === 'elo' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'elo'}
+                    direction={orderBy === 'elo' ? order : 'asc'}
+                    onClick={() => handleRequestSort('elo')}
+                  >
+                    Elo
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right" sortDirection={orderBy === 'wins' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'wins'}
+                    direction={orderBy === 'wins' ? order : 'asc'}
+                    onClick={() => handleRequestSort('wins')}
+                  >
+                    Wins
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right" sortDirection={orderBy === 'losses' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'losses'}
+                    direction={orderBy === 'losses' ? order : 'asc'}
+                    onClick={() => handleRequestSort('losses')}
+                  >
+                    Losses
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={orderBy === 'winRate' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'winRate'}
+                    direction={orderBy === 'winRate' ? order : 'asc'}
+                    onClick={() => handleRequestSort('winRate')}
+                  >
+                    Win Rate
+                  </TableSortLabel>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {entries.map((entry) => (
+              {sortedEntries.map((entry) => (
                 <TableRow
-                  key={entry.rank}
+                  key={entry.id}
                   sx={{
                     backgroundColor: entry.rank <= 3 ? overlays.primaryGlowFaint : 'inherit'
                   }}
@@ -86,12 +205,9 @@ export function Leaderboard() {
                     <strong>{entry.username}</strong>
                   </TableCell>
                   <TableCell>{entry.agentName}</TableCell>
-                  <TableCell>
-                    <Chip label={entry.language} size="small" />
-                  </TableCell>
                   <TableCell align="right">
                     <Typography color="primary" fontWeight="bold">
-                      {entry.score}
+                      {entry.elo}
                     </Typography>
                   </TableCell>
                   <TableCell align="right" sx={{ color: 'success.main' }}>
