@@ -31,7 +31,7 @@ bunx playwright install
 
 Start the backend test stack from the repo root:
 ```bash
-docker compose --env-file .env -f backend/docker-compose.ci.yml up -d --build redis db backend agent-builder
+docker compose -p gameai-ci --env-file .env -f backend/docker-compose.ci.yml up -d --build redis db backend agent-builder
 ```
 
 Then run the full Playwright suite from `frontend/`:
