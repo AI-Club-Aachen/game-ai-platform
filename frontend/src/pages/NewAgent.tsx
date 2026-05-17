@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, MenuItem, TextField, Typography } from '@mui/material';
 import { ArrowBack, CloudUpload, SmartToy } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -60,6 +60,34 @@ export function NewAgent() {
     const [error, setError] = useState<string | null>(null);
     const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
     const [createdSubmissionId, setCreatedSubmissionId] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+        
+        if (loading) return;
+
+        const nextFile = e.dataTransfer.files?.[0] ?? null;
+        if (nextFile) {
+            if (nextFile.name.endsWith('.zip') || nextFile.type === 'application/zip' || nextFile.type === 'application/x-zip-compressed') {
+                setFile(nextFile);
+                setError(null);
+            } else {
+                setError('Please upload a ZIP file.');
+            }
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const nextFile = e.target.files?.[0] ?? null;
@@ -182,21 +210,25 @@ export function NewAgent() {
                             helperText="Optional. Only used if you upload a submission now."
                         />
 
-                        <Box sx={{
+                        <Box 
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            sx={{
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             p: 6,
                             border: '2px dashed',
-                            borderColor: file ? 'primary.main' : 'divider',
+                            borderColor: isDragging || file ? 'primary.main' : 'divider',
                             borderRadius: 2,
-                            backgroundColor: file ? `${palette.primary}10` : overlays.overlayLight,
+                            backgroundColor: isDragging ? `${palette.primary}20` : (file ? `${palette.primary}10` : overlays.overlayLight),
                             transition: 'all 0.2s',
                         }}>
-                            <CloudUpload sx={{ fontSize: 48, color: file ? 'primary.main' : 'text.secondary', mb: 2 }} />
-                            <Typography variant="body1" sx={{ mb: 1, fontWeight: 500 }}>
-                                {file ? file.name : 'Optional: upload a ZIP file now'}
+                            <CloudUpload sx={{ fontSize: 48, color: isDragging || file ? 'primary.main' : 'text.secondary', mb: 2 }} />
+                            <Typography variant="body1" sx={{ mb: 1, fontWeight: 500, textAlign: 'center' }}>
+                                {file ? file.name : 'Drag and drop a ZIP file here, or Browse Files'}
                             </Typography>
                             {file && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
