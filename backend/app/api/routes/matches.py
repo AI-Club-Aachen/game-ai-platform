@@ -44,9 +44,7 @@ def get_scheduler_config(
         if task.name == "match_scheduler":
             strategy = getattr(task.func.__self__, "strategy", "random") if hasattr(task.func, "__self__") else "random"
             return MatchSchedulerConfig(
-                enabled=task.is_enabled,
-                interval_seconds=task.interval_seconds,
-                strategy=strategy
+                enabled=task.is_enabled, interval_seconds=task.interval_seconds, strategy=strategy
             )
 
     raise HTTPException(status_code=404, detail="Scheduler task not found")
@@ -74,13 +72,10 @@ def update_scheduler_config(
                 task.func.__self__.strategy = config.strategy
 
             return MatchSchedulerConfig(
-                enabled=task.is_enabled,
-                interval_seconds=task.interval_seconds,
-                strategy=config.strategy
+                enabled=task.is_enabled, interval_seconds=task.interval_seconds, strategy=config.strategy
             )
 
     raise HTTPException(status_code=404, detail="Scheduler task not found")
-
 
 
 # POST /api/v1/matches/
@@ -194,9 +189,7 @@ async def stream_match(
         pubsub = await subscribe_match_events(match_id)
         try:
             while True:
-                message = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if message is not None and message["type"] == "message":
                     data = json.loads(message["data"])
                     event = {

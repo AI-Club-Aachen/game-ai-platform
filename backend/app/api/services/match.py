@@ -19,6 +19,7 @@ from app.models.match import Match, MatchConfig, MatchStatus
 
 logger = logging.getLogger(__name__)
 
+
 class MatchServiceError(Exception):
     """Base exception for match service errors."""
 
@@ -46,9 +47,7 @@ class MatchService:
         Create a match and queue it for execution.
         """
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
-            raise MatchServiceError(
-                f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s"
-            )
+            raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
 
         self._validate_agents_for_match(game_type, agent_ids)
 
@@ -205,11 +204,7 @@ class MatchService:
         return {str(a.id): a for a in agents}
 
     def _update_basic_stats(
-        self,
-        agent_ids: list[UUID] | list[str],
-        agents_by_id: dict[str, Agent],
-        winner: Any,
-        winner_str: str | None
+        self, agent_ids: list[UUID] | list[str], agents_by_id: dict[str, Agent], winner: Any, winner_str: str | None
     ) -> None:
         """Update matches_played, wins, losses, and draws for agents."""
         for a_id in agent_ids:
@@ -231,11 +226,7 @@ class MatchService:
                 logger.info(f"Agent {a_id_str} recorded a loss (winner was {winner_str})")
 
     def _update_elo_stats(
-        self,
-        agent_ids: list[UUID] | list[str],
-        agents_by_id: dict[str, Agent],
-        winner: Any,
-        winner_str: str | None
+        self, agent_ids: list[UUID] | list[str], agents_by_id: dict[str, Agent], winner: Any, winner_str: str | None
     ) -> None:
         """Calculate and update Elo ratings for a 1v1 match."""
         if len(agent_ids) != 2:  # noqa: PLR2004
@@ -265,13 +256,7 @@ class MatchService:
         agent1.elo, agent2.elo = self._calculate_elo_update(elo1, elo2, score1)
         logger.info(f"Elo updated: Agent {a_id1} ({elo1} -> {agent1.elo}), Agent {a_id2} ({elo2} -> {agent2.elo})")
 
-    def _calculate_elo_update(
-        self,
-        elo1: float,
-        elo2: float,
-        score1: float,
-        k_factor: int = 32
-    ) -> tuple[int, int]:
+    def _calculate_elo_update(self, elo1: float, elo2: float, score1: float, k_factor: int = 32) -> tuple[int, int]:
         """
         Calculate new Elo ratings for two agents.
 

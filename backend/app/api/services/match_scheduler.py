@@ -72,9 +72,7 @@ class MatchSchedulerService:
                     f"match_id: {match.id}"
                 )
             except Exception:
-                logger.exception(
-                    f"Error creating match for game type '{game_type_str}' with agents {agents_for_match}"
-                )
+                logger.exception(f"Error creating match for game type '{game_type_str}' with agents {agents_for_match}")
 
     def _check_match_queue(self, match_repository: MatchRepository) -> bool:
         """
@@ -82,16 +80,12 @@ class MatchSchedulerService:
         Matches are added as long as no match is in queue or running for any game type.
         """
         # Check if any matches are currently queued
-        queued_matches = match_repository.list_matches(
-            skip=0, limit=1, status=MatchStatus.QUEUED.value
-        )
+        queued_matches = match_repository.list_matches(skip=0, limit=1, status=MatchStatus.QUEUED.value)
         if queued_matches:
             return False
 
         # Check if any matches are currently running
-        running_matches = match_repository.list_matches(
-            skip=0, limit=1, status=MatchStatus.RUNNING.value
-        )
+        running_matches = match_repository.list_matches(skip=0, limit=1, status=MatchStatus.RUNNING.value)
 
         return not running_matches
 
