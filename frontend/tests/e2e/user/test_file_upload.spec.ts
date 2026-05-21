@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { setSubmissionBuildStatus } from '../../utils/db';
 
 const missingAgentEntryMessage =
     "No agent entry file found. Expected 'agent.py' or a file ending with '_agent.py' at the root of the ZIP file or inside a single top-level folder. Please check your ZIP file structure to ensure the agent file is not nested too deeply.";
@@ -106,6 +107,16 @@ const createZipBuffer = (files: Record<string, string>) => {
 const uniqueName = (prefix: string) =>
     `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
+const uuidRegex =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+const extractIdFromLabel = async (page: Page): Promise<string> => {
+    const text = await page.getByText(/^ID:/).textContent();
+    const match = text?.match(uuidRegex);
+    expect(match?.[0]).toBeTruthy();
+    return match![0];
+};
+
 test.describe('File Upload Formatting', () => {
     test('should correctly format file sizes as Bytes, KB, and MB', async ({ page }) => {
         // Go to the new submission page where the FileUploadBox is present
@@ -202,10 +213,22 @@ test.describe('File Upload Formatting', () => {
             }),
         });
 
+        const createSubmissionResponsePromise = page.waitForResponse((response) =>
+            response.url().endsWith('/submissions') &&
+            response.request().method() === 'POST' &&
+            response.status() === 201
+        );
         await page.getByRole('button', { name: 'Submit Agent' }).click();
-        await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 30000 });
+
+        const createSubmissionResponse = await createSubmissionResponsePromise;
+        const submission = await createSubmissionResponse.json() as { id: string };
+        setSubmissionBuildStatus(submission.id, 'failed', { logs: missingAgentEntryMessage });
+
+        await page.waitForURL(new RegExp(`/submissions/${submission.id}$`), { timeout: 30000 });
+        await page.reload({ waitUntil: 'networkidle' });
 
         await expect(page.getByText('FAILED', { exact: true })).toBeVisible({ timeout: 30000 });
         await expect(page.getByText(missingAgentEntryMessage)).toBeVisible();
+        await expect(page.getByText(await extractIdFromLabel(page))).toBeVisible();
     });
 });
