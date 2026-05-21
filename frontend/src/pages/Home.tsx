@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Card, CardContent } from '@mui/material';
 import { SmartToy, EmojiEvents, Analytics, Visibility } from '@mui/icons-material';
 import { overlays } from '../theme';
+import { legalLinks } from './LegalPages';
 
 export function Home() {
   return (
@@ -106,6 +107,55 @@ export function Home() {
           ))}
         </Box>
       </Container>
+
+      <Box
+        component="footer"
+        sx={{
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          py: 3,
+          px: 3,
+        }}
+      >
+        <Container
+          maxWidth="lg"
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            © {new Date().getFullYear()} AI Club Aachen e.V.
+          </Typography>
+          <Box
+            component="nav"
+            aria-label="Legal"
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: { xs: 1.5, sm: 2.5 },
+            }}
+          >
+            {legalLinks.map((link) => (
+              <Typography
+                key={link.to}
+                component={Link}
+                to={link.to}
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  '&:hover': { color: 'primary.main' },
+                }}
+              >
+                {link.label}
+              </Typography>
+            ))}
+          </Box>
+        </Container>
+      </Box>
     </Box>
   );
 }

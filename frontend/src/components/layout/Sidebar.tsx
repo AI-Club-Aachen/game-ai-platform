@@ -12,11 +12,16 @@ import {
   ChevronLeft,
   Menu as MenuIcon,
   LightMode,
-  DarkMode
+  DarkMode,
+  Gavel,
+  Policy,
+  Cookie,
+  Description
 } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import './Sidebar.css';
 import { palette } from '../../theme';
+import { legalLinks } from '../../pages/LegalPages';
 
 interface SidebarProps {
   onToggle?: (collapsed: boolean) => void;
@@ -40,6 +45,8 @@ export function Sidebar({ onToggle }: SidebarProps) {
       onToggle(isCollapsed);
     }
   }, []);
+
+  const legalIcons = [Gavel, Policy, Cookie, Description];
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
@@ -90,6 +97,18 @@ export function Sidebar({ onToggle }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
+        <div className="sidebar-legal-links" aria-label="Legal">
+          {legalLinks.map((link, index) => {
+            const LegalIcon = legalIcons[index] ?? Description;
+            return (
+              <Link key={link.to} to={link.to} className="sidebar-link">
+                <LegalIcon />
+                {!isCollapsed && <span>{link.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+
         <button
           onClick={toggleTheme}
           className="sidebar-link"

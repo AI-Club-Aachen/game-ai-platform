@@ -257,13 +257,23 @@ export function Register() {
                   <Typography variant="body2" color="text.secondary">
                     I agree to the{' '}
                     <Link
-                      to="/terms"
+                      to="/terms-of-use"
                       style={{
                         color: palette.primary,
                         textDecoration: 'none',
                       }}
                     >
-                      Terms and Conditions
+                      Terms of Use
+                    </Link>
+                    {' '}and the{' '}
+                    <Link
+                      to="/privacy-policy"
+                      style={{
+                        color: palette.primary,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Privacy Policy
                     </Link>
                   </Typography>
                 }
