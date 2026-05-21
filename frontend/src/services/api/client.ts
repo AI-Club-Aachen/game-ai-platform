@@ -16,6 +16,10 @@ export class ApiError extends Error {
     }
 }
 
+function cleanValidationMessage(message: string): string {
+    return message.replace(/^Value error,\s*/i, '');
+}
+
 /**
  * Makes an API request with error handling
  */
@@ -57,7 +61,7 @@ export async function apiRequest<T>(
                 if (errorData.detail && Array.isArray(errorData.detail)) {
                     // Handle Pydantic validation errors (array of objects)
                     errorMessage = errorData.detail
-                        .map((err: any) => err.msg || JSON.stringify(err))
+                        .map((err: any) => cleanValidationMessage(err.msg || JSON.stringify(err)))
                         .join('. ');
                 } else {
                     // Handle standard error message (string or other)

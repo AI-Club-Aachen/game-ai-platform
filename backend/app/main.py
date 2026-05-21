@@ -6,6 +6,7 @@ import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -62,6 +63,16 @@ def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONRespons
         response.headers["Access-Control-Allow-Credentials"] = "true"
 
     return response
+
+
+def _serialize_validation_errors(exc: RequestValidationError) -> list[dict[str, Any]]:
+    """Convert Pydantic validation errors to JSON-safe dictionaries."""
+    errors = exc.errors()
+    for error in errors:
+        ctx = error.get("ctx")
+        if isinstance(ctx, dict):
+            error["ctx"] = {key: str(value) for key, value in ctx.items()}
+    return errors
 
 
 @asynccontextmanager
@@ -250,7 +261,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         return _apply_cors_headers(request, response)
     response = JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        content={"detail": exc.errors()},
+        content={"detail": _serialize_validation_errors(exc)},
     )
     return _apply_cors_headers(request, response)
 

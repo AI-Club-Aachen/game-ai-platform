@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     def username_alphanumeric(cls, v: str) -> str:
         """Validate username format"""
         if not all(c.isalnum() or c in "_-" for c in v):
-            raise ValueError("Username must be alphanumeric (with _ or - allowed)")
+            raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         return v
 
 
@@ -34,7 +34,7 @@ class UserUpdate(BaseModel):
     @classmethod
     def username_alphanumeric(cls, v: str | None) -> str | None:
         if v is not None and not all(c.isalnum() or c in "_-" for c in v):
-            raise ValueError("Username must be alphanumeric (with _ or - allowed)")
+            raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         return v
 
 
