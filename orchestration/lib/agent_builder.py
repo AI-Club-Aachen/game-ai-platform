@@ -58,7 +58,9 @@ def _find_agent_entry(ctx: Path) -> str:
 
     if not candidates:
         raise BuildError(
-            "No agent entry file found. Expected 'agent.py' or a file ending with '_agent.py'."
+            "No agent entry file found. Expected 'agent.py' or a file ending with '_agent.py' "
+            "at the root of the ZIP file or inside a single top-level folder. "
+            "Please check your ZIP file structure to ensure the agent file is not nested too deeply."
         )
 
     if len(candidates) > 1:
