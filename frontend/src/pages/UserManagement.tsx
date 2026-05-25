@@ -33,20 +33,44 @@ import {
   MarkEmailRead as MarkEmailReadIcon,
   OutgoingMail as OutgoingMailIcon,
 } from '@mui/icons-material';
-import { usersApi } from '../services/api/users';
+import { usersApi, type AdminUserListItem } from '../services/api/users';
 import { PrimarySecondaryCell, SmallBadge } from '../components/common/TableCells';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-  email_verified: boolean;
-  created_at: string;
-}
+type User = AdminUserListItem;
 
 const formatRole = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+
+const DEFAULT_USER_STATS: User['stats'] = {
+  agents_count: 0,
+  submissions_count: 0,
+  matches_played_total: 0,
+  running_containers_count: 0,
+  failed_containers_count: 0,
+  latest_submission_at: null,
+};
+
+const getUserStats = (user: User): User['stats'] => user.stats ?? DEFAULT_USER_STATS;
+
+const formatUsagePrimary = (user: User) => {
+  const { agents_count, submissions_count } = getUserStats(user);
+  return `${agents_count} ${agents_count === 1 ? 'agent' : 'agents'} · ${submissions_count} ${submissions_count === 1 ? 'submission' : 'submissions'}`;
+};
+
+const formatUsageSecondary = (user: User) => {
+  const {
+    matches_played_total,
+    running_containers_count,
+    failed_containers_count,
+  } = getUserStats(user);
+  const runtimeParts = [`${running_containers_count} running`];
+
+  if (failed_containers_count > 0) {
+    runtimeParts.push(`${failed_containers_count} failed`);
+  }
+
+  return `${matches_played_total} ${matches_played_total === 1 ? 'match' : 'matches'} · ${runtimeParts.join(' · ')}`;
+};
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -234,6 +258,7 @@ export function UserManagement() {
                 <TableCell>User ID</TableCell>
                 <TableCell>Role</TableCell>
                 <TableCell>Verification</TableCell>
+                <TableCell>Usage</TableCell>
                 <TableCell>Joined</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -241,18 +266,21 @@ export function UserManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">No users found</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                users.map((user) => {
+                  const userStats = getUserStats(user);
+
+                  return (
                   <TableRow key={user.id}>
                     <TableCell>
                       <PrimarySecondaryCell
@@ -298,6 +326,20 @@ export function UserManagement() {
                       </Box>
                     </TableCell>
                     <TableCell>
+                      <PrimarySecondaryCell
+                        primary={formatUsagePrimary(user)}
+                        secondary={
+                          <Box
+                            component="span"
+                            sx={{ color: userStats.failed_containers_count > 0 ? 'error.main' : 'text.secondary' }}
+                          >
+                            {formatUsageSecondary(user)}
+                          </Box>
+                        }
+                        title={userStats.latest_submission_at ? `Latest submission: ${new Date(userStats.latest_submission_at).toLocaleString()}` : undefined}
+                      />
+                    </TableCell>
+                    <TableCell>
                       <Typography variant="body2" title={new Date(user.created_at).toLocaleString()}>
                         {new Date(user.created_at).toLocaleDateString()}
                       </Typography>
@@ -323,7 +365,8 @@ export function UserManagement() {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

@@ -5,7 +5,7 @@ from uuid import UUID
 from app.api.repositories.user import UserRepository, UserRepositoryError
 from app.core.security import hash_password, validate_password_strength, verify_password
 from app.models.user import User, UserRole
-from app.schemas.user import PasswordChangeRequest, UserRoleUpdate, UserUpdate
+from app.schemas.user import AdminUserStats, PasswordChangeRequest, UserRoleUpdate, UserUpdate
 
 
 logger = logging.getLogger(__name__)
@@ -130,10 +130,19 @@ class UserService:
         limit: int,
         role: UserRole | None = None,
         email_verified: bool | None = None,
-    ) -> tuple[list[User], int]:
+    ) -> tuple[list[tuple[User, AdminUserStats]], int]:
         """Admin: list users with filters and pagination."""
         try:
-            return self._repo.list_users(skip=skip, limit=limit, role=role, email_verified=email_verified)
+            users, total = self._repo.list_users(skip=skip, limit=limit, role=role, email_verified=email_verified)
+            stats_by_user_id = self._repo.get_admin_user_stats([user.id for user in users])
+            users_with_stats = [
+                (
+                    user,
+                    AdminUserStats.model_validate(stats_by_user_id.get(user.id, {})),
+                )
+                for user in users
+            ]
+            return users_with_stats, total
         except UserRepositoryError as e:
             logger.exception("Error listing users")
             raise UserServiceError("Failed to list users") from e
