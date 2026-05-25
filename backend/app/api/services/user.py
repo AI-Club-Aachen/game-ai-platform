@@ -142,10 +142,11 @@ class UserService:
                 )
                 for user in users
             ]
-            return users_with_stats, total
         except UserRepositoryError as e:
             logger.exception("Error listing users")
             raise UserServiceError("Failed to list users") from e
+        else:
+            return users_with_stats, total
 
     def get_user_by_id(self, user_id: UUID) -> User:
         """Admin: get user by id or raise."""
