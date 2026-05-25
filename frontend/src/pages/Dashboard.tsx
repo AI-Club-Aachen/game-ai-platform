@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Box, Container, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert } from '@mui/material';
 import { AdminPanelSettings, Dashboard as DashboardIcon } from '@mui/icons-material';
-import { overlays } from '../theme';
 import { StatusIndicator } from '../components/common/StatusIndicator';
+import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { agentsApi, Agent } from '../services/api/agents';
 import { submissionsApi, Submission } from '../services/api/submissions';
 
@@ -110,27 +110,34 @@ export function Dashboard() {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Agent ID</TableCell>
-                      <TableCell>W/L</TableCell>
+                      <TableCell>Agent</TableCell>
+                      <TableCell>Record</TableCell>
                       <TableCell>Elo</TableCell>
                       <TableCell>Created</TableCell>
-                      <TableCell>Actions</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {agents.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
-                          <Typography color="text.secondary">No agents found</Typography>
+                          <Box sx={{ py: 2 }}>
+                            <Typography fontWeight={600}>No agents yet</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Create your first agent to start playing matches.
+                            </Typography>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ) : (
                       agents.map(agent => (
                         <TableRow key={agent.id}>
                           <TableCell>
-                            <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
-                              {agent.id.substring(0, 8)}
-                            </Typography>
+                            <PrimarySecondaryCell
+                              primary={agent.name}
+                              secondary={`${agent.id.substring(0, 8)}…`}
+                              title={agent.name}
+                            />
                           </TableCell>
                           <TableCell>
                             <Typography component="span" sx={{ color: 'success.main' }}>{agent.wins || 0}W</Typography>
@@ -148,9 +155,13 @@ export function Dashboard() {
                               </Typography>
                             )}
                           </TableCell>
-                          <TableCell>{new Date(agent.created_at).toLocaleDateString()}</TableCell>
                           <TableCell>
-                            <Button component={Link} to={`/agents/${agent.id}`} variant="outlined" size="small">View</Button>
+                            <Typography variant="body2" color="text.secondary">
+                              {new Date(agent.created_at).toLocaleDateString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button component={Link} to={`/agents/${agent.id}`} variant="text" size="small">View</Button>
                           </TableCell>
                         </TableRow>
                       ))
@@ -171,17 +182,22 @@ export function Dashboard() {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Submission ID</TableCell>
+                      <TableCell>Submission</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Submitted</TableCell>
-                      {isAdmin && <TableCell>Actions</TableCell>}
+                      {isAdmin && <TableCell align="right">Actions</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {submissions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={isAdmin ? 4 : 3} align="center">
-                          <Typography color="text.secondary">No submissions found</Typography>
+                          <Box sx={{ py: 2 }}>
+                            <Typography fontWeight={600}>No submissions yet</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Uploaded submissions and their build status will appear here.
+                            </Typography>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -193,17 +209,23 @@ export function Dashboard() {
                         return (
                           <TableRow key={sub.id}>
                             <TableCell>
-                              <Typography component="code" sx={{ fontSize: '0.8125rem', backgroundColor: overlays.overlayLight, px: 1, py: 0.5, borderRadius: 1 }}>
-                                {sub.id.substring(0, 8)}
-                              </Typography>
+                              <PrimarySecondaryCell
+                                primary={sub.name}
+                                secondary={`${sub.id.substring(0, 8)}…`}
+                                title={sub.name}
+                              />
                             </TableCell>
                             <TableCell>
                               <StatusIndicator status={status} />
                             </TableCell>
-                            <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(sub.created_at).toLocaleString()}
+                              </Typography>
+                            </TableCell>
                             {isAdmin && (
-                              <TableCell>
-                                <Button component={Link} to={`/submissions/${sub.id}`} variant="outlined" size="small">Review</Button>
+                              <TableCell align="right">
+                                <Button component={Link} to={`/submissions/${sub.id}`} variant="text" size="small">Review</Button>
                               </TableCell>
                             )}
                           </TableRow>

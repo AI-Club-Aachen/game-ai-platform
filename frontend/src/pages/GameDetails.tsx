@@ -17,6 +17,7 @@ import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { StatusIndicator } from '../components/common/StatusIndicator';
+import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { palette, overlays } from '../theme';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -381,9 +382,9 @@ export function GameDetails() {
                                                 <Table size="small">
                                                     <TableHead>
                                                         <TableRow>
-                                                            <TableCell>Match ID</TableCell>
+                                                            <TableCell>Match</TableCell>
                                                             <TableCell>Status</TableCell>
-                                                            <TableCell>Date</TableCell>
+                                                            <TableCell>Finished</TableCell>
                                                             <TableCell align="right">Actions</TableCell>
                                                         </TableRow>
                                                     </TableHead>
@@ -391,18 +392,16 @@ export function GameDetails() {
                                                         {recentMatches.map(match => (
                                                             <TableRow key={match.id}>
                                                                 <TableCell>
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
-                                                                    >
-                                                                        {match.id.slice(0, 8)}…
-                                                                    </Typography>
+                                                                    <PrimarySecondaryCell
+                                                                        primary={`${match.id.slice(0, 8)}…`}
+                                                                        title={match.id}
+                                                                    />
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <StatusIndicator status={match.status} />
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <Typography variant="caption" color="text.secondary">
+                                                                    <Typography variant="body2" color="text.secondary">
                                                                         {match.completed_at
                                                                             ? formatDate(match.completed_at)
                                                                             : formatDate(match.created_at)}
