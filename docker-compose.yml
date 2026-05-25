@@ -31,7 +31,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_BACKEND_URL=http://backend:8000
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000/api/v1}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:-120}
     volumes:
       - ./frontend:/app
@@ -49,7 +49,7 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
       ENVIRONMENT: ${ENVIRONMENT}
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-gameai}
       DB_ECHO: ${DB_ECHO}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
