@@ -228,7 +228,7 @@ test.describe('User Agent Flows', () => {
         await expect(selectableRow.getByRole('button', { name: 'Use For Agent' })).toBeVisible();
 
         const failedRow = await getSubmissionRow(page, failedName);
-        await expect(failedRow.getByText('failed', { exact: true })).toBeVisible();
+        await expect(failedRow.getByText('Failed', { exact: true })).toBeVisible();
         await expect(failedRow.getByRole('button', { name: 'Use For Agent' })).toHaveCount(0);
     });
 
