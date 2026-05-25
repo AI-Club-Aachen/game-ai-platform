@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
-import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
@@ -8,6 +8,7 @@ import { fromApiGameType, getActiveGames } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
+import { StatusIndicator } from '../components/common/StatusIndicator';
 import { overlays, palette } from '../theme';
 
 const sortSubmissions = (items: Submission[], activeSubmissionId: string | null) => (
@@ -100,16 +101,6 @@ export function AgentDetails() {
             case 'queued': return 'warning.main';
             case 'failed': return 'error.main';
             default: return 'text.secondary';
-        }
-    };
-
-    const getStatusChipColor = (status?: string) => {
-        switch (status) {
-            case 'completed': return 'success';
-            case 'running': return 'info';
-            case 'queued': return 'warning';
-            case 'failed': return 'error';
-            default: return 'default';
         }
     };
 
@@ -392,12 +383,7 @@ export function AgentDetails() {
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Chip
-                                                                    label={status}
-                                                                    color={getStatusChipColor(status) as any}
-                                                                    size="small"
-                                                                    sx={{ minWidth: 80, justifyContent: 'center' }}
-                                                                />
+                                                                <StatusIndicator status={status} />
                                                             </TableCell>
                                                             <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
                                                             <TableCell>
