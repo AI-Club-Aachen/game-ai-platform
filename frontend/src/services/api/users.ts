@@ -123,6 +123,18 @@ export const usersApi = {
     },
 
     /**
+     * Resend verification email to a user (admin only)
+     */
+    resendVerificationEmail: async (userId: string) => {
+        return apiRequest<{
+            message: string;
+            user_id: string;
+        }>(`/email/${userId}/resend-verification`, {
+            method: 'POST',
+        });
+    },
+
+    /**
      * Delete user (admin only)
      */
     deleteUser: async (userId: string) => {

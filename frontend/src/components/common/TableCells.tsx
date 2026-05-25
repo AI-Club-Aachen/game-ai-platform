@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Chip, Typography } from '@mui/material';
+import type { ChipProps } from '@mui/material';
 
 interface PrimarySecondaryCellProps {
   primary: ReactNode;
@@ -33,11 +34,22 @@ export function PrimarySecondaryCell({ primary, secondary, badge, title }: Prima
 
 export function ActiveBadge() {
   return (
+    <SmallBadge label="Active" color="primary" />
+  );
+}
+
+interface SmallBadgeProps {
+  label: string;
+  color?: ChipProps['color'];
+}
+
+export function SmallBadge({ label, color = 'default' }: SmallBadgeProps) {
+  return (
     <Chip
-      label="Active"
+      label={label}
       size="small"
       variant="outlined"
-      color="primary"
+      color={color}
       sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }}
     />
   );

@@ -14,9 +14,11 @@ interface StatusIndicatorProps {
 
 const statusConfigs: Record<string, StatusConfig> = {
   completed: { label: 'Completed', tone: 'success' },
+  verified: { label: 'Verified', tone: 'success' },
   running: { label: 'Running', tone: 'info', pulse: true },
   in_progress: { label: 'In Progress', tone: 'info', pulse: true },
   queued: { label: 'Queued', tone: 'warning' },
+  unverified: { label: 'Unverified', tone: 'warning' },
   failed: { label: 'Failed', tone: 'error' },
   client_error: { label: 'Client Error', tone: 'error' },
   unknown: { label: 'Unknown', tone: 'muted' },
