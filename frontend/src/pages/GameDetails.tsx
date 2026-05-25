@@ -16,6 +16,7 @@ import { matchesApi } from '../services/api/matches';
 import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
 import { submissionsApi, Submission } from '../services/api/submissions';
+import { StatusIndicator } from '../components/common/StatusIndicator';
 import { palette, overlays } from '../theme';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -87,13 +88,6 @@ const getRankBadge = (rank: number) => {
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
     return `#${rank}`;
-};
-
-const statusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
-    if (status === 'completed') return 'success';
-    if (status === 'failed' || status === 'client_error') return 'error';
-    if (isRunning({ status } as Match)) return 'warning';
-    return 'default';
 };
 
 // ─── Section Header ───────────────────────────────────────────────
@@ -405,12 +399,7 @@ export function GameDetails() {
                                                                     </Typography>
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <Chip
-                                                                        label={match.status}
-                                                                        size="small"
-                                                                        color={statusColor(match.status)}
-                                                                        sx={{ textTransform: 'capitalize', height: 20, fontSize: '0.7rem' }}
-                                                                    />
+                                                                    <StatusIndicator status={match.status} />
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Typography variant="caption" color="text.secondary">

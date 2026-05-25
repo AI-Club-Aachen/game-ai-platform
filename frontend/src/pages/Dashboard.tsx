@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Box, Container, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Alert } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert } from '@mui/material';
 import { AdminPanelSettings, Dashboard as DashboardIcon } from '@mui/icons-material';
 import { overlays } from '../theme';
+import { StatusIndicator } from '../components/common/StatusIndicator';
 import { agentsApi, Agent } from '../services/api/agents';
 import { submissionsApi, Submission } from '../services/api/submissions';
 
@@ -37,16 +38,6 @@ export function Dashboard() {
 
     fetchData();
   }, [user]);
-
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'running': return 'info';
-      case 'queued': return 'warning';
-      case 'failed': return 'error';
-      default: return 'default';
-    }
-  };
 
   if (!user) {
     return (
@@ -147,7 +138,15 @@ export function Dashboard() {
                             <Typography component="span" sx={{ color: 'error.main' }}>{agent.losses || 0}L</Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip label={agent.elo ? agent.elo : 'Unranked'} color="primary" size="small" />
+                            {agent.elo ? (
+                              <Typography variant="body2" color="primary.main" fontWeight={700}>
+                                {agent.elo}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                Unranked
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell>{new Date(agent.created_at).toLocaleDateString()}</TableCell>
                           <TableCell>
@@ -199,7 +198,7 @@ export function Dashboard() {
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Chip label={status} color={getStatusColor(status) as any} size="small" />
+                              <StatusIndicator status={status} />
                             </TableCell>
                             <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
                             {isAdmin && (

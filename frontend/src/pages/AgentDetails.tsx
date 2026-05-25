@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
-import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Grid, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
@@ -100,6 +100,16 @@ export function AgentDetails() {
             case 'queued': return 'warning.main';
             case 'failed': return 'error.main';
             default: return 'text.secondary';
+        }
+    };
+
+    const getStatusChipColor = (status?: string) => {
+        switch (status) {
+            case 'completed': return 'success';
+            case 'running': return 'info';
+            case 'queued': return 'warning';
+            case 'failed': return 'error';
+            default: return 'default';
         }
     };
 
@@ -382,12 +392,12 @@ export function AgentDetails() {
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography
-                                                                    variant="body2"
-                                                                    sx={{ color: getStatusColor(status), fontWeight: 600, textTransform: 'capitalize' }}
-                                                                >
-                                                                    {status}
-                                                                </Typography>
+                                                                <Chip
+                                                                    label={status}
+                                                                    color={getStatusChipColor(status) as any}
+                                                                    size="small"
+                                                                    sx={{ minWidth: 80, justifyContent: 'center' }}
+                                                                />
                                                             </TableCell>
                                                             <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
                                                             <TableCell>
