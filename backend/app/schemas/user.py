@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     def username_alphanumeric(cls, v: str) -> str:
         """Validate username format"""
         if not all(c.isalnum() or c in "_-" for c in v):
-            raise ValueError("Username must be alphanumeric (with _ or - allowed)")
+            raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         return v
 
 
@@ -34,7 +34,7 @@ class UserUpdate(BaseModel):
     @classmethod
     def username_alphanumeric(cls, v: str | None) -> str | None:
         if v is not None and not all(c.isalnum() or c in "_-" for c in v):
-            raise ValueError("Username must be alphanumeric (with _ or - allowed)")
+            raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         return v
 
 
@@ -60,6 +60,23 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminUserStats(BaseModel):
+    """Admin-only aggregate usage stats for a user."""
+
+    agents_count: int = 0
+    submissions_count: int = 0
+    matches_played_total: int = 0
+    running_containers_count: int = 0
+    failed_containers_count: int = 0
+    latest_submission_at: datetime | None = None
+
+
+class AdminUserListItem(UserResponse):
+    """User list item enriched with admin-only usage stats."""
+
+    stats: AdminUserStats
+
+
 class UserRoleUpdate(BaseModel):
     """Schema for admin updating user role"""
 
@@ -75,7 +92,7 @@ class ChangePasswordResponse(BaseModel):
 class UserListResponse(BaseModel):
     """Response for listing users with pagination"""
 
-    data: list[UserResponse]
+    data: list[AdminUserListItem]
     total: int
     skip: int
     limit: int

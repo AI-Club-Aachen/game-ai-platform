@@ -1,9 +1,10 @@
 import logging
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlmodel import Session, select
 
-from app.models.match import Match
+from app.models.match import Match, MatchStatus
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,17 @@ class MatchRepository:
             statement = statement.where(Match.status == status)
 
         statement = statement.offset(skip).limit(limit).order_by(Match.created_at.desc())
+        return self._session.exec(statement).all()
+
+    def list_stale_running_matches(self, cutoff: datetime, limit: int = 100) -> Sequence[Match]:
+        """List running matches that have not been updated since ``cutoff``."""
+        statement = (
+            select(Match)
+            .where(Match.status == MatchStatus.RUNNING)
+            .where(Match.updated_at < cutoff)
+            .order_by(Match.updated_at.asc())
+            .limit(limit)
+        )
         return self._session.exec(statement).all()
 
     # --- Commands ---

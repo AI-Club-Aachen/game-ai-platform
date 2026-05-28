@@ -50,6 +50,13 @@ class Settings(BaseSettings):
         default=120.0,
         description="Maximum allowed per-turn time limit in seconds for match config.",
     )
+    MATCH_STALE_TIMEOUT_SECONDS: float = Field(
+        default=60.0,
+        description=(
+            "How long a match may remain in running state without worker updates before the scheduler "
+            "marks it as failed. This recovers matches abandoned by killed/restarted workers."
+        ),
+    )
 
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
@@ -196,6 +203,13 @@ class Settings(BaseSettings):
     def validate_max_turn_time_limit(cls, v: float) -> float:
         if v < cls.MIN_TURN_TIME_LIMIT_SECONDS:
             raise ValueError(f"MAX_TURN_TIME_LIMIT_SECONDS must be at least {cls.MIN_TURN_TIME_LIMIT_SECONDS}")
+        return v
+
+    @field_validator("MATCH_STALE_TIMEOUT_SECONDS")
+    @classmethod
+    def validate_match_stale_timeout(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("MATCH_STALE_TIMEOUT_SECONDS must be greater than 0")
         return v
 
     @model_validator(mode="after")

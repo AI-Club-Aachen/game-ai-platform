@@ -62,7 +62,7 @@ class DevRunner(DevRunnerBase):
     def _print_state(self, state: State, spacing: int = 1) -> None:
         """Pretty-print the board for quick debugging."""
 
-        symbols = { -1: ".", 0: "X", 1: "O" }
+        symbols = {-1: ".", 0: "X", 1: "O"}
         rows = []
         for idx in range(0, State.BOARD_SIZE, 3):
             row = " | ".join(symbols[cell] for cell in state.board[idx : idx + 3])

@@ -9,15 +9,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-gameai}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:?POSTGRES_PORT is required}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER is required}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,8 +31,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_BACKEND_URL=http://backend:8000
-      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:-120}
+      - VITE_API_URL=${VITE_API_URL:?VITE_API_URL is required}
+      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -46,33 +46,33 @@ services:
   backend:
     build: backend/.
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:?BACKEND_PORT is required}:8000"
     environment:
-      ENVIRONMENT: ${ENVIRONMENT}
-      DATABASE_URL: ${DATABASE_URL}
-      DB_ECHO: ${DB_ECHO}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:-24}
-      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      ENVIRONMENT: ${ENVIRONMENT:?ENVIRONMENT is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      DB_ECHO: ${DB_ECHO:?DB_ECHO is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:?JWT_ALGORITHM is required}
+      JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:?JWT_ACCESS_TOKEN_EXPIRE_HOURS is required}
+      API_V1_PREFIX: ${API_V1_PREFIX:?API_V1_PREFIX is required}
       PROJECT_NAME: ${PROJECT_NAME:-AI Game Competition Platform}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME}
-      SMTP_USE_TLS: ${SMTP_USE_TLS}
-      EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: ${EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS}
-      PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: ${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES}
-      BYPASS_EMAIL_VERIFICATION: ${BYPASS_EMAIL_VERIFICATION:-False}
-      SEED_DB: ${SEED_DB:-False}
-      ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:3000}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-key-12345}
-      MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:-120}
+      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST is required}
+      SMTP_PORT: ${SMTP_PORT:?SMTP_PORT is required}
+      SMTP_USERNAME: ${SMTP_USERNAME:?SMTP_USERNAME is required}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?SMTP_PASSWORD is required}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:?SMTP_FROM_ADDRESS is required}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:?SMTP_FROM_NAME is required}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:?SMTP_USE_TLS is required}
+      EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: ${EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS:?EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS is required}
+      PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: ${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES:?PASSWORD_RESET_TOKEN_EXPIRE_MINUTES is required}
+      BYPASS_EMAIL_VERIFICATION: ${BYPASS_EMAIL_VERIFICATION:?BYPASS_EMAIL_VERIFICATION is required}
+      SEED_DB: ${SEED_DB:?SEED_DB is required}
+      ALLOW_ORIGINS: ${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      WORKER_API_KEY: ${WORKER_API_KEY:?WORKER_API_KEY is required}
+      MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
     depends_on:
       db:
         condition: service_healthy
@@ -97,11 +97,11 @@ services:
     working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
-      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
-      - REDIS_URL=${REDIS_URL}
-      - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
-      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
-      - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:-False}
+      - BACKEND_URL=${WORKER_BACKEND_URL:?WORKER_BACKEND_URL is required}
+      - REDIS_URL=${REDIS_URL:?REDIS_URL is required}
+      - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
+      - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:?BUILD_LOCAL_BASE_IMAGE is required}
     depends_on:
       backend:
         condition: service_healthy
@@ -124,11 +124,11 @@ services:
     working_dir: /orchestration
     command: python match_runner_worker.py
     environment:
-      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
-      - REDIS_URL=${REDIS_URL}
-      - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
-      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
-      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:-120}
+      - BACKEND_URL=${WORKER_BACKEND_URL:?WORKER_BACKEND_URL is required}
+      - REDIS_URL=${REDIS_URL:?REDIS_URL is required}
+      - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
+      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
     depends_on:
       backend:
         condition: service_healthy

@@ -46,7 +46,21 @@ class AgentContainerRepository:
             statement = statement.where(AgentContainer.status == status)
 
         statement = statement.offset(skip).limit(limit).order_by(AgentContainer.updated_at.desc())
-        return list(self._session.exec(statement).all())
+        containers = list(self._session.exec(statement).all())
+
+        if not containers:
+            return containers
+
+        agent_ids = {container.agent_id for container in containers}
+        agents = self._session.exec(select(Agent).where(Agent.id.in_(agent_ids))).all()  # type: ignore[attr-defined]
+        agent_names_by_id = {agent.id: agent.name for agent in agents}
+
+        for container in containers:
+            agent_name = agent_names_by_id.get(container.agent_id)
+            if agent_name:
+                container.agent_name = agent_name
+
+        return containers
 
     def upsert(self, payload: AgentContainerCreate) -> AgentContainer:
         existing = self.get_by_container_id(payload.container_id)

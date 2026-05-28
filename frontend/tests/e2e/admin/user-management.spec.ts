@@ -1,6 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
 
-import { createUnverifiedUser, deleteUserByEmail } from '../../utils/db';
+import {
+    createUnverifiedUser,
+    deleteUserByEmail,
+    getEmailVerificationTokenHashByEmail,
+    setEmailVerificationToken
+} from '../../utils/db';
 
 test.describe('Admin User Management', () => {
     // We assume the test is authenticated as Admin via the 'admin' project in playwright.config.ts
@@ -37,13 +42,14 @@ test.describe('Admin User Management', () => {
             await expect(userRow).toBeVisible();
             await expect(userRow).toContainText(username);
 
-            // 5. Verify request
+            // 5. Open verification actions and verify user
             const verifyResponsePromise = page.waitForResponse(resp =>
                 resp.url().includes(`/users/${userId}/verify-email`) &&
                 resp.status() === 200
             );
 
-            await userRow.getByRole('button', { name: 'Verify manually' }).click();
+            await userRow.getByRole('button', { name: 'Verification actions for' }).click();
+            await page.getByRole('menuitem', { name: 'Verify manually' }).click();
             await verifyResponsePromise;
 
             // 6. Check verification status change
@@ -57,6 +63,57 @@ test.describe('Admin User Management', () => {
             await expect(updatedRow).toBeVisible();
             await expect(updatedRow).toContainText('Verified');
 
+        } finally {
+            if (email) {
+                deleteUserByEmail(email);
+            }
+        }
+    });
+
+    test('should be able to resend a verification email and rotate the token hash', async ({ page }) => {
+
+        const username = 'test_guest_resend_verify';
+        const email = 'test-guest-resend-verify@example.com';
+        const initialToken = 'initial-verification-token';
+
+        let userId: string;
+
+        try {
+            // 1. Create unverified user with an existing verification token
+            userId = createUnverifiedUser(username, email);
+            setEmailVerificationToken(email, initialToken);
+
+            const initialTokenHash = getEmailVerificationTokenHashByEmail(email);
+            expect(initialTokenHash).not.toBeNull();
+
+            // 2. Go to /users
+            await page.goto('/users');
+
+            // 3. Set filters
+            await selectRole(page, 'Guest');
+            await selectStatus(page, 'Unverified');
+
+            // 4. Check if user pops up
+            const userRow = page.locator('tr', { hasText: email });
+            await expect(userRow).toBeVisible();
+            await expect(userRow).toContainText(username);
+
+            // 5. Open verification actions and resend verification email
+            const resendResponsePromise = page.waitForResponse(resp =>
+                resp.url().includes(`/email/${userId}/resend-verification`) &&
+                resp.request().method() === 'POST' &&
+                resp.status() === 200
+            );
+
+            await userRow.getByRole('button', { name: 'Verification actions for' }).click();
+            await page.getByRole('menuitem', { name: 'Resend verification email' }).click();
+            await resendResponsePromise;
+
+            // 6. Confirm the verification token hash changed in the database
+            await expect.poll(
+                () => getEmailVerificationTokenHashByEmail(email),
+                { message: 'Expected resend verification to rotate the token hash' }
+            ).not.toBe(initialTokenHash);
         } finally {
             if (email) {
                 deleteUserByEmail(email);

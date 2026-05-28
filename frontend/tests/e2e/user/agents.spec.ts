@@ -134,7 +134,7 @@ test.describe('User Agent Flows', () => {
 
         const agentId = await extractIdFromLabel(page);
         await expect(page.getByRole('heading', { level: 4, name: agentId })).toBeVisible();
-        await expect(page.getByText('No submissions found for this agent')).toBeVisible();
+        await expect(page.getByText('No submissions for this agent')).toBeVisible();
     });
 
     test('should create a tic-tac-toe agent with a name', async ({ page }) => {
@@ -228,7 +228,7 @@ test.describe('User Agent Flows', () => {
         await expect(selectableRow.getByRole('button', { name: 'Use For Agent' })).toBeVisible();
 
         const failedRow = await getSubmissionRow(page, failedName);
-        await expect(failedRow.getByText('failed', { exact: true })).toBeVisible();
+        await expect(failedRow.getByText('Failed', { exact: true })).toBeVisible();
         await expect(failedRow.getByRole('button', { name: 'Use For Agent' })).toHaveCount(0);
     });
 

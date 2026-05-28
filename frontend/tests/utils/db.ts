@@ -29,6 +29,28 @@ const executeDbCommand = (sql: string, description: string) => {
     }
 };
 
+const executeDbQuery = (sql: string, description: string) => {
+    try {
+        console.log(`${description}...`);
+        const __dirname = path.dirname(__filename);
+        const rootEnvFile = path.resolve(__dirname, '../../../.env');
+        const defaultComposePath = path.resolve(__dirname, '../../../backend/docker-compose.ci.yml');
+        const composeFile = path.resolve(process.cwd(), process.env.CI_COMPOSE_FILE || defaultComposePath);
+        const envFile = path.resolve(process.cwd(), process.env.CI_ENV_FILE || rootEnvFile);
+        const projectName = process.env.COMPOSE_PROJECT_NAME || 'gameai-ci';
+        const command = `docker compose -p ${projectName} --env-file "${envFile}" -f "${composeFile}" exec -T db psql -U postgres -d gameai -t -A`;
+        const output = execSync(command, {
+            input: sql,
+            encoding: 'utf-8'
+        });
+        console.log(`Success: ${description}.`);
+        return output.trim();
+    } catch (error) {
+        console.error(`Failed: ${description}:`, error);
+        throw error;
+    }
+};
+
 
 export const promoteUserToAdmin = (email: string) => {
     const safeEmail = escapeSqlLiteral(email);
@@ -61,6 +83,17 @@ export const setEmailVerificationToken = (email: string, token: string) => {
         WHERE email = '${safeEmail}';`,
         `Setting verification token for user ${email} (and ensuring unverified state)`
     );
+};
+
+export const getEmailVerificationTokenHashByEmail = (email: string) => {
+    const safeEmail = escapeSqlLiteral(email);
+
+    const result = executeDbQuery(
+        `SELECT email_verification_token_hash FROM users WHERE email = '${safeEmail}' LIMIT 1;`,
+        `Reading verification token hash for user ${email}`
+    );
+
+    return result || null;
 };
 
 export const deleteUserByEmail = (email: string) => {

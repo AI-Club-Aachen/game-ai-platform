@@ -23,6 +23,7 @@ from app.api.services.user import (
 )
 from app.models.user import UserRole
 from app.schemas.user import (
+    AdminUserListItem,
     ChangePasswordResponse,
     PasswordChangeRequest,
     UserListResponse,
@@ -142,7 +143,7 @@ async def list_users(
 ) -> UserListResponse:
     """Admin: List all users with filtering and pagination."""
     try:
-        users, total = user_service.list_users(
+        users_with_stats, total = user_service.list_users(
             skip=skip,
             limit=limit,
             role=role,
@@ -158,13 +159,19 @@ async def list_users(
     logger.info(
         "Admin %s listed %d users (skip=%d, limit=%d)",
         admin.id,
-        len(users),
+        len(users_with_stats),
         skip,
         limit,
     )
 
     return UserListResponse(
-        data=[UserResponse.model_validate(u) for u in users],
+        data=[
+            AdminUserListItem(
+                **UserResponse.model_validate(user).model_dump(),
+                stats=stats,
+            )
+            for user, stats in users_with_stats
+        ],
         total=total,
         skip=skip,
         limit=limit,

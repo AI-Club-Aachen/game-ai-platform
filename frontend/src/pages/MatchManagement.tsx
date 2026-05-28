@@ -11,7 +11,6 @@ import {
   TableHead,
   TableRow,
   Button,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -44,10 +43,29 @@ import {
 import { matchesApi } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
 import { fromApiGameType, getGameById } from '../config/games';
+import { PrimarySecondaryCell } from '../components/common/TableCells';
+import { StatusIndicator } from '../components/common/StatusIndicator';
 
 // Mirrors backend MatchConfig – update here when new fields are added.
 interface MatchConfig {
   turn_time_limit: number;
+}
+
+interface MatchResult {
+  winner?: string;
+  reason?: string;
+  [key: string]: unknown;
+}
+
+interface AdminMatch {
+  id: string;
+  game_type: string;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  agent_ids?: string[];
+  result?: MatchResult | null;
+  config?: MatchConfig | Record<string, unknown> | null;
 }
 
 const MIN_TURN_TIME_LIMIT = 0.1;
@@ -62,9 +80,46 @@ const DEFAULT_CONFIG: MatchConfig = {
   turn_time_limit: Math.min(DEFAULT_TURN_TIME_LIMIT, MAX_TURN_TIME_LIMIT),
 };
 
+const shortId = (id?: string | null, length = 8) => {
+  if (!id) return '—';
+  return id.length > length ? `${id.slice(0, length)}…` : id;
+};
+
+const formatShortDateTime = (isoDate?: string | null): string => {
+  if (!isoDate) return '—';
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatFullDateTime = (isoDate?: string | null): string => {
+  if (!isoDate) return '—';
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleString();
+};
+
+const isFailureStatus = (status?: string | null) => {
+  const normalized = status?.toLowerCase();
+  return normalized === 'failed' || normalized === 'client_error';
+};
+
 export function MatchManagement() {
   const navigate = useNavigate();
-  const [matches, setMatches] = useState<any[]>([]);
+  const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -194,15 +249,35 @@ export function MatchManagement() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed': return 'success';
-      case 'running': return 'primary';
-      case 'failed':
-      case 'client_error': return 'error';
-      case 'queued': return 'warning';
-      default: return 'default';
+  const findAgent = (agentId: string) => agents.find(agent => agent.id === agentId);
+
+  const getAgentLabel = (agentId: string) => findAgent(agentId)?.name || shortId(agentId);
+
+  const formatAgentNames = (agentIds?: string[]) => {
+    if (!agentIds?.length) return 'No agents';
+    return agentIds.map(getAgentLabel).join(' vs ');
+  };
+
+  const formatAgentIds = (agentIds?: string[]) => {
+    if (!agentIds?.length) return undefined;
+    return agentIds.map(id => shortId(id)).join(' · ');
+  };
+
+  const formatWinner = (match: AdminMatch) => {
+    const status = match.status?.toLowerCase();
+    const winner = match.result?.winner;
+
+    if (status === 'completed') {
+      if (winner === 'draw') return 'Draw';
+      if (winner) return getAgentLabel(winner);
+      return '—';
     }
+
+    if (isFailureStatus(status)) {
+      return '—';
+    }
+
+    return '—';
   };
 
   return (
@@ -284,11 +359,11 @@ export function MatchManagement() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Game Type</TableCell>
+                <TableCell>Match</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Created At</TableCell>
+                <TableCell>Winner</TableCell>
                 <TableCell>Agents</TableCell>
+                <TableCell>Created</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -306,44 +381,54 @@ export function MatchManagement() {
                   </TableCell>
                 </TableRow>
               ) : (
-                matches.map((match) => (
-                  <TableRow key={match.id}>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                      {match.id.substring(0, 8)}...
-                    </TableCell>
-                    <TableCell>
-                      {match.game_type}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={match.status}
-                        color={getStatusColor(match.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {new Date(match.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                      {match.agent_ids && match.agent_ids.length > 0
-                        ? match.agent_ids.map((id: string) => {
-                          const found = agents.find(a => a.id === id);
-                          return found ? found.name : id.substring(0, 8) + '...';
-                        }).join(', ')
-                        : 'None'}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<VisibilityIcon />}
-                        onClick={() => navigate(`/games/live/${match.id}`)}
-                      >
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                matches.map((match) => {
+                  const createdAt = formatFullDateTime(match.created_at);
+                  const updatedAt = formatFullDateTime(match.updated_at);
+
+                  return (
+                    <TableRow key={match.id}>
+                      <TableCell>
+                        <PrimarySecondaryCell
+                          primary={shortId(match.id)}
+                          secondary={fromApiGameType(match.game_type)}
+                          title={match.id}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <StatusIndicator status={match.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatWinner(match)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <PrimarySecondaryCell
+                          primary={formatAgentNames(match.agent_ids)}
+                          secondary={formatAgentIds(match.agent_ids)}
+                          title={match.agent_ids?.join('\n')}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <PrimarySecondaryCell
+                          primary={formatShortDateTime(match.created_at)}
+                          secondary={`Updated ${formatShortDateTime(match.updated_at)}`}
+                          title={`Created: ${createdAt}\nUpdated: ${updatedAt}`}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<VisibilityIcon />}
+                          onClick={() => navigate(`/games/live/${match.id}`)}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

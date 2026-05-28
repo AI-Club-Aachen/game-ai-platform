@@ -1,6 +1,7 @@
 import logging
 import random
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlmodel import Session
@@ -10,6 +11,7 @@ from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.match import MatchService
 from app.api.services.submission_builds import submission_has_successful_build
+from app.core.config import settings
 from app.db.connection import engine
 from app.models.agent import Agent
 from app.models.game import GameType
@@ -39,6 +41,8 @@ class MatchSchedulerService:
             agent_repository = AgentRepository(session)
             job_repository = JobRepository(session)
             match_service = MatchService(match_repository, job_repository, agent_repository)
+
+            await self._fail_stale_running_matches(match_repository, match_service)
 
             # Check the current match queue and determine if new matches should be added
             if not self._check_match_queue(match_repository):
@@ -88,6 +92,40 @@ class MatchSchedulerService:
         running_matches = match_repository.list_matches(skip=0, limit=1, status=MatchStatus.RUNNING.value)
 
         return not running_matches
+
+    async def _fail_stale_running_matches(
+        self,
+        match_repository: MatchRepository,
+        match_service: MatchService,
+    ) -> None:
+        """
+        Recover matches abandoned by a killed/restarted worker.
+
+        The match runner sets a match to RUNNING before executing it. If that process or
+        its backend connection dies before publishing a terminal status, the scheduler's
+        queue gate would otherwise see RUNNING forever and stop scheduling new matches.
+        """
+        cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
+        stale_matches = match_repository.list_stale_running_matches(cutoff=cutoff)
+        for match in stale_matches:
+            logger.warning(
+                "Marking stale running match %s as failed; last update at %s exceeded %ss timeout",
+                match.id,
+                match.updated_at,
+                settings.MATCH_STALE_TIMEOUT_SECONDS,
+            )
+            await match_service.update_match(
+                str(match.id),
+                status=MatchStatus.FAILED.value,
+                result={
+                    "status": "error",
+                    "reason": "Match runner lost or timed out",
+                    "details": (
+                        "Match remained in running state without worker updates beyond "
+                        f"{settings.MATCH_STALE_TIMEOUT_SECONDS} seconds."
+                    ),
+                },
+            )
 
     def _get_available_agents(self, agent_repository: AgentRepository) -> dict[GameType, list[Agent]]:
         """

@@ -10,7 +10,6 @@ import {
   TableHead,
   TableRow,
   Button,
-  Chip,
   IconButton,
   Dialog,
   DialogTitle,
@@ -19,6 +18,7 @@ import {
   TextField,
   Select,
   MenuItem,
+  Menu,
   FormControl,
   InputLabel,
   TablePagination,
@@ -29,19 +29,48 @@ import {
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
-  CheckCircle as VerifiedIcon,
-  Cancel as UnverifiedIcon,
+  MoreVert as MoreVertIcon,
+  MarkEmailRead as MarkEmailReadIcon,
+  OutgoingMail as OutgoingMailIcon,
 } from '@mui/icons-material';
-import { usersApi } from '../services/api/users';
+import { usersApi, type AdminUserListItem } from '../services/api/users';
+import { PrimarySecondaryCell, SmallBadge } from '../components/common/TableCells';
+import { StatusIndicator } from '../components/common/StatusIndicator';
 
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-  email_verified: boolean;
-  created_at: string;
-}
+type User = AdminUserListItem;
+
+const formatRole = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+
+const DEFAULT_USER_STATS: User['stats'] = {
+  agents_count: 0,
+  submissions_count: 0,
+  matches_played_total: 0,
+  running_containers_count: 0,
+  failed_containers_count: 0,
+  latest_submission_at: null,
+};
+
+const getUserStats = (user: User): User['stats'] => user.stats ?? DEFAULT_USER_STATS;
+
+const formatUsagePrimary = (user: User) => {
+  const { agents_count, submissions_count } = getUserStats(user);
+  return `${agents_count} ${agents_count === 1 ? 'agent' : 'agents'} · ${submissions_count} ${submissions_count === 1 ? 'submission' : 'submissions'}`;
+};
+
+const formatUsageSecondary = (user: User) => {
+  const {
+    matches_played_total,
+    running_containers_count,
+    failed_containers_count,
+  } = getUserStats(user);
+  const runtimeParts = [`${running_containers_count} running`];
+
+  if (failed_containers_count > 0) {
+    runtimeParts.push(`${failed_containers_count} failed`);
+  }
+
+  return `${matches_played_total} ${matches_played_total === 1 ? 'match' : 'matches'} · ${runtimeParts.join(' · ')}`;
+};
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -59,6 +88,8 @@ export function UserManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editedRole, setEditedRole] = useState<string>('user');
+  const [verificationMenuAnchor, setVerificationMenuAnchor] = useState<null | HTMLElement>(null);
+  const [verificationActionUser, setVerificationActionUser] = useState<User | null>(null);
 
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
@@ -104,6 +135,16 @@ export function UserManagement() {
     setDeleteDialogOpen(true);
   };
 
+  const handleOpenVerificationMenu = (event: React.MouseEvent<HTMLElement>, user: User) => {
+    setVerificationMenuAnchor(event.currentTarget);
+    setVerificationActionUser(user);
+  };
+
+  const handleCloseVerificationMenu = () => {
+    setVerificationMenuAnchor(null);
+    setVerificationActionUser(null);
+  };
+
   const handleSaveEdit = async () => {
     if (selectedUser) {
       try {
@@ -132,13 +173,32 @@ export function UserManagement() {
     setSelectedUser(null);
   };
 
-  const handleVerifyEmail = async (userId: string) => {
+  const handleVerifyEmail = async () => {
+    if (!verificationActionUser) return;
+
+    const user = verificationActionUser;
+    handleCloseVerificationMenu();
+
     try {
-      await usersApi.verifyUserEmail(userId);
-      setSnackbarMessage('Email verified manually');
+      await usersApi.verifyUserEmail(user.id);
+      setSnackbarMessage(`${user.email} verified manually`);
       fetchUsers();
-    } catch (err) {
-      setSnackbarMessage('Failed to verify email');
+    } catch (err: any) {
+      setSnackbarMessage(err?.message || 'Failed to verify email');
+    }
+  };
+
+  const handleResendVerificationEmail = async () => {
+    if (!verificationActionUser) return;
+
+    const user = verificationActionUser;
+    handleCloseVerificationMenu();
+
+    try {
+      await usersApi.resendVerificationEmail(user.id);
+      setSnackbarMessage(`Verification email sent to ${user.email}`);
+    } catch (err: any) {
+      setSnackbarMessage(err?.message || 'Failed to resend verification email');
     }
   };
 
@@ -193,87 +253,141 @@ export function UserManagement() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Username</TableCell>
+                <TableCell>User</TableCell>
                 <TableCell>Email</TableCell>
+                <TableCell>User ID</TableCell>
                 <TableCell>Role</TableCell>
-                <TableCell>Email Verified</TableCell>
-                <TableCell>Created At</TableCell>
+                <TableCell>Verification</TableCell>
+                <TableCell>Usage</TableCell>
+                <TableCell>Joined</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">No users found</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                users.map((user) => {
+                  const userStats = getUserStats(user);
+
+                  return (
                   <TableRow key={user.id}>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Chip
-                        label={user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        color={user.role === 'admin' ? 'primary' : 'default'}
-                        size="small"
+                      <PrimarySecondaryCell
+                        primary={user.username}
+                        badge={user.role === 'admin' ? <SmallBadge label="Admin" color="primary" /> : undefined}
+                        title={user.id}
                       />
                     </TableCell>
                     <TableCell>
-                      {user.email_verified ? (
-                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', color: 'success.main' }}>
-                          <VerifiedIcon sx={{ fontSize: 18 }} />
-                          <Typography variant="body2">Verified</Typography>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', color: 'warning.main' }}>
-                            <UnverifiedIcon sx={{ fontSize: 18 }} />
-                            <Typography variant="body2">Unverified</Typography>
-                          </Box>
-                          <Button
+                      <Typography variant="body2">{user.email}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        title={user.id}
+                        sx={{ fontFamily: 'monospace', color: 'text.secondary', whiteSpace: 'nowrap' }}
+                      >
+                        {user.id}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{formatRole(user.role)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <StatusIndicator status={user.email_verified ? 'verified' : 'unverified'} />
+                        {!user.email_verified && (
+                          <IconButton
                             size="small"
-                            variant="text"
-                            onClick={() => handleVerifyEmail(user.id)}
+                            onClick={(event) => handleOpenVerificationMenu(event, user)}
+                            aria-label={`Verification actions for ${user.username}`}
+                            title="Verification actions"
                             sx={{
-                              fontSize: '0.75rem',
-                              padding: '2px 8px',
-                              minWidth: 'auto',
                               color: 'text.secondary',
                               '&:hover': {
                                 color: 'text.primary',
                               }
                             }}
                           >
-                            Verify manually
-                          </Button>
-                        </Box>
-                      )}
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
-                      {new Date(user.created_at).toLocaleDateString()}
+                      <PrimarySecondaryCell
+                        primary={formatUsagePrimary(user)}
+                        secondary={
+                          <Box
+                            component="span"
+                            sx={{ color: userStats.failed_containers_count > 0 ? 'error.main' : 'text.secondary' }}
+                          >
+                            {formatUsageSecondary(user)}
+                          </Box>
+                        }
+                        title={userStats.latest_submission_at ? `Latest submission: ${new Date(userStats.latest_submission_at).toLocaleString()}` : undefined}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" title={new Date(user.created_at).toLocaleString()}>
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleEdit(user)} sx={{ mr: 1 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEdit(user)}
+                        sx={{ mr: 1 }}
+                        aria-label={`Edit ${user.username}`}
+                        title="Edit role"
+                      >
                         <EditIcon />
                       </IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(user)} color="error">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(user)}
+                        color="error"
+                        aria-label={`Delete ${user.username}`}
+                        title="Delete user"
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </TableContainer>
+
+        <Menu
+          anchorEl={verificationMenuAnchor}
+          open={Boolean(verificationMenuAnchor)}
+          onClose={handleCloseVerificationMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem onClick={handleResendVerificationEmail}>
+            <OutgoingMailIcon fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} />
+            Resend verification email
+          </MenuItem>
+          <MenuItem onClick={handleVerifyEmail}>
+            <MarkEmailReadIcon fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} />
+            Verify manually
+          </MenuItem>
+        </Menu>
 
         <TablePagination
           component="div"
