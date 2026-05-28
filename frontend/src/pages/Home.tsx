@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { ThemeProvider } from '@mui/material/styles';
 import { Box, Container, Typography, Button, Card, CardContent, Chip } from '@mui/material';
 import {
   Analytics,
@@ -11,8 +12,10 @@ import {
   Shield,
 } from '@mui/icons-material';
 import { getActiveGames } from '../config/games';
-import { overlays } from '../theme';
+import { getThemeByMode, overlays } from '../theme';
 import { legalLinks } from './LegalPages';
+
+const landingPageTheme = getThemeByMode('dark');
 
 interface Feature {
   icon: ReactNode;
@@ -53,47 +56,51 @@ export function Home() {
   const activeGames = getActiveGames();
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        overflow: 'hidden',
-        background:
-          'radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.14) 0%, transparent 60%), linear-gradient(180deg, var(--color-bg-base) 0%, #070A12 50%, var(--color-bg-base) 100%)',
-        '& .MuiTypography-h2': {
-          fontSize: { xs: '2.15rem', md: '2.35rem' },
-        },
-        '& .MuiTypography-h5': {
-          fontSize: '1.3rem',
-        },
-        '& .MuiTypography-h6': {
-          fontSize: '1.12rem',
-        },
-        '& .MuiTypography-body1': {
-          fontSize: '1.08rem',
-        },
-        '& .MuiTypography-body2': {
-          fontSize: '0.95rem',
-        },
-        '& .MuiTypography-caption': {
-          fontSize: '0.86rem',
-        },
-        '& .MuiTypography-overline': {
-          fontSize: '0.86rem',
-        },
-        '& .MuiButton-root': {
-          fontSize: '1rem',
-        },
-        '& .MuiButton-sizeLarge': {
-          fontSize: '1.12rem',
-        },
-        '& .MuiChip-sizeSmall': {
-          height: 30,
-        },
-        '& .MuiChip-label': {
-          fontSize: '0.9rem',
-        },
-      }}
-    >
+    <ThemeProvider theme={landingPageTheme}>
+      <Box
+        data-theme="dark"
+        sx={{
+          minHeight: '100vh',
+          overflow: 'hidden',
+          background:
+            'radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.14) 0%, transparent 60%), linear-gradient(180deg, var(--color-bg-base) 0%, #070A12 50%, var(--color-bg-base) 100%)',
+          color: 'text.primary',
+          colorScheme: 'dark',
+          '& .MuiTypography-h2': {
+            fontSize: { xs: '2.15rem', md: '2.35rem' },
+          },
+          '& .MuiTypography-h5': {
+            fontSize: '1.3rem',
+          },
+          '& .MuiTypography-h6': {
+            fontSize: '1.12rem',
+          },
+          '& .MuiTypography-body1': {
+            fontSize: '1.08rem',
+          },
+          '& .MuiTypography-body2': {
+            fontSize: '0.95rem',
+          },
+          '& .MuiTypography-caption': {
+            fontSize: '0.86rem',
+          },
+          '& .MuiTypography-overline': {
+            fontSize: '0.86rem',
+          },
+          '& .MuiButton-root': {
+            fontSize: '1rem',
+          },
+          '& .MuiButton-sizeLarge': {
+            fontSize: '1.12rem',
+          },
+          '& .MuiChip-sizeSmall': {
+            height: 30,
+          },
+          '& .MuiChip-label': {
+            fontSize: '0.9rem',
+          },
+        }}
+      >
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <Box
         component="header"
@@ -612,6 +619,7 @@ export function Home() {
           </Box>
         </Container>
       </Box>
-    </Box>
+      </Box>
+    </ThemeProvider>
   );
 }
