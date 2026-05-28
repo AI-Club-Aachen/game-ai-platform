@@ -20,7 +20,6 @@ import {
 } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import './Sidebar.css';
-import { palette } from '../../theme';
 import { legalLinks } from '../../pages/LegalPages';
 
 interface SidebarProps {
@@ -52,8 +51,12 @@ export function Sidebar({ onToggle }: SidebarProps) {
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <Link to="/dashboard" className="sidebar-logo">
-          <SportsEsports style={{ fontSize: '1.75rem', color: palette.primary }} />
-          {!isCollapsed && <h2>AICA</h2>}
+          <img src="/favicon.svg" alt="AI Club Aachen logo" className="sidebar-logo-image" />
+          {!isCollapsed && (
+            <div className="sidebar-logo-text">
+              <h2>Game AI Platform</h2>
+            </div>
+          )}
         </Link>
         <button className="sidebar-toggle" onClick={toggleSidebar}>
           {isCollapsed ? <MenuIcon /> : <ChevronLeft />}

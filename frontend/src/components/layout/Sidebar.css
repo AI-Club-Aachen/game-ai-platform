@@ -41,15 +41,38 @@
   gap: 10px;
   text-decoration: none;
   color: inherit;
+  min-width: 0;
 }
 
-.sidebar-logo h2 {
+.sidebar-logo-image {
+  width: 34px;
+  height: 34px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sidebar-logo-text h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   white-space: nowrap;
   letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.sidebar-logo-text span {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .sidebar-toggle {
