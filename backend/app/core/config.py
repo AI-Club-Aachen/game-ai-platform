@@ -195,10 +195,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_max_turn_time_limit(cls, v: float) -> float:
         if v < cls.MIN_TURN_TIME_LIMIT_SECONDS:
-            raise ValueError(
-                "MAX_TURN_TIME_LIMIT_SECONDS must be at least "
-                f"{cls.MIN_TURN_TIME_LIMIT_SECONDS}"
-            )
+            raise ValueError(f"MAX_TURN_TIME_LIMIT_SECONDS must be at least {cls.MIN_TURN_TIME_LIMIT_SECONDS}")
         return v
 
     @model_validator(mode="after")

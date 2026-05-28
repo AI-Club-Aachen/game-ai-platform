@@ -43,6 +43,7 @@ def get_leaderboard(
     """
     return service.get_leaderboard(game_type, limit)
 
+
 @router.get("/{agent_id}", response_model=AgentRead)
 def get_agent(
     agent_id: UUID,

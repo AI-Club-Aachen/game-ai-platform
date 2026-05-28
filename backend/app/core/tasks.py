@@ -38,12 +38,7 @@ class BackgroundTaskRunner:
         """
         task_name = name or func.__name__
         self.tasks.append(
-            RecurringTask(
-                name=task_name,
-                func=func,
-                interval_seconds=interval_seconds,
-                is_enabled=is_enabled
-            )
+            RecurringTask(name=task_name, func=func, interval_seconds=interval_seconds, is_enabled=is_enabled)
         )
         logger.info(f"Registered background task '{task_name}' with interval {interval_seconds}s")
 

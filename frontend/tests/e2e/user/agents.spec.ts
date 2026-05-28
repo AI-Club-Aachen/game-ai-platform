@@ -103,6 +103,28 @@ async function deleteViaConfirmation(
     await page.getByRole('button', { name: buttonName }).click();
 }
 
+async function waitForAgentSubmissionLinkRemoval(
+    page: Page,
+    agentId: string,
+    token: string | null,
+): Promise<void> {
+    await expect.poll(async () => {
+        const response = await page.request.get(`${backendUrl}/agents/${agentId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok()) {
+            return `http-${response.status()}`;
+        }
+
+        const agent = await response.json() as { active_submission_id: string | null };
+        return agent.active_submission_id;
+    }, {
+        timeout: 15000,
+        message: `Expected agent ${agentId} to no longer reference a deleted submission`,
+    }).toBeNull();
+}
+
 test.describe('User Agent Flows', () => {
     test.describe.configure({ mode: 'serial' });
     test.setTimeout(240000);
@@ -321,15 +343,27 @@ test.describe('User Agent Deletion Flows', () => {
         await page.waitForURL(/\/submissions\/[0-9a-f-]+$/i, { timeout: 10000 });
         await deleteViaConfirmation(page, 'Delete Submission');
 
-        await page.goto(`/agents/${agentId}`);
-        await page.reload();
-        await expect(page.getByRole('heading', { level: 4, name: agentName })).toBeVisible();
+        const token = await page.evaluate(() => window.localStorage.getItem('access_token'));
+
+        await expect.poll(async () => {
+            const response = await page.request.get(`${backendUrl}/submissions/${submissionId}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            return response.status();
+        }, {
+            timeout: 15000,
+            message: `Expected submission ${submissionId} to be deleted`,
+        }).toBe(404);
+        await waitForAgentSubmissionLinkRemoval(page, agentId, token);
+
+        await page.goto(`/agents/${agentId}`, { waitUntil: 'networkidle' });
+        await expect(page.getByText(/^ID:/)).toBeVisible();
+        await expect(page.getByRole('heading', { level: 4, name: agentName })).toBeVisible({ timeout: 15000 });
         await expect(page.getByRole('button', { name: 'View Source Submission' })).toHaveCount(0);
         await expect(page.getByText(submissionName, { exact: true })).toHaveCount(0);
 
-        const token = await page.evaluate(() => window.localStorage.getItem('access_token'));
         const apiRes = await page.request.get(`${backendUrl}/submissions/${submissionId}`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         expect(apiRes.status()).toBe(404);
     });

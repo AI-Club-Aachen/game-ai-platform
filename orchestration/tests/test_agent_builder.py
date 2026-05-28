@@ -79,9 +79,22 @@ def test_builder_fails_illegal_path(create_zip):
         build_from_zip(bio.getvalue(), owner_id="fail_test")
 
 
-def test_builder_fails_nested_agent_not_found(create_zip):
-    """Test that an agent in a subdirectory is NOT found."""
+def test_builder_succeeds_single_nested_folder(docker_client, create_zip, track_images):
+    """Test that if the zip contains a single root folder, it gets flattened and the agent is found."""
     zip_bytes = create_zip({"subfolder/": "", "subfolder/agent.py": "print('nested')"})
+    res = build_from_zip(zip_bytes, owner_id="success_test")
+    track_images(res["image_id"])
+    assert "image_id" in res
+
+
+def test_builder_fails_multiple_nested_agent_not_found(create_zip):
+    """Test that an agent deep in a subdirectory is NOT found if there are multiple root folders."""
+    zip_bytes = create_zip({
+        "subfolder/": "",
+        "subfolder/agent.py": "print('nested')",
+        "another_folder/": "",
+        "another_folder/file.txt": "abc"
+    })
     with pytest.raises(BuildError, match="No agent entry file found"):
         build_from_zip(zip_bytes, owner_id="fail_test")
 

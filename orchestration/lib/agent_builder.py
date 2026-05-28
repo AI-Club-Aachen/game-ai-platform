@@ -58,7 +58,9 @@ def _find_agent_entry(ctx: Path) -> str:
 
     if not candidates:
         raise BuildError(
-            "No agent entry file found. Expected 'agent.py' or a file ending with '_agent.py'."
+            "No agent entry file found. Expected 'agent.py' or a file ending with '_agent.py' "
+            "at the root of the ZIP file or inside a single top-level folder. "
+            "Please check your ZIP file structure to ensure the agent file is not nested too deeply."
         )
 
     if len(candidates) > 1:
@@ -159,6 +161,14 @@ def build_from_zip(
     with tempfile.TemporaryDirectory(prefix="agent-build-") as td:
         ctx = Path(td)
         _safe_extract_zip(zip_bytes, ctx)
+
+        # Flatten directory if the user zipped a folder instead of its contents
+        top_level_items = [p for p in ctx.iterdir() if p.name not in ("__MACOSX", ".DS_Store")]
+        if len(top_level_items) == 1 and top_level_items[0].is_dir():
+            inner_dir = top_level_items[0]
+            for item in inner_dir.iterdir():
+                shutil.move(str(item), str(ctx / item.name))
+            shutil.rmtree(str(inner_dir), ignore_errors=True)
 
         entry_file = _find_agent_entry(ctx)
 

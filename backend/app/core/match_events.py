@@ -31,9 +31,7 @@ class MatchEventPublisher:
 
     async def _ensure_connected(self) -> aioredis.Redis:
         if self._redis is None:
-            self._redis = aioredis.from_url(
-                self._redis_url, encoding="utf8", decode_responses=True
-            )
+            self._redis = aioredis.from_url(self._redis_url, encoding="utf8", decode_responses=True)
         return self._redis
 
     async def publish_game_state(
@@ -47,12 +45,14 @@ class MatchEventPublisher:
         """Publish a game state update event for a match."""
         redis = await self._ensure_connected()
         channel = _channel_name(match_id)
-        payload = json.dumps({
-            "game_state": game_state,
-            "status": status,
-            "logs": logs,
-            "result": result,
-        })
+        payload = json.dumps(
+            {
+                "game_state": game_state,
+                "status": status,
+                "logs": logs,
+                "result": result,
+            }
+        )
         await redis.publish(channel, payload)
         logger.debug("Published game state update to %s", channel)
 
