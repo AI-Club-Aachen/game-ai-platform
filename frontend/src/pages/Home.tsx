@@ -9,7 +9,6 @@ import {
   PlayCircle,
   RocketLaunch,
   Shield,
-  SmartToy,
 } from '@mui/icons-material';
 import { getActiveGames } from '../config/games';
 import { overlays } from '../theme';
@@ -126,19 +125,24 @@ export function Home() {
                 borderRadius: '14px',
                 display: 'grid',
                 placeItems: 'center',
-                color: '#FFFFFF',
-                backgroundColor: 'var(--color-primary)',
+                overflow: 'hidden',
+                backgroundColor: 'rgba(255, 255, 255, 0.06)',
                 boxShadow: '0 12px 32px rgba(59, 130, 246, 0.2)',
               }}
             >
-              <SmartToy sx={{ fontSize: 25 }} />
+              <Box
+                component="img"
+                src="/favicon.svg"
+                alt="AI Club Aachen logo"
+                sx={{ width: 34, height: 34, display: 'block' }}
+              />
             </Box>
             <Box>
               <Typography variant="h6" sx={{ fontSize: '1.25rem', lineHeight: 1.12 }}>
-                AICA Arena
+                Game AI Platform
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
-                Game AI Platform
+                by AI Club Aachen e.V.
               </Typography>
             </Box>
           </Box>
