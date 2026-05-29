@@ -1,6 +1,6 @@
 [project]
 name = "aica-gamelib"
-version = "0.1.4"
+version = "0.2.0"
 description = "Gamelib for Game AI Platform of AI Club Aachen"
 readme = "README_PYPI.md"
 requires-python = ">=3.12"

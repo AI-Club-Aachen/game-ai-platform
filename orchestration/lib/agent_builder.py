@@ -88,7 +88,7 @@ def build_from_zip(
             raise BuildError(f"{dockerfile_base_path} not found.")
 
         gamelib_src = project_root.parent / "gamelib"
-        use_local_gamelib = gamelib_src.exists()
+        use_local_gamelib = os.getenv("USE_LOCAL_GAMELIB", "false").lower() == "true" and gamelib_src.exists()
 
         try:
             if not use_local_gamelib:
@@ -106,10 +106,20 @@ def build_from_zip(
 
                     # Copy context files, preserving timestamps for Docker cache
                     shutil.copy2(dockerfile_base_path, build_ctx / "Dockerfile.base")
-                    shutil.copy2(project_root / "base_requirements.txt", build_ctx / "base_requirements.txt")
+                    
+                    req_path = build_ctx / "base_requirements.txt"
+                    shutil.copy2(project_root / "base_requirements.txt", req_path)
+                    
+                    # Remove PyPI aica-gamelib dependency to force using the local copy
+                    req_lines = [line for line in req_path.read_text().splitlines() if not line.startswith("aica-gamelib")]
+                    req_path.write_text("\n".join(req_lines))
 
-                    # Copy gamelib source
-                    shutil.copytree(gamelib_src, build_ctx / "gamelib")
+                    # Copy gamelib source ignoring build artifacts/virtualenvs
+                    shutil.copytree(
+                        gamelib_src, 
+                        build_ctx / "gamelib",
+                        ignore=shutil.ignore_patterns('.venv', '__pycache__', '.pytest_cache', '*.pyc', '.git', '*.egg-info')
+                    )
 
                     # Inject local package installation into the builder stage of Dockerfile
                     df_lines = (build_ctx / "Dockerfile.base").read_text().splitlines()
