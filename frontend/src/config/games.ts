@@ -34,6 +34,17 @@ export const GAMES: Game[] = [
     active: true,
   },
   {
+    id: 'hex',
+    name: 'Hex',
+    description: 'Connection strategy game played on a hexagonal grid',
+    icon: 'hexagon',
+    maxPlayers: 2,
+    minPlayers: 2,
+    category: 'board',
+    difficulty: 'medium',
+    active: true,
+  },
+  {
     id: 'connect4',
     name: 'Connect Four',
     description: 'Connect 4 pieces in a row to win',

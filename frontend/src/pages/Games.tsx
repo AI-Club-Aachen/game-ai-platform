@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { GAMES, getActiveGames } from '../config/games';
 import { Box, Container, Typography, Card, CardContent, Chip } from '@mui/material';
-import { SportsEsports, Casino, Close, Circle, Album, PanoramaFishEye } from '@mui/icons-material';
+import { SportsEsports, Casino, Close, Circle, Album, PanoramaFishEye, Hexagon } from '@mui/icons-material';
 import { palette } from '../theme';
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -12,6 +12,7 @@ const iconMap: Record<string, React.ReactNode> = {
       <PanoramaFishEye sx={{ fontSize: 'inherit' }} />
     </Box>
   ),
+  hexagon: <Hexagon sx={{ fontSize: 56 }} />,
   circle: <Circle sx={{ fontSize: 56 }} />,
   album: <Album sx={{ fontSize: 56 }} />,
   casino: <Casino sx={{ fontSize: 56 }} />,

@@ -1,5 +1,5 @@
 from enum import Enum
-
+from typing import Any
 
 class GameType(str, Enum):
     """
@@ -10,6 +10,7 @@ class GameType(str, Enum):
     TICTACTOE = "tictactoe"
     CHESS = "chess"
     CONNECT_FOUR = "connect_four"
+    HEX = "hex"
 
     @property
     def display_name(self) -> str:
@@ -18,6 +19,7 @@ class GameType(str, Enum):
             GameType.TICTACTOE: "Tic-Tac-Toe",
             GameType.CHESS: "Chess",
             GameType.CONNECT_FOUR: "Connect Four",
+            GameType.HEX: "Hex",
         }
         return names[self]
 
@@ -28,6 +30,7 @@ class GameType(str, Enum):
             GameType.TICTACTOE: "Classic 3x3 grid game. Get three in a row to win!",
             GameType.CHESS: "The timeless strategy game of kings and queens.",
             GameType.CONNECT_FOUR: "Drop discs to connect four in a row, column, or diagonal.",
+            GameType.HEX: "A connection strategy game played on a hexagonal grid.",
         }
         return descriptions[self]
 
@@ -38,6 +41,7 @@ class GameType(str, Enum):
             GameType.TICTACTOE: "⭕",
             GameType.CHESS: "♟️",
             GameType.CONNECT_FOUR: "🔴",
+            GameType.HEX: "🛑",
         }
         return icons[self]
 
@@ -55,3 +59,11 @@ class GameType(str, Enum):
     def is_turn_based(self) -> bool:
         """Whether the game is turn-based."""
         return True
+
+    @property
+    def additional_data(self) -> dict[str, Any]:
+        """Additional data specific to the game."""
+        data = {
+            GameType.HEX: {"board_size": 10},
+        }
+        return data.get(self, {})
