@@ -55,9 +55,10 @@ def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONRespons
     if not origin:
         return response
 
-    if "*" in settings.ALLOW_ORIGINS:
+    allow_origins = settings.allow_origins_list
+    if "*" in allow_origins:
         response.headers["Access-Control-Allow-Origin"] = "*"
-    elif origin in settings.ALLOW_ORIGINS:
+    elif origin in allow_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -175,7 +176,7 @@ def _build_allowed_hosts(trusted_hosts: list[str], allow_origins: list[str]) -> 
 
 
 # Trusted Host Middleware
-allowed_hosts = _build_allowed_hosts(settings.TRUSTED_HOSTS, settings.ALLOW_ORIGINS)
+allowed_hosts = _build_allowed_hosts(settings.trusted_hosts_list, settings.allow_origins_list)
 
 app.add_middleware(
     TrustedHostMiddleware,
@@ -186,7 +187,7 @@ app.add_middleware(
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOW_ORIGINS,
+    allow_origins=settings.allow_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
