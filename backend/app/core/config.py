@@ -1,5 +1,6 @@
 """Application settings with security validation and environment configuration"""
 
+import json
 import os
 from typing import ClassVar
 
@@ -15,7 +16,9 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        json_schema_extra={"ALLOW_ORIGINS": {"description": "Comma-separated list of allowed CORS origins"}},
+        json_schema_extra={
+            "ALLOW_ORIGINS": {"description": "JSON array or comma-separated list of allowed CORS origins"}
+        },
     )
 
     # Validation constants
@@ -69,7 +72,14 @@ class Settings(BaseSettings):
     # CORS/Security
     ALLOW_ORIGINS: list[str] = Field(
         default=["http://localhost:3000"],
-        description="Comma-separated list of allowed CORS origins (NOT JSON!)",
+        description="JSON array or comma-separated list of allowed CORS origins",
+    )
+    TRUSTED_HOSTS: list[str] = Field(
+        default=[],
+        description=(
+            "Comma-separated list of public/backend hostnames accepted by TrustedHostMiddleware, "
+            "for example api.example.com"
+        ),
     )
     LOG_LEVEL: str = "info"
     ENVIRONMENT: str = Field(default_factory=lambda: os.getenv("ENVIRONMENT", "development"))
@@ -141,15 +151,34 @@ class Settings(BaseSettings):
     @field_validator("ALLOW_ORIGINS", mode="before")
     @classmethod
     def parse_allow_origins(cls, v: str | list[str] | None) -> list[str]:
-        # unchanged...
         if isinstance(v, list):
             return v
         if isinstance(v, str):
             v = v.strip().strip("[]").strip()
             if not v:
                 return ["http://localhost:3000"]
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            if v.startswith('"') or v.startswith("'"):
+                v = f"[{v}]"
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(origin).strip() for origin in parsed if str(origin).strip()]
+            except json.JSONDecodeError:
+                pass
+            return [origin.strip().strip("'\"") for origin in v.split(",") if origin.strip()]
         return ["http://localhost:3000"]
+
+    @field_validator("TRUSTED_HOSTS", mode="before")
+    @classmethod
+    def parse_trusted_hosts(cls, v: str | list[str] | None) -> list[str]:
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip().strip("[]").strip()
+            if not v:
+                return []
+            return [host.strip().strip("'\"") for host in v.split(",") if host.strip()]
+        return []
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod

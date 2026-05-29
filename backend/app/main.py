@@ -151,18 +151,31 @@ app.state.limiter = limiter
 # Add slowapi middleware
 app.add_middleware(SlowAPIMiddleware)
 
-# Trusted Host Middleware
-allowed_hosts = [
-    "localhost",
-    "127.0.0.1",
-    "::1",  # IPv6 localhost
-    "backend",  # Allow docker internal networking
-]
 
-for origin in settings.ALLOW_ORIGINS:
-    domain = origin.replace("http://", "").replace("https://", "").split(":")[0]
-    if domain not in allowed_hosts:
-        allowed_hosts.append(domain)
+def _normalize_host(value: str) -> str:
+    """Extract a hostname from a trusted-host/origin setting."""
+    return value.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+
+
+def _build_allowed_hosts(trusted_hosts: list[str], allow_origins: list[str]) -> list[str]:
+    """Build TrustedHostMiddleware hosts from explicit backend hosts plus CORS origins."""
+    allowed_hosts = [
+        "localhost",
+        "127.0.0.1",
+        "::1",  # IPv6 localhost
+        "backend",  # Allow docker internal networking
+    ]
+
+    for value in [*trusted_hosts, *allow_origins]:
+        domain = _normalize_host(value)
+        if domain and domain not in allowed_hosts:
+            allowed_hosts.append(domain)
+
+    return allowed_hosts
+
+
+# Trusted Host Middleware
+allowed_hosts = _build_allowed_hosts(settings.TRUSTED_HOSTS, settings.ALLOW_ORIGINS)
 
 app.add_middleware(
     TrustedHostMiddleware,
