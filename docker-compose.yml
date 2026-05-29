@@ -34,6 +34,7 @@ services:
       - "3000"
     environment:
       - VITE_API_URL=${VITE_API_URL:?VITE_API_URL is required}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
     volumes:
       - ./frontend:/app
