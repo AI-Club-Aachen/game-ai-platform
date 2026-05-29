@@ -22,7 +22,9 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - app-network
+      app-network:
+        aliases:
+          - gameai-postgres
 
   frontend:
     build:
@@ -49,7 +51,7 @@ services:
       - "${BACKEND_PORT:?BACKEND_PORT is required}:8000"
     environment:
       ENVIRONMENT: ${ENVIRONMENT:?ENVIRONMENT is required}
-      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@gameai-postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}}
       DB_ECHO: ${DB_ECHO:?DB_ECHO is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       JWT_ALGORITHM: ${JWT_ALGORITHM:?JWT_ALGORITHM is required}
