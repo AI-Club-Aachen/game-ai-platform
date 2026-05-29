@@ -41,7 +41,7 @@ services:
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:3000/health" ]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
