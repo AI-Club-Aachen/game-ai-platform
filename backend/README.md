@@ -35,14 +35,13 @@ Secure backend for an AI game competition platform, built with FastAPI, PostgreS
 
 ### Quick Start (Docker)
 
-**Backend (Development)**:
+**Backend as part of the full local development stack**:
    ```bash
-   cd backend
+   # From the repository root, create and edit .env as needed.
    cp .env.example .env
-   # Edit .env: set ENVIRONMENT=development, JWT_SECRET_KEY, etc.
    
-   # Start development services (PostgreSQL on :5432, Redis on :6379, Backend on :8000)
-   docker-compose up --build
+   # Start development services (PostgreSQL on :5432, Redis on :6379, Backend on :8000, Frontend on :3000)
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
    # API at http://localhost:8000
    ```
 
@@ -70,13 +69,13 @@ Secure backend for an AI game competition platform, built with FastAPI, PostgreS
 
 **Create Admin User**:
 ```bash
-docker-compose exec db psql -U postgres -d gameai -c "UPDATE users SET role = 'ADMIN' WHERE email = 'admin2@deutmail.com';"
+docker compose exec db psql -U postgres -d gameai -c "UPDATE users SET role = 'ADMIN' WHERE email = 'admin2@deutmail.com';"
 ```
 
 **Run Tests**:
 ```bash
 # First, start test database and Redis (on ports 5433 and 6380)
-docker-compose -f docker-compose.test.yml up -d
+docker compose -f docker-compose.test.yml up -d
 
 # Run tests
 pytest
@@ -85,7 +84,7 @@ pytest
 pytest --cov=app --cov-report=term-missing
 
 # Stop test services when done
-docker-compose -f docker-compose.test.yml down
+docker compose -f docker-compose.test.yml down
 ```
 
 **Code Quality** (required to pass CI/CD pipeline):
@@ -114,7 +113,7 @@ The database can be automatically seeded on backend startup by setting the `SEED
 ```bash
 # Using Docker Compose
 # Add SEED_DB=true to your .env file or run:
-SEED_DB=true docker-compose up db redis backend
+SEED_DB=true docker compose -f docker-compose.yml -f docker-compose.dev.yml up db redis backend
 
 # Locally (with uv and active venv)
 # Note: Windows users might need to set the var first: `$env:SEED_DB="true"; uv run uvicorn app.main:app`
@@ -233,16 +232,27 @@ The backend ships with async end-to-end tests for auth, email verification, and 
 
 The project uses separate Docker Compose files for different purposes:
 
-- **`docker-compose.yml`** - **Development only**
-  - Services: `db` (PostgreSQL on port 5432), `redis` (port 6379), `backend` (port 8000)
-  - Use for: Local development and running the application
-  - Start with: `docker-compose up --build`
+- **`docker-compose.yml`** - **Base / production-oriented**
+  - Services: `db`, `redis`, `backend`, `frontend`, orchestration workers
+  - Frontend uses the Dockerfile `production` target and serves built assets with nginx on container port `3000`
+  - Use for: Dokploy/production deployments and production-like local checks
+  - Start with: `docker compose -f docker-compose.yml up -d --build`
+
+- **`docker-compose.dev.yml`** - **Local development override**
+  - Publishes local ports such as frontend `3000`, backend `8000`, PostgreSQL `5432`, Redis `6379`
+  - Frontend uses the Dockerfile `dev` target with Vite hot reload and bind mounts
+  - Use for: Full-stack local development
+  - Start with: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
+
+- **`docker-compose.override.yml`** - **Intentionally empty safety file**
+  - Docker Compose applies this file automatically for plain `docker compose up`
+  - Keep development-only settings out of this file to avoid accidentally running the Vite dev server in production/Dokploy
 
 - **`docker-compose.test.yml`** - **Testing only**
   - Services: `test-db` (PostgreSQL on port 5433), `test-redis` (port 6380)
   - Use for: Running the test suite with isolated test databases
-  - Start with: `docker-compose -f docker-compose.test.yml up -d`
-  - Stop with: `docker-compose -f docker-compose.test.yml down`
+  - Start with: `docker compose -f docker-compose.test.yml up -d`
+  - Stop with: `docker compose -f docker-compose.test.yml down`
 
 > **Note**: Test services run on different ports (5433, 6380) to avoid conflicts with development services.
 
@@ -273,7 +283,7 @@ When you modify models in `backend/app/models/`:
 2. **Create Revision**:
    ```bash
    # Using Docker
-   docker-compose exec backend alembic revision --autogenerate -m "description of changes"
+   docker compose exec backend alembic revision --autogenerate -m "description of changes"
    
    # Locally (with uv and active venv)
    alembic revision --autogenerate -m "description of changes"
@@ -284,11 +294,11 @@ When you modify models in `backend/app/models/`:
 
 - **Bring database to latest version**:
   ```bash
-  docker-compose exec backend alembic upgrade head
+  docker compose exec backend alembic upgrade head
   ```
 - **Roll back a single version**:
   ```bash
-  docker-compose exec backend alembic downgrade -1
+  docker compose exec backend alembic downgrade -1
   ```
 
 #### Configuration Details

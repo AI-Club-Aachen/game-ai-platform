@@ -10,15 +10,33 @@ A comprehensive platform for hosting AI game competitions. Build your AI agent, 
 
 ## Quick Start
 
-**Run the Whole Platform:**
-1. Start all services (Backend, Frontend, Database, Redis):
+**Run the Whole Platform for Local Development:**
+1. Start all services with the explicit development override (Backend, Vite frontend, Database, Redis):
    ```bash
-   docker-compose up --build
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
    ```
 2. Access the platform:
    - **Frontend:** http://localhost:3000
    - **Backend API:** http://localhost:8000
    - **API Docs:** http://localhost:8000/docs
+
+**Production / Dokploy Compose:**
+
+The root `docker-compose.yml` is production-oriented by default. It builds the frontend's `production` Docker target, where nginx serves the compiled React/Vite assets behind the external reverse proxy (for example Traefik in Dokploy):
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+Local development settings live in `docker-compose.dev.yml` and must be opted into explicitly. `docker-compose.override.yml` is intentionally empty so that development-only frontend settings are not accidentally applied in production deployments.
+
+After a production deploy, the frontend container should run nginx, not Vite. A quick sanity check is:
+
+```bash
+docker inspect <compose-project>-frontend-1 --format 'Cmd={{json .Config.Cmd}}'
+```
+
+Expected output includes `nginx`; output such as `bun run dev --host` means a development compose override was applied.
 
 **Install Gamelib (for agent development):**
 ```bash
@@ -55,6 +73,14 @@ pip install aica-gamelib
 ## Development
 
 Each component has its own README with detailed setup instructions. See the table above for direct links.
+
+For full-stack local development with hot reload, use:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Avoid putting development-only settings in `docker-compose.override.yml`; Compose applies that file automatically for plain `docker compose up`, which can accidentally switch production from the nginx frontend image to the Vite dev server.
 
 **Technology Stack:**
 - Backend: FastAPI, PostgreSQL, SQLModel, Redis, Alembic

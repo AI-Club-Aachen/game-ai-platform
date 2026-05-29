@@ -23,6 +23,27 @@ Install dependencies:
 bun run build
 ```
 
+### Docker Compose Targets
+
+The frontend Dockerfile has separate targets for local development and production:
+
+- `dev`: runs the Vite dev server with hot reload.
+- `production`: builds static assets and serves them with nginx on port `3000`.
+
+For full-stack local development from the repository root, use the explicit development compose file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build frontend
+```
+
+For production/Dokploy, use only the root compose file so the frontend runs nginx instead of the Vite dev server:
+
+```bash
+docker compose -f docker-compose.yml up -d --build frontend
+```
+
+When deployed behind Dokploy/Traefik, Traefik terminates HTTPS and routes traffic to the frontend container. nginx inside the frontend container still serves the compiled SPA files and provides `/health` for the compose healthcheck.
+
 ## Testing
 Install Playwright browsers once:
 ```bash
@@ -74,7 +95,7 @@ frontend/
 ## Configuration
 
 The application uses environment variables for configuration.
-- `VITE_API_URL`: Backend API URL (default: `http://localhost:8000`)
+- `VITE_API_URL`: Backend API URL including API prefix (for example `http://localhost:8000/api/v1` locally or `https://api.game-ai.ai-club-aachen.com/api/v1` in production)
 - `MAX_TURN_TIME_LIMIT_SECONDS`: UI cap for per-turn time limit (default: `120`)
 
 ## Tech Stack
