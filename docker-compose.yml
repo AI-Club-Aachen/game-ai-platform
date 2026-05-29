@@ -1,8 +1,8 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     networks:
       - app-network
 
@@ -12,8 +12,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:?POSTGRES_PORT is required}:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,8 +30,8 @@ services:
     build:
       context: frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - VITE_API_URL=${VITE_API_URL:?VITE_API_URL is required}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
@@ -47,8 +47,8 @@ services:
 
   backend:
     build: backend/.
-    ports:
-      - "${BACKEND_PORT:?BACKEND_PORT is required}:8000"
+    expose:
+      - "8000"
     environment:
       ENVIRONMENT: ${ENVIRONMENT:?ENVIRONMENT is required}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@gameai-postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}}

@@ -1,0 +1,16 @@
+services:
+  redis:
+    ports:
+      - "6379:6379"
+
+  db:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  frontend:
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+  backend:
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
