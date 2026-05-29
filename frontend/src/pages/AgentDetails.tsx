@@ -8,6 +8,8 @@ import { fromApiGameType, getActiveGames } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
+import { StatusIndicator } from '../components/common/StatusIndicator';
+import { ActiveBadge, PrimarySecondaryCell } from '../components/common/TableCells';
 import { overlays, palette } from '../theme';
 
 const sortSubmissions = (items: Submission[], activeSubmissionId: string | null) => (
@@ -328,17 +330,22 @@ export function AgentDetails() {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>{hasActiveSubmission ? 'Current Submissions' : 'Submissions'}</TableCell>
-                                            <TableCell>Status</TableCell>
+                                            <TableCell>Submission</TableCell>
+                                            <TableCell>Build Status</TableCell>
                                             <TableCell>Submitted</TableCell>
-                                            <TableCell>Actions</TableCell>
+                                            <TableCell align="right">Actions</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {submissions.length === 0 ? (
                                             <TableRow>
                                                 <TableCell colSpan={4} align="center">
-                                                    <Typography color="text.secondary">No submissions found for this agent</Typography>
+                                                    <Box sx={{ py: 2 }}>
+                                                        <Typography fontWeight={600}>No submissions for this agent yet</Typography>
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            Upload a submission for this game to make it available to the agent.
+                                                        </Typography>
+                                                    </Box>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -377,30 +384,23 @@ export function AgentDetails() {
                                                             sx={isActiveSubmission ? { backgroundColor: overlays.primaryGlowFaint } : undefined}
                                                         >
                                                             <TableCell>
-                                                                <Typography variant="body2" fontWeight={600}>
-                                                                    {sub.name}
-                                                                </Typography>
+                                                                <PrimarySecondaryCell
+                                                                    primary={sub.name}
+                                                                    secondary={`${sub.id.substring(0, 8)}…`}
+                                                                    badge={isActiveSubmission ? <ActiveBadge /> : undefined}
+                                                                    title={sub.name}
+                                                                />
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography
-                                                                    variant="body2"
-                                                                    sx={{ color: getStatusColor(status), fontWeight: 600, textTransform: 'capitalize' }}
-                                                                >
-                                                                    {status}
+                                                                <StatusIndicator status={status} />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2" color="text.secondary">
+                                                                    {new Date(sub.created_at).toLocaleString()}
                                                                 </Typography>
                                                             </TableCell>
-                                                            <TableCell>{new Date(sub.created_at).toLocaleString()}</TableCell>
-                                                            <TableCell>
-                                                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                                                    <Button
-                                                                        component={Link}
-                                                                        to={`/submissions/${sub.id}`}
-                                                                        variant="outlined"
-                                                                        size="small"
-                                                                        sx={tableActionButtonSx}
-                                                                    >
-                                                                        {isAdmin ? 'Review' : 'View'}
-                                                                    </Button>
+                                                            <TableCell align="right">
+                                                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                                                     {canSwitchToSubmission && (
                                                                         <Button
                                                                             variant="outlined"
@@ -412,6 +412,15 @@ export function AgentDetails() {
                                                                             {switchingSubmissionId === sub.id ? 'Switching...' : 'Use For Agent'}
                                                                         </Button>
                                                                     )}
+                                                                    <Button
+                                                                        component={Link}
+                                                                        to={`/submissions/${sub.id}`}
+                                                                        variant="text"
+                                                                        size="small"
+                                                                        sx={tableActionButtonSx}
+                                                                    >
+                                                                        {isAdmin ? 'Review' : 'View'}
+                                                                    </Button>
                                                                 </Box>
                                                             </TableCell>
                                                         </TableRow>

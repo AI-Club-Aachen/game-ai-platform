@@ -49,7 +49,7 @@ export const submissionsApi = {
     /**
      * Submit agent zip file
      */
-    submitAgent: async (file: File, gameType: string, name: string) => {
+    submitAgent: async (file: File, gameType: string, name?: string) => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('game_type', gameType);

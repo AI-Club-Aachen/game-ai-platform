@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress, Card, Button, FormControl, Select, MenuItem, TableSortLabel } from '@mui/material';
+import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress, Card, Button, FormControl, Select, MenuItem, TableSortLabel } from '@mui/material';
 import { EmojiEvents, ArrowBack } from '@mui/icons-material';
 import { overlays } from '../theme';
 import { useSmartBack } from '../hooks/use-smart-back';
@@ -24,7 +24,6 @@ export function Leaderboard() {
   const [selectedGame, setSelectedGame] = useState<string>(gameFromQuery || 'chess');
   const goBack = useSmartBack('/dashboard');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
 
   type Order = 'asc' | 'desc';
   const [order, setOrder] = useState<Order>('desc');
@@ -33,7 +32,6 @@ export function Leaderboard() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        setLoading(true);
         const { agentsApi } = await import('../services/api/agents');
         const data = await agentsApi.getLeaderboard(toApiGameType(selectedGame));
         setEntries(data.map((d: any, index: number) => {
@@ -53,8 +51,6 @@ export function Leaderboard() {
         }));
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchLeaderboard();

@@ -185,6 +185,26 @@ async def test_register_fails_if_user_already_exists(api_client, fake_email_clie
 
 
 @pytest.mark.anyio
+async def test_register_fails_with_readable_invalid_username(api_client):
+    response = await api_client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "username": "user@example.com",
+            "email": random_email(),
+            "password": strong_password(),
+        },
+    )
+
+    assert response.status_code == 422
+    data = response.json()
+    messages = [error["msg"] for error in data["detail"]]
+    assert any(
+        "Username can only contain letters, numbers, underscores, and hyphens" in message for message in messages
+    )
+    assert "Object of type ValueError is not JSON serializable" not in response.text
+
+
+@pytest.mark.anyio
 async def test_password_reset_nonexistent_user_is_noop(api_client, fake_email_client):
     fake_email_client.sent.clear()
     initial_count = len(fake_email_client.sent)

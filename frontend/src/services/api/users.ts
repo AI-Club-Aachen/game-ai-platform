@@ -1,5 +1,26 @@
 import { apiRequest } from './client';
 
+export interface AdminUserStats {
+    agents_count: number;
+    submissions_count: number;
+    matches_played_total: number;
+    running_containers_count: number;
+    failed_containers_count: number;
+    latest_submission_at: string | null;
+}
+
+export interface AdminUserListItem {
+    id: string;
+    username: string;
+    email: string;
+    role: string;
+    email_verified: boolean;
+    profile_picture_url?: string | null;
+    created_at: string;
+    updated_at: string;
+    stats: AdminUserStats;
+}
+
 /**
  * Users API (Profile & Admin)
  */
@@ -72,16 +93,10 @@ export const usersApi = {
         const endpoint = queryString ? `/users?${queryString}` : '/users';
 
         return apiRequest<{
-            data: Array<{
-                id: string;
-                username: string;
-                email: string;
-                role: string;
-                email_verified: boolean;
-                created_at: string;
-                updated_at: string;
-            }>;
+            data: AdminUserListItem[];
             total: number;
+            skip: number;
+            limit: number;
         }>(endpoint, {
             method: 'GET',
         });
@@ -119,6 +134,18 @@ export const usersApi = {
             updated_at: string;
         }>(`/users/${userId}/verify-email`, {
             method: 'PATCH',
+        });
+    },
+
+    /**
+     * Resend verification email to a user (admin only)
+     */
+    resendVerificationEmail: async (userId: string) => {
+        return apiRequest<{
+            message: string;
+            user_id: string;
+        }>(`/email/${userId}/resend-verification`, {
+            method: 'POST',
         });
     },
 

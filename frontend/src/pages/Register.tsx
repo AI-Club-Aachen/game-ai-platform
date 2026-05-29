@@ -5,6 +5,9 @@ import { PersonAdd, CheckCircle, Cancel, Visibility, VisibilityOff } from '@mui/
 import { authApi } from '../services/api/auth';
 import { overlays, palette } from '../theme';
 
+const USERNAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+const USERNAME_ERROR = 'Username can only contain letters, numbers, underscores, and hyphens';
+
 export function Register() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -52,6 +55,7 @@ export function Register() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    const username = formData.username.trim();
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -63,8 +67,13 @@ export function Register() {
       return;
     }
 
-    if (formData.username.length < 3 || formData.username.length > 50) {
+    if (username.length < 3 || username.length > 50) {
       setError('Username must be between 3 and 50 characters');
+      return;
+    }
+
+    if (!USERNAME_PATTERN.test(username)) {
+      setError(USERNAME_ERROR);
       return;
     }
 
@@ -77,7 +86,7 @@ export function Register() {
 
     try {
       await authApi.register({
-        username: formData.username,
+        username,
         email: formData.email,
         password: formData.password,
       });
@@ -167,6 +176,8 @@ export function Register() {
                 required
                 sx={{ mb: 3 }}
                 autoComplete="username"
+                error={Boolean(formData.username) && !USERNAME_PATTERN.test(formData.username.trim())}
+                helperText="Letters, numbers, underscores, and hyphens only"
               />
 
               <TextField
@@ -257,13 +268,23 @@ export function Register() {
                   <Typography variant="body2" color="text.secondary">
                     I agree to the{' '}
                     <Link
-                      to="/terms"
+                      to="/terms-of-use"
                       style={{
                         color: palette.primary,
                         textDecoration: 'none',
                       }}
                     >
-                      Terms and Conditions
+                      Terms of Use
+                    </Link>
+                    {' '}and the{' '}
+                    <Link
+                      to="/privacy-policy"
+                      style={{
+                        color: palette.primary,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Privacy Policy
                     </Link>
                   </Typography>
                 }

@@ -95,6 +95,8 @@ class MatchService:
         if game_state is not None:
             match.game_state = game_state
 
+        match.updated_at = datetime.now(UTC)
+
         saved = self._repository.save(match)
 
         if old_status != MatchStatus.COMPLETED and saved.status == MatchStatus.COMPLETED:

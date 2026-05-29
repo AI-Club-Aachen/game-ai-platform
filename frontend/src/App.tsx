@@ -24,6 +24,7 @@ import { AgentDetails } from './pages/AgentDetails';
 import { SubmissionDetails } from './pages/SubmissionDetails';
 import { TournamentDetails } from './pages/TournamentDetails';
 import { GameDetails } from './pages/GameDetails';
+import { CookieSettings, Imprint, PrivacyPolicy, TermsOfUse } from './pages/LegalPages';
 import './App.css';
 
 function App() {
@@ -38,6 +39,11 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/imprint" element={<Imprint />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/cookie-settings" element={<CookieSettings />} />
+            <Route path="/terms-of-use" element={<TermsOfUse />} />
+            <Route path="/terms" element={<Navigate to="/terms-of-use" replace />} />
 
             {/* Protected routes - with layout */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>

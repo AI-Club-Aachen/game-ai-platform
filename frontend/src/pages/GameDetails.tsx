@@ -16,6 +16,8 @@ import { matchesApi } from '../services/api/matches';
 import { leaderboardApi } from '../services/api/leaderboard';
 import { agentsApi, Agent } from '../services/api/agents';
 import { submissionsApi, Submission } from '../services/api/submissions';
+import { StatusIndicator } from '../components/common/StatusIndicator';
+import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { palette, overlays } from '../theme';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -87,13 +89,6 @@ const getRankBadge = (rank: number) => {
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
     return `#${rank}`;
-};
-
-const statusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
-    if (status === 'completed') return 'success';
-    if (status === 'failed' || status === 'client_error') return 'error';
-    if (isRunning({ status } as Match)) return 'warning';
-    return 'default';
 };
 
 // ─── Section Header ───────────────────────────────────────────────
@@ -387,9 +382,9 @@ export function GameDetails() {
                                                 <Table size="small">
                                                     <TableHead>
                                                         <TableRow>
-                                                            <TableCell>Match ID</TableCell>
+                                                            <TableCell>Match</TableCell>
                                                             <TableCell>Status</TableCell>
-                                                            <TableCell>Date</TableCell>
+                                                            <TableCell>Finished</TableCell>
                                                             <TableCell align="right">Actions</TableCell>
                                                         </TableRow>
                                                     </TableHead>
@@ -397,23 +392,16 @@ export function GameDetails() {
                                                         {recentMatches.map(match => (
                                                             <TableRow key={match.id}>
                                                                 <TableCell>
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
-                                                                    >
-                                                                        {match.id.slice(0, 8)}…
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Chip
-                                                                        label={match.status}
-                                                                        size="small"
-                                                                        color={statusColor(match.status)}
-                                                                        sx={{ textTransform: 'capitalize', height: 20, fontSize: '0.7rem' }}
+                                                                    <PrimarySecondaryCell
+                                                                        primary={`${match.id.slice(0, 8)}…`}
+                                                                        title={match.id}
                                                                     />
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <Typography variant="caption" color="text.secondary">
+                                                                    <StatusIndicator status={match.status} />
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" color="text.secondary">
                                                                         {match.completed_at
                                                                             ? formatDate(match.completed_at)
                                                                             : formatDate(match.created_at)}

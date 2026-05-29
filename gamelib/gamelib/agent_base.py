@@ -2,6 +2,7 @@
 Base class for game agent implementations.
 Provides common functionality and interfaces for different game agents.
 """
+
 import json
 import time
 from abc import ABC, abstractmethod
@@ -31,10 +32,7 @@ class AgentBase(ABC):
             move: Move = self.get_move(state)
             cpu_time = time.perf_counter() - start_time
 
-            output = {
-                "move": json.loads(move.to_json()),
-                "cpu_time": cpu_time
-            }
+            output = {"move": json.loads(move.to_json()), "cpu_time": cpu_time}
             self._write_output(json.dumps(output))
 
     def _read_input(self) -> str:
