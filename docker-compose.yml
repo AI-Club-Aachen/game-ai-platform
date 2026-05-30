@@ -4,7 +4,9 @@ services:
     expose:
       - "6379"
     networks:
-      - app-network
+      app-network:
+        aliases:
+          - gameai-redis
 
   db:
     image: postgres:16-alpine
