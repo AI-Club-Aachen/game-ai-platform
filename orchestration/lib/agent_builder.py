@@ -83,6 +83,15 @@ def build_from_zip(
         base_image = "agent-base:latest"
 
         logger.info("BUILD_LOCAL_BASE_IMAGE is enabled. Building base image locally...")
+        
+        reg_user = os.environ.get("DOCKER_REGISTRY_USER")
+        reg_pass = os.environ.get("DOCKER_REGISTRY_PASSWORD")
+        if reg_user and reg_pass:
+            logger.info("Logging into dhi.io registry...")
+            client.login(username=reg_user, password=reg_pass, registry="dhi.io")
+        else:
+            logger.warning("DOCKER_REGISTRY_USER or DOCKER_REGISTRY_PASSWORD not set. Skipping registry login, which may cause pull failures if the base image is not available locally.")
+
         dockerfile_base_path = project_root / "Dockerfile.base"
         if not dockerfile_base_path.exists():
             raise BuildError(f"{dockerfile_base_path} not found.")
