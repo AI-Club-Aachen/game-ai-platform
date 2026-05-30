@@ -33,7 +33,6 @@ class Engine(EngineBase):
         """
         Validate a move against the current game state.
         A move is valid if the game has not ended, the cell is empty, and it is the player's turn.
-        Swap rule is only valid for Player 1 on their first turn (exactly one move made).
         """
         if not isinstance(game_state, State):
             raise TypeError("Invalid game state type.")
