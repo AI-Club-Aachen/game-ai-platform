@@ -9,7 +9,7 @@ import {
 import {
     ArrowBack, SportsEsports, EmojiEvents, Close, Circle, Album,
     PanoramaFishEye, Casino, Videocam, History, ArrowForward,
-    AddCircleOutline, SmartToy, FiberManualRecord,
+    AddCircleOutline, SmartToy, FiberManualRecord, Hexagon
 } from '@mui/icons-material';
 import { fromApiGameType, toApiGameType, getGameById } from '../config/games';
 import { matchesApi } from '../services/api/matches';
@@ -52,6 +52,7 @@ const iconMap: Record<string, React.ReactNode> = {
             <PanoramaFishEye sx={{ fontSize: 'inherit' }} />
         </Box>
     ),
+    hexagon: <Hexagon sx={{ fontSize: 'inherit' }} />,
     circle: <Circle sx={{ fontSize: 'inherit' }} />,
     album: <Album sx={{ fontSize: 'inherit' }} />,
     casino: <Casino sx={{ fontSize: 'inherit' }} />,

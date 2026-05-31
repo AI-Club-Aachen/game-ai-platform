@@ -266,24 +266,24 @@ test.describe('User Agent Flows', () => {
 test.describe('Game Type Submission Isolation', () => {
     test.setTimeout(240000);
 
-    test('chess agent should not show tictactoe submissions', async ({ page }) => {
-        const chessAgentName = uniqueName('chess-agent');
+    test('hex agent should not show tictactoe submissions', async ({ page }) => {
+        const hexAgentName = uniqueName('hex-agent');
         const tttAgentName = uniqueName('ttt-agent');
-        const chessSubName = uniqueName('chess-sub');
+        const hexSubName = uniqueName('hex-sub');
         const tttSubName = uniqueName('ttt-sub');
 
-        // Create chess agent + submission
-        const { agentId: chessAgentId } = await createAgent(page, { agentName: chessAgentName, gameId: 'chess' });
-        await uploadSubmission(page, { agentId: chessAgentId, submissionName: chessSubName, uploadPath: successUpload });
+        // Create hex agent + submission
+        const { agentId: hexAgentId } = await createAgent(page, { agentName: hexAgentName, gameId: 'hex' });
+        await uploadSubmission(page, { agentId: hexAgentId, submissionName: hexSubName, uploadPath: successUpload });
 
         // Create tictactoe agent + submission
         const { agentId: tttAgentId } = await createAgent(page, { agentName: tttAgentName, gameId: 'tictactoe' });
         await uploadSubmission(page, { agentId: tttAgentId, submissionName: tttSubName, uploadPath: successUpload });
 
-        // Chess agent page should show its own submission only
-        await page.goto(`/agents/${chessAgentId}`);
-        await expect(page.getByRole('heading', { level: 4, name: chessAgentName })).toBeVisible();
-        await expect(page.getByText(chessSubName, { exact: true })).toBeVisible();
+        // Hex agent page should show its own submission only
+        await page.goto(`/agents/${hexAgentId}`);
+        await expect(page.getByRole('heading', { level: 4, name: hexAgentName })).toBeVisible();
+        await expect(page.getByText(hexSubName, { exact: true })).toBeVisible();
         await expect(page.getByText(tttSubName, { exact: true })).toHaveCount(0);
     });
 });

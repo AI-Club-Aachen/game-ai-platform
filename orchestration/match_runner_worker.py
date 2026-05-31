@@ -2,6 +2,10 @@
 import asyncio
 import logging
 import os
+import sys
+
+if os.getenv("USE_LOCAL_GAMELIB", "false").lower() == "true":
+    sys.path.insert(0, "/gamelib")
 
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue

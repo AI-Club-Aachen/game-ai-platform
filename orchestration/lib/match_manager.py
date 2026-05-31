@@ -249,7 +249,8 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
 
         # Initialize the given game using gamelib
         engine = Engine()
-        state = State.initial()
+        state_init_data = match_data.get("config", {}).get("state_init_data", {})
+        state = State.initial(state_init_data)
         logger.debug(f"[{match_id}] Game engine and initial state created")
         await _log(
             api, match_id, "running",

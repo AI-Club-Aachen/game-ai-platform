@@ -37,6 +37,7 @@ class MatchConfig(BaseModel):
     """
 
     turn_time_limit: float = 10.0
+    state_init_data: dict[str, Any] = {}
 
 
 class Match(SQLModel, table=True):

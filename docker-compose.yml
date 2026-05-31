@@ -112,6 +112,9 @@ services:
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
       - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:?BUILD_LOCAL_BASE_IMAGE is required}
+      - DOCKER_REGISTRY_USER=${DOCKER_REGISTRY_USER:-}
+      - DOCKER_REGISTRY_PASSWORD=${DOCKER_REGISTRY_PASSWORD:-}
+      - USE_LOCAL_GAMELIB=${USE_LOCAL_GAMELIB:?USE_LOCAL_GAMELIB is required}
     depends_on:
       backend:
         condition: service_healthy
@@ -139,6 +142,7 @@ services:
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
+      - USE_LOCAL_GAMELIB=${USE_LOCAL_GAMELIB:?USE_LOCAL_GAMELIB is required}
     depends_on:
       backend:
         condition: service_healthy
@@ -147,6 +151,7 @@ services:
     volumes:
       - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./gamelib:/gamelib:z
     user: root
     networks:
       - app-network
