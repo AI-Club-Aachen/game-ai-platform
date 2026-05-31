@@ -20,7 +20,7 @@ export const GAMES: Game[] = [
     minPlayers: 2,
     category: 'board',
     difficulty: 'hard',
-    active: true,
+    active: false,
   },
   {
     id: 'tictactoe',
@@ -53,7 +53,7 @@ export const GAMES: Game[] = [
     minPlayers: 2,
     category: 'board',
     difficulty: 'medium',
-    active: true,
+    active: false,
   },
   {
     id: 'go',
