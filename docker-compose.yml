@@ -121,7 +121,6 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
       - uploads_data:/app/uploads
       - ./gamelib:/gamelib:z
@@ -149,7 +148,6 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
       - ./gamelib:/gamelib:z
     user: root
