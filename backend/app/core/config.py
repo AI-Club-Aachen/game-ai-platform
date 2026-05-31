@@ -149,6 +149,15 @@ class Settings(BaseSettings):
     def _parse_csv(value: str) -> list[str]:
         return [item.strip() for item in value.split(",") if item.strip()]
 
+    @staticmethod
+    def _reject_json_style_list(value: str, field_name: str) -> None:
+        stripped = value.strip()
+        if stripped.startswith("[") or stripped.endswith("]") or '"' in stripped or "'" in stripped:
+            raise ValueError(
+                f"{field_name} must be a comma-separated list without JSON brackets or quotes. "
+                f"Example: {field_name}=https://example.com,https://www.example.com"
+            )
+
     @property
     def allow_origins_list(self) -> list[str]:
         return self._parse_csv(self.ALLOW_ORIGINS) or ["http://localhost:3000"]
@@ -187,11 +196,18 @@ class Settings(BaseSettings):
     @field_validator("ALLOW_ORIGINS")
     @classmethod
     def validate_origins_production(cls, v: str, info: ValidationInfo) -> str:
+        cls._reject_json_style_list(v, "ALLOW_ORIGINS")
         # ValidationInfo.data is the already-validated field values. [web:33][web:34]
         if info.data.get("ENVIRONMENT", "").lower() == "production":
             invalid_origins = [o for o in cls._parse_csv(v) if not o.startswith("https://")]
             if invalid_origins:
                 raise ValueError(f"In production, ALLOW_ORIGINS must use https://. Found: {invalid_origins}")
+        return v
+
+    @field_validator("TRUSTED_HOSTS")
+    @classmethod
+    def validate_trusted_hosts_format(cls, v: str) -> str:
+        cls._reject_json_style_list(v, "TRUSTED_HOSTS")
         return v
 
     @field_validator("SMTP_PORT")
