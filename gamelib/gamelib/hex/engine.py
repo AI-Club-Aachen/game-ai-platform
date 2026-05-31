@@ -42,10 +42,10 @@ class Engine(EngineBase):
             return False  # Game is already over
         if move.player != game_state.turn:
             return False  # Not the player's turn
-            
+
         if move.position[0] >= game_state.board_size or move.position[1] >= game_state.board_size:
             return False  # Position out of bounds
-        if game_state.board[move.position[0]][move.position[1]] != -1:
+        if game_state.board[move.position[0]][move.position[1]] != -1:  # noqa: SIM103
             return False  # Cell is not empty
         return True
 
@@ -58,68 +58,68 @@ class Engine(EngineBase):
             raise ValueError("Invalid move")
 
         new_state = game_state.clone()
-        
+
         new_state.board[move.position[0]][move.position[1]] = move.player
-            
+
         new_state.turn = 1 - move.player  # Switch players
         new_state.status = self.get_status(new_state)  # Update status
 
         return new_state
 
+    def get_neighbors(self, r: int, c: int, board_size: int) -> list[tuple[int, int]]:
+        """Get the valid hexagonal neighbors for a given cell."""
+        dirs = [(-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0)]
+        neighbors = []
+        for dr, dc in dirs:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < board_size and 0 <= nc < board_size:
+                neighbors.append((nr, nc))
+        return neighbors
+
+    def check_win(self, board: list[list[int]], board_size: int, player: int) -> bool:  # noqa: C901
+        """Check if a specific player has won the game using BFS."""
+        visited = set()
+        queue = []
+
+        if player == 0:
+            # Player 0: Left (col==0) to Right (col==board_size-1)
+            for r in range(board_size):
+                if board[r][0] == player:
+                    queue.append((r, 0))
+                    visited.add((r, 0))
+        else:
+            # Player 1: Top (row==0) to Bottom (row==board_size-1)
+            for c in range(board_size):
+                if board[0][c] == player:
+                    queue.append((0, c))
+                    visited.add((0, c))
+
+        while queue:
+            curr_r, curr_c = queue.pop(0)
+
+            if player == 0 and curr_c == board_size - 1:
+                return True
+            if player == 1 and curr_r == board_size - 1:
+                return True
+
+            for nxt_r, nxt_c in self.get_neighbors(curr_r, curr_c, board_size):
+                if (nxt_r, nxt_c) not in visited and board[nxt_r][nxt_c] == player:
+                    visited.add((nxt_r, nxt_c))
+                    queue.append((nxt_r, nxt_c))
+        return False
+
     @override
     def get_status(self, game_state: State) -> int:
         """
-        Get the winner of the game using BFS to find a connecting path.
         Player 0 connects Left to Right.
         Player 1 connects Top to Bottom.
         """
         board = game_state.board
         board_size = game_state.board_size
 
-        def get_neighbors(r: int, c: int) -> list[tuple[int, int]]:
-            # Hexagonal neighbors
-            dirs = [(-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0)]
-            neighbors = []
-            for dr, dc in dirs:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < board_size and 0 <= nc < board_size:
-                    neighbors.append((nr, nc))
-            return neighbors
-            
-        def check_win(player: int) -> bool:
-            visited = set()
-            queue = []
-            
-            if player == 0:
-                # Player 0: Left (col==0) to Right (col==board_size-1)
-                for r in range(board_size):
-                    if board[r][0] == player:
-                        queue.append((r, 0))
-                        visited.add((r, 0))
-            else:
-                # Player 1: Top (row==0) to Bottom (row==board_size-1)
-                for c in range(board_size):
-                    if board[0][c] == player:
-                        queue.append((0, c))
-                        visited.add((0, c))
-            
-            while queue:
-                curr_r, curr_c = queue.pop(0)
-                
-                if player == 0 and curr_c == board_size - 1:
-                    return True
-                if player == 1 and curr_r == board_size - 1:
-                    return True
-                    
-                for nxt_r, nxt_c in get_neighbors(curr_r, curr_c):
-                    if (nxt_r, nxt_c) not in visited and board[nxt_r][nxt_c] == player:
-                        visited.add((nxt_r, nxt_c))
-                        queue.append((nxt_r, nxt_c))
-            return False
-
-        if check_win(0):
+        if self.check_win(board, board_size, 0):
             return GameStatus.PLAYER_0_WINS.value
-        if check_win(1):
+        if self.check_win(board, board_size, 1):
             return GameStatus.PLAYER_1_WINS.value
 
         if all(cell != -1 for row in board for cell in row):

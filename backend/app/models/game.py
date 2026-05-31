@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Any
 
+
 class GameType(str, Enum):
     """
     Strongly typed enum for supported games.

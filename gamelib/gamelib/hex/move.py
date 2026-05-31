@@ -28,7 +28,7 @@ class Move(BaseModel, MoveBase):
     @field_validator("position")
     @classmethod
     def validate_position(cls, v: list[int]) -> list[int]:
-        if len(v) != 2 or v[0] < 0 or v[1] < 0:
+        if len(v) != 2 or v[0] < 0 or v[1] < 0:  # noqa: PLR2004
             raise ValueError("Invalid move format: position must be a list of two non-negative integers.")
         return v
 

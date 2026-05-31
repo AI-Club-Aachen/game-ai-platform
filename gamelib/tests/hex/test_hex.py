@@ -5,10 +5,10 @@ Test suite for Hex GameState and Move validation/serialization.
 import pytest
 from pydantic import ValidationError
 
-from gamelib.hex.gamestate import GameState
-from gamelib.hex.move import Move
 from gamelib.hex.engine import Engine
 from gamelib.hex.examples.simple_agent import HexAgent as Agent
+from gamelib.hex.gamestate import GameState
+from gamelib.hex.move import Move
 
 
 def test_hex_initial_state():
@@ -36,17 +36,17 @@ def test_hex_gamestate_validation():
     # invalid board length
     with pytest.raises(ValidationError):
         GameState(board_size=3, board=[[-1]*3]*2, turn=0, status=-1)
-        
+
     # invalid cell value
+    board = [[-1]*3 for _ in range(3)]
+    board[0][0] = 5
     with pytest.raises(ValidationError):
-        board = [[-1]*3 for _ in range(3)]
-        board[0][0] = 5
         GameState(board_size=3, board=board, turn=0, status=-1)
-        
+
     # invalid turn value
     with pytest.raises(ValidationError):
         GameState(board_size=3, board=[[-1]*3 for _ in range(3)], turn=2, status=-1)
-        
+
     # invalid status
     with pytest.raises(ValidationError):
         GameState(board_size=3, board=[[-1]*3 for _ in range(3)], turn=0, status=5)
@@ -59,7 +59,7 @@ def test_hex_move_validation():
 
     with pytest.raises(ValidationError):
         Move(player=2, position=[0, 0])
-        
+
     with pytest.raises(ValidationError):
         Move(player=0, position=[-1, 0])
 
@@ -68,27 +68,27 @@ def test_hex_serialization():
     state = GameState.initial({"board_size": 7, "turn": 1, "status": -1})
     state.board[0][0] = 0
     state.board[1][1] = 1
-    
+
     cloned_state = state.clone()
     assert cloned_state.board == state.board, "Cloned state board should match original."
     assert cloned_state.board_size == state.board_size
     assert cloned_state.turn == state.turn
-    
+
     move = Move(player=1, position=[3, 4])
-    
+
     state_json = state.to_json()
     cloned_state_json = cloned_state.to_json()
     assert state_json == cloned_state_json
-    
+
     move_json = move.to_json()
-    
+
     restored_state = GameState.from_json(state_json)
     restored_move = Move.from_json(move_json)
-    
+
     assert restored_state.board == state.board
     assert restored_state.board_size == state.board_size
     assert restored_state.turn == state.turn
-    
+
     assert restored_move.player == move.player
     assert restored_move.position == move.position
 
@@ -97,13 +97,13 @@ def test_full_game():
     Test a full game of Hex.
     Note: This requires Hex Engine and Agent to be implemented.
     """
-        
+
     agent1 = Agent()
     agent1.player_id = 0
     agent2 = Agent()
     agent2.player_id = 1
     engine = Engine()
-    
+
     # Use a smaller board for tests to finish quicker
     state = GameState.initial({"board_size": 3})
     assert state.turn == 0, "Initial turn should be player 0."

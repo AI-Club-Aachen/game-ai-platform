@@ -11,6 +11,7 @@ from gamelib.hex.dev_runner import DevRunner
 from gamelib.hex.gamestate import GameState as State
 from gamelib.hex.move import Move
 
+
 class HexAgent(Agent):
     """
     A simple Hex agent that picks a random available cell.
@@ -27,7 +28,7 @@ class HexAgent(Agent):
         empty_cells = [(r, c) for r in range(state.board_size) for c in range(state.board_size) if state.board[r][c] == -1]
         if not empty_cells:
             raise ValueError("No valid moves available.")
-        
+
         position = random.choice(empty_cells)
         return Move(player=self.player_id, position=list(position))
 

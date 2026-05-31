@@ -83,14 +83,16 @@ def build_from_zip(
         base_image = "agent-base:latest"
 
         logger.info("BUILD_LOCAL_BASE_IMAGE is enabled. Building base image locally...")
-        
+
         reg_user = os.environ.get("DOCKER_REGISTRY_USER")
         reg_pass = os.environ.get("DOCKER_REGISTRY_PASSWORD")
         if reg_user and reg_pass:
             logger.info("Logging into dhi.io registry...")
             client.login(username=reg_user, password=reg_pass, registry="dhi.io")
         else:
-            logger.warning("DOCKER_REGISTRY_USER or DOCKER_REGISTRY_PASSWORD not set. Skipping registry login, which may cause pull failures if the base image is not available locally.")
+            logger.warning("DOCKER_REGISTRY_USER or DOCKER_REGISTRY_PASSWORD not set. "
+                           "Skipping registry login, which may cause pull failures "
+                           "if the base image is not available locally.")
 
         dockerfile_base_path = project_root / "Dockerfile.base"
         if not dockerfile_base_path.exists():
@@ -115,19 +117,21 @@ def build_from_zip(
 
                     # Copy context files, preserving timestamps for Docker cache
                     shutil.copy2(dockerfile_base_path, build_ctx / "Dockerfile.base")
-                    
+
                     req_path = build_ctx / "base_requirements.txt"
                     shutil.copy2(project_root / "base_requirements.txt", req_path)
-                    
+
                     # Remove PyPI aica-gamelib dependency to force using the local copy
-                    req_lines = [line for line in req_path.read_text().splitlines() if not line.startswith("aica-gamelib")]
+                    req_lines = [line for line in req_path.read_text().splitlines()
+                                 if not line.startswith("aica-gamelib")]
                     req_path.write_text("\n".join(req_lines))
 
                     # Copy gamelib source ignoring build artifacts/virtualenvs
                     shutil.copytree(
-                        gamelib_src, 
+                        gamelib_src,
                         build_ctx / "gamelib",
-                        ignore=shutil.ignore_patterns('.venv', '__pycache__', '.pytest_cache', '*.pyc', '.git', '*.egg-info')
+                        ignore=shutil.ignore_patterns(
+                            '.venv', '__pycache__', '.pytest_cache', '*.pyc', '.git', '*.egg-info')
                     )
 
                     # Inject local package installation into the builder stage of Dockerfile

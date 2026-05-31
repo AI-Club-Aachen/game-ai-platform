@@ -109,6 +109,7 @@ ignore = [
     "SIM108",  # Use ternary operator `move = agent1.get_move(state) if state.turn == 0 else agent2.get_move(state)` instead of `if`-`else`-block
     "TC001",   # Use `if TYPE_CHECKING:` for type-checking imports
     "TC003",   # Move into `if TYPE_CHECKING:` block
+    "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
 ]
 
 fixable = ["ALL"]

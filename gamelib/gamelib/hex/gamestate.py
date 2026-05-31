@@ -28,7 +28,7 @@ class GameState(BaseModel, GameStateBase):
     status: int
 
     @model_validator(mode="after")
-    def validate_board_length(self):
+    def validate_board_length(self) -> "GameState":
         if len(self.board) != self.board_size:
             raise ValueError(f"Invalid game state format: board must have {self.board_size} rows.")
         for row in self.board:
