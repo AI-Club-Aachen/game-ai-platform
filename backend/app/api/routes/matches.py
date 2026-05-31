@@ -89,6 +89,10 @@ async def create_match(
     Create a new match request.
     """
     try:
+        additional_data = match_in.game_type.additional_data
+        for k, v in additional_data.items():
+            if k not in match_in.config.state_init_data:
+                match_in.config.state_init_data[k] = v
         return await service.create_match(match_in.game_type, match_in.config, match_in.agent_ids)
     except MatchServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

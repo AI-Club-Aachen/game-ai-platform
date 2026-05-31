@@ -1,5 +1,6 @@
 import React from 'react';
 import { TicTacToeRenderer } from './TicTacToeRenderer';
+import { HexRenderer } from './HexRenderer';
 import { FallbackRenderer } from './FallbackRenderer';
 
 /**
@@ -29,6 +30,7 @@ export interface GameRendererProps {
  */
 const GAME_RENDERERS: Record<string, React.ComponentType<GameRendererProps>> = {
   tictactoe: TicTacToeRenderer,
+  hex: HexRenderer,
   // chess: ChessRenderer,
   // connect_four: ConnectFourRenderer,
 };
@@ -41,4 +43,4 @@ export function getGameRenderer(gameType: string): React.ComponentType<GameRende
   return GAME_RENDERERS[gameType] ?? FallbackRenderer;
 }
 
-export { TicTacToeRenderer, FallbackRenderer };
+export { TicTacToeRenderer, HexRenderer, FallbackRenderer };

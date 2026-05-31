@@ -560,7 +560,8 @@ export function LiveMatch() {
   const gameIcon = gameInfo?.icon === 'tictactoe' ? '⭕'
     : gameInfo?.icon === 'chess' ? '♟️'
       : gameInfo?.icon === 'circle' ? '🔵'
-        : '🎮';
+        : gameInfo?.icon === 'hexagon' ? '⬡'
+          : '🎮';
 
   // ── Full-page loading / error state while pre-fetching ──
   if (!prefetchDone) {

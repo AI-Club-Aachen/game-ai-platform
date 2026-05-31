@@ -327,6 +327,7 @@ export function MatchManagement() {
             >
               <MenuItem value="all">All Games</MenuItem>
               <MenuItem value="tictactoe">Tic-Tac-Toe</MenuItem>
+              <MenuItem value="hex">Hex</MenuItem>
               <MenuItem value="connect_four">Connect Four</MenuItem>
               <MenuItem value="chess">Chess</MenuItem>
             </Select>
@@ -464,6 +465,7 @@ export function MatchManagement() {
                 label="Game Type"
               >
                 <MenuItem value="tictactoe">Tic-Tac-Toe</MenuItem>
+                <MenuItem value="hex">Hex</MenuItem>
                 <MenuItem value="connect_four">Connect Four</MenuItem>
                 <MenuItem value="chess">Chess</MenuItem>
               </Select>
