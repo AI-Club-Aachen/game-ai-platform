@@ -82,6 +82,17 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
   const width = maxX - minX;
   const height = maxY - minY;
 
+  const hexScale = 0.88;
+  const borderStrokeWidth = 4;
+  const gapRadius = hexRadius * (1 - hexScale);
+  const generalShift = (gapRadius + borderStrokeWidth / 2) / (sqrt3 / 2);
+
+  const padding = generalShift + borderStrokeWidth;
+  const viewBoxMinX = minX - padding;
+  const viewBoxMinY = minY - padding;
+  const viewBoxWidth = width + padding * 2;
+  const viewBoxHeight = height + padding * 2;
+
   const isDark = theme.palette.mode === 'dark';
 
   const colors = {
@@ -102,36 +113,88 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
   }
 
   // Generate paths for the colored borders to accurately map the jagged lines
-  const topPathPoints = [getTopLeft(0, 0)];
+  const topPathPointsRaw = [getTopLeft(0, 0)];
   for (let c = 0; c < board_size; c++) {
-    topPathPoints.push(getTop(0, c));
-    topPathPoints.push(getTopRight(0, c));
+    topPathPointsRaw.push(getTop(0, c));
+    topPathPointsRaw.push(getTopRight(0, c));
   }
 
-  const bottomPathPoints = [getBottomRight(board_size - 1, board_size - 1)];
+  const bottomPathPointsRaw = [getBottomRight(board_size - 1, board_size - 1)];
   for (let c = board_size - 1; c >= 0; c--) {
-    bottomPathPoints.push(getBottom(board_size - 1, c));
-    bottomPathPoints.push(getBottomLeft(board_size - 1, c));
+    bottomPathPointsRaw.push(getBottom(board_size - 1, c));
+    bottomPathPointsRaw.push(getBottomLeft(board_size - 1, c));
   }
 
-  const leftPathPoints = [getTopLeft(0, 0)];
+  const leftPathPointsRaw = [getTopLeft(0, 0)];
   for (let r = 0; r < board_size; r++) {
-    leftPathPoints.push(getBottomLeft(r, 0));
+    leftPathPointsRaw.push(getBottomLeft(r, 0));
     if (r < board_size - 1) {
-      leftPathPoints.push(getBottom(r, 0));
+      leftPathPointsRaw.push(getBottom(r, 0));
     }
   }
 
-  const rightPathPoints = [getTopRight(0, board_size - 1)];
+  const rightPathPointsRaw = [getTopRight(0, board_size - 1)];
   for (let r = 0; r < board_size; r++) {
-    rightPathPoints.push(getBottomRight(r, board_size - 1));
+    rightPathPointsRaw.push(getBottomRight(r, board_size - 1));
     if (r < board_size - 1) {
-      rightPathPoints.push(getTopRight(r + 1, board_size - 1));
+      rightPathPointsRaw.push(getTopRight(r + 1, board_size - 1));
     }
   }
+
+  const d = generalShift;
+
+  const topPathPoints = topPathPointsRaw.map(p => {
+    const [x, y] = p.split(',').map(Number);
+    return `${x},${y - d}`;
+  });
+
+  const bottomPathPoints = bottomPathPointsRaw.map(p => {
+    const [x, y] = p.split(',').map(Number);
+    return `${x},${y + d}`;
+  });
+
+  const leftPathPoints = leftPathPointsRaw.map(p => {
+    const [x, y] = p.split(',').map(Number);
+    return `${x - d * sqrt3 / 2},${y + d / 2}`;
+  });
+
+  const rightPathPoints = rightPathPointsRaw.map(p => {
+    const [x, y] = p.split(',').map(Number);
+    return `${x + d * sqrt3 / 2},${y - d / 2}`;
+  });
+
+  // Calculate perfect intersection corners
+  const tL_x = getX(0,0) - hexWidth/2;
+  const tL_y = getY(0,0) - hexRadius/2;
+  const cornerTL = `${tL_x - d*sqrt3/2},${tL_y - d/2}`;
+
+  const tR_x = getX(0, board_size-1) + hexWidth/2;
+  const tR_y = getY(0, board_size-1) - hexRadius/2;
+  const cornerTR = `${tR_x + d*sqrt3/2},${tR_y - d/2}`;
+  
+  const bL_x = getX(board_size-1, 0) - hexWidth/2;
+  const bL_y = getY(board_size-1, 0) + hexRadius/2;
+  const cornerBL = `${bL_x - d*sqrt3/2},${bL_y + d/2}`;
+
+  const bR_x = getX(board_size-1, board_size-1) + hexWidth/2;
+  const bR_y = getY(board_size-1, board_size-1) + hexRadius/2;
+  const cornerBR = `${bR_x + d*sqrt3/2},${bR_y + d/2}`;
+
+  // Prepend and append the exact corners to bridge the gaps
+  topPathPoints.unshift(cornerTL);
+  topPathPoints.push(cornerTR);
+
+  leftPathPoints.unshift(cornerTL);
+  leftPathPoints.push(cornerBL);
+
+  bottomPathPoints.unshift(cornerBR);
+  bottomPathPoints.push(cornerBL);
+
+  rightPathPoints.unshift(cornerTR);
+  rightPathPoints.push(cornerBR);
 
   // Pre-calculate poly points string
-  const pointsStr = useMemo(() => hexPoints(hexRadius * 0.95), [hexRadius]);
+  const pointsStr = useMemo(() => hexPoints(hexRadius * hexScale), [hexRadius, hexScale]);
 
   const p0Name = agentName(0);
   const p1Name = agentName(1);
@@ -161,7 +224,7 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
       {/* SVG Board Container */}
       <Box sx={{ display: 'flex', justifyContent: 'center', backgroundColor: 'background.paper', borderRadius: 2, p: 2, boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)' }}>
         <svg
-          viewBox={`${minX} ${minY} ${width} ${height}`}
+          viewBox={`${viewBoxMinX} ${viewBoxMinY} ${viewBoxWidth} ${viewBoxHeight}`}
           style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block' }}
         >
           {/* Top/Bottom Edges (Player 1) */}
@@ -169,7 +232,7 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
             points={topPathPoints.join(' ')}
             fill="none"
             stroke={colors.p1}
-            strokeWidth="4"
+            strokeWidth={borderStrokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -177,7 +240,7 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
             points={bottomPathPoints.join(' ')}
             fill="none"
             stroke={colors.p1}
-            strokeWidth="4"
+            strokeWidth={borderStrokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -187,7 +250,7 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
             points={leftPathPoints.join(' ')}
             fill="none"
             stroke={colors.p0}
-            strokeWidth="4"
+            strokeWidth={borderStrokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -195,7 +258,7 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
             points={rightPathPoints.join(' ')}
             fill="none"
             stroke={colors.p0}
-            strokeWidth="4"
+            strokeWidth={borderStrokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
