@@ -54,8 +54,9 @@ jobs:
         JWT_SECRET_KEY=mock-secret-key-for-ci-tests-only-do-not-use-in-prod
         JWT_ALGORITHM=HS256
         JWT_ACCESS_TOKEN_EXPIRE_HOURS=24
-        ALLOW_ORIGINS=["http://localhost:3000"]
+        ALLOW_ORIGINS=http://localhost:3000
         FRONTEND_URL=http://localhost:3000
+        TRUSTED_HOSTS=localhost,127.0.0.1
         
         # SMTP (Mock)
         SMTP_HOST=smtp.gmail.com
@@ -74,8 +75,16 @@ jobs:
         API_V1_PREFIX=/api/v1
         PROJECT_NAME="Game AI Platform"
         REDIS_URL=redis://redis:6379/0
+        DB_ECHO=false
         RATE_LIMITING_ENABLED=false
+        BYPASS_EMAIL_VERIFICATION=false
+        LOG_LEVEL=info
         WORKER_API_KEY=dev-worker-key-12345
+        WORKER_BACKEND_URL=http://backend:8000/api/v1
+        WORKER_LOG_LEVEL=INFO
+        BUILD_LOCAL_BASE_IMAGE=False
+        VITE_API_URL=http://localhost:8000/api/v1
+        MAX_TURN_TIME_LIMIT_SECONDS=120
         EOF
 
     - name: Start Backend Services
@@ -159,8 +168,9 @@ jobs:
         JWT_SECRET_KEY=mock-secret-key-for-ci-tests-only-do-not-use-in-prod
         JWT_ALGORITHM=HS256
         JWT_ACCESS_TOKEN_EXPIRE_HOURS=24
-        ALLOW_ORIGINS=["http://localhost:3000"]
+        ALLOW_ORIGINS=http://localhost:3000
         FRONTEND_URL=http://localhost:3000
+        TRUSTED_HOSTS=localhost,127.0.0.1
         
         # SMTP (Mock)
         SMTP_HOST=smtp.gmail.com
@@ -179,8 +189,16 @@ jobs:
         API_V1_PREFIX=/api/v1
         PROJECT_NAME="Game AI Platform"
         REDIS_URL=redis://redis:6379/0
+        DB_ECHO=false
         RATE_LIMITING_ENABLED=false
+        BYPASS_EMAIL_VERIFICATION=false
+        LOG_LEVEL=info
         WORKER_API_KEY=dev-worker-key-12345
+        WORKER_BACKEND_URL=http://backend:8000/api/v1
+        WORKER_LOG_LEVEL=INFO
+        BUILD_LOCAL_BASE_IMAGE=False
+        VITE_API_URL=http://localhost:8000/api/v1
+        MAX_TURN_TIME_LIMIT_SECONDS=120
         EOF
 
     - name: Start Full Backend Services

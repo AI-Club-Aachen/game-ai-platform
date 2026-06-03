@@ -1,0 +1,14 @@
+# Intentionally empty.
+#
+# Docker Compose automatically applies `docker-compose.override.yml` when running
+# plain `docker compose up`. Keeping development-only settings here is risky for
+# deployments because it can accidentally switch the frontend from the production
+# nginx image to the Vite dev server.
+#
+# For local development, use the explicit dev override instead:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Production/Dokploy should use only:
+#
+#   docker compose -f docker-compose.yml up -d --build

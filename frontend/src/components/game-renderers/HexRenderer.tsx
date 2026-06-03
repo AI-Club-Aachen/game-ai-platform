@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import type { GameRendererProps } from './index';
 
@@ -35,7 +35,7 @@ function getStatusText(status: number, name0: string, name1: string): { text: st
   }
 }
 
-export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result }: GameRendererProps) {
+export function HexRenderer({ gameState, agentIds, agentMap }: GameRendererProps) {
   const theme = useTheme();
   
   const agentName = (index: number): string => {
@@ -64,7 +64,7 @@ export function HexRenderer({ gameState, agentIds, agentMap, matchStatus, result
   // x = hexWidth * (c + r / 2)
   // y = hexRadius * 3/2 * r
   const getX = (r: number, c: number) => hexWidth * (c + r / 2);
-  const getY = (r: number, c: number) => hexRadius * 1.5 * r;
+  const getY = (r: number, _c?: number) => hexRadius * 1.5 * r;
 
   // Vertex helpers for borders
   const getTop = (r: number, c: number) => `${getX(r,c)},${getY(r,c)-hexRadius}`;

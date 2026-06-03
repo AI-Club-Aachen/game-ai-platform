@@ -1,17 +1,17 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [[package]]
 name = "aica-gamelib"
-version = "0.1.2"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/87/e5ce556b9310414f3d5cf1d72ecdc72c0d943fdff8c00670478ae8256db8/aica_gamelib-0.1.2.tar.gz", hash = "sha256:b240e23c723778ee8235b3cec6013bbf686894b16cbf4c2c97679104b1310b71", size = 65625, upload-time = "2026-03-20T19:37:07.34Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/27/5e4f60c84a3c3f2652ea02389d167c390e142a1975622f9dd5734d29d21a/aica_gamelib-0.2.0.tar.gz", hash = "sha256:16730e8d3473dbda26541c013e2f834b1ab015f3fb12ad0464c1351650b4bddc", size = 73368, upload-time = "2026-06-01T20:15:25.622Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/61/78763686f07b0994647ee648b5b32e011a1154ee8d8ba3511f634498bbe6/aica_gamelib-0.1.2-py3-none-any.whl", hash = "sha256:f8a6ce94c64ce0a384148a66c2a4043f837005e9aa6677107d612ebe7c7af3ca", size = 13577, upload-time = "2026-03-20T19:37:06.392Z" },
+    { url = "https://files.pythonhosted.org/packages/be/62/ddd665a0fcb57a89fe11a9d780913230c47fb16864b2769481f4e474bf08/aica_gamelib-0.2.0-py3-none-any.whl", hash = "sha256:85523f2998859a17b306ed62f77764a00b310e654a7d46199282f655e9f74373", size = 27600, upload-time = "2026-06-01T20:15:24.622Z" },
 ]
 
 [[package]]
@@ -209,7 +209,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aica-gamelib", specifier = "==0.1.2" },
+    { name = "aica-gamelib", specifier = "==0.2.0" },
     { name = "certifi", specifier = ">=2026.2.25" },
     { name = "charset-normalizer", specifier = ">=3.4.5" },
     { name = "docker", specifier = ">=7.1.0" },

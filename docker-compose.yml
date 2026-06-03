@@ -1,10 +1,12 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     networks:
-      - app-network
+      app-network:
+        aliases:
+          - gameai-redis
 
   db:
     image: postgres:16-alpine
@@ -12,8 +14,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:?POSTGRES_PORT is required}:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,34 +24,41 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - app-network
+      app-network:
+        aliases:
+          - gameai-postgres
 
   frontend:
     build:
       context: frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+      target: production
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
+        MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
+    expose:
+      - "3000"
     environment:
       - VITE_API_URL=${VITE_API_URL:?VITE_API_URL is required}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - app-network
-    depends_on:
-      backend:
-        condition: service_healthy
     restart: unless-stopped
 
   backend:
     build: backend/.
-    ports:
-      - "${BACKEND_PORT:?BACKEND_PORT is required}:8000"
+    expose:
+      - "8000"
     environment:
       ENVIRONMENT: ${ENVIRONMENT:?ENVIRONMENT is required}
-      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@gameai-postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}}
       DB_ECHO: ${DB_ECHO:?DB_ECHO is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       JWT_ALGORITHM: ${JWT_ALGORITHM:?JWT_ALGORITHM is required}
@@ -68,6 +77,7 @@ services:
       BYPASS_EMAIL_VERIFICATION: ${BYPASS_EMAIL_VERIFICATION:?BYPASS_EMAIL_VERIFICATION is required}
       SEED_DB: ${SEED_DB:?SEED_DB is required}
       ALLOW_ORIGINS: ${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
       LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
@@ -111,7 +121,6 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
       - uploads_data:/app/uploads
       - ./gamelib:/gamelib:z
@@ -139,7 +148,6 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ./orchestration:/orchestration:z
       - /var/run/docker.sock:/var/run/docker.sock
       - ./gamelib:/gamelib:z
     user: root

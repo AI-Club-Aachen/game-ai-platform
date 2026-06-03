@@ -72,7 +72,7 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - ../.env
-    working_dir: /worker
+    working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
       BACKEND_URL: ${WORKER_BACKEND_URL:-http://backend:8000/api/v1}

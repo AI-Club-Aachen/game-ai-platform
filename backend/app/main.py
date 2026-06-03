@@ -55,9 +55,10 @@ def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONRespons
     if not origin:
         return response
 
-    if "*" in settings.ALLOW_ORIGINS:
+    allow_origins = settings.allow_origins_list
+    if "*" in allow_origins:
         response.headers["Access-Control-Allow-Origin"] = "*"
-    elif origin in settings.ALLOW_ORIGINS:
+    elif origin in allow_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -151,18 +152,31 @@ app.state.limiter = limiter
 # Add slowapi middleware
 app.add_middleware(SlowAPIMiddleware)
 
-# Trusted Host Middleware
-allowed_hosts = [
-    "localhost",
-    "127.0.0.1",
-    "::1",  # IPv6 localhost
-    "backend",  # Allow docker internal networking
-]
 
-for origin in settings.ALLOW_ORIGINS:
-    domain = origin.replace("http://", "").replace("https://", "").split(":")[0]
-    if domain not in allowed_hosts:
-        allowed_hosts.append(domain)
+def _normalize_host(value: str) -> str:
+    """Extract a hostname from a trusted-host/origin setting."""
+    return value.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+
+
+def _build_allowed_hosts(trusted_hosts: list[str], allow_origins: list[str]) -> list[str]:
+    """Build TrustedHostMiddleware hosts from explicit backend hosts plus CORS origins."""
+    allowed_hosts = [
+        "localhost",
+        "127.0.0.1",
+        "::1",  # IPv6 localhost
+        "backend",  # Allow docker internal networking
+    ]
+
+    for value in [*trusted_hosts, *allow_origins]:
+        domain = _normalize_host(value)
+        if domain and domain not in allowed_hosts:
+            allowed_hosts.append(domain)
+
+    return allowed_hosts
+
+
+# Trusted Host Middleware
+allowed_hosts = _build_allowed_hosts(settings.trusted_hosts_list, settings.allow_origins_list)
 
 app.add_middleware(
     TrustedHostMiddleware,
@@ -173,7 +187,7 @@ app.add_middleware(
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOW_ORIGINS,
+    allow_origins=settings.allow_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
