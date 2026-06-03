@@ -83,6 +83,30 @@ class SubmissionService:
     def get_submission(self, submission_id: str | UUID) -> Submission | None:
         return self._repository.get_by_id(submission_id)
 
+    async def enqueue_rebuild(self, submission_id: str | UUID) -> BuildJob:
+        """
+        Queue a new build job for an existing submission.
+
+        This is used by workers to recover when the database still references a
+        completed Docker image tag, but the local Docker daemon no longer has
+        that image after a redeploy/prune/host change.
+        """
+        submission = self.get_submission(submission_id)
+        if not submission:
+            raise SubmissionServiceError("Submission not found")
+
+        if not submission.object_path or submission.object_path == "pending":
+            raise SubmissionServiceError("Submission artifact path is not available")
+
+        file_path = Path(submission.object_path)
+        if not file_path.exists():
+            raise SubmissionServiceError(f"Submission artifact not found: {submission.object_path}")
+
+        job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
+        job = self._job_repository.save_build_job(job)
+        await job_queue.enqueue_build(submission.id, submission.object_path, job.id)
+        return job
+
     def update_build_job(
         self,
         job_id: str,

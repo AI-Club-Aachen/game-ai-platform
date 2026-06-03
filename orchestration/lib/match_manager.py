@@ -1,15 +1,23 @@
+import asyncio
 import importlib
 import json
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
+import docker
 
 from lib import agent_manager
 from lib.agent_communication import AgentCommunicationError, AgentProcess, AgentTimeLimitError
 from lib.backend_api import BackendAPI
 
 logger = logging.getLogger(__name__)
+
+_docker_client: docker.DockerClient | None = None
+IMAGE_REBUILD_TIMEOUT_SECONDS = float(os.getenv("MATCH_IMAGE_REBUILD_TIMEOUT_SECONDS", "300"))
+IMAGE_REBUILD_POLL_SECONDS = float(os.getenv("MATCH_IMAGE_REBUILD_POLL_SECONDS", "2"))
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +60,98 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _parse_datetime(value: Any) -> datetime:
+    if not isinstance(value, str) or not value:
+        return datetime.min.replace(tzinfo=UTC)
+
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        logger.debug("Could not parse build job created_at value %r; treating as oldest", value)
+        return datetime.min.replace(tzinfo=UTC)
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _image_exists(image_tag: str) -> bool:
+    global _docker_client
+    if _docker_client is None:
+        _docker_client = docker.from_env()
+
+    try:
+        _docker_client.images.get(image_tag)
+        return True
+    except docker.errors.ImageNotFound:
+        return False
+    except docker.errors.APIError as e:
+        raise AgentCommunicationError(f"Docker API error verifying image {image_tag}: {e}")
+
+
+def _completed_build_jobs_newest_first(build_jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    completed_jobs = [
+        job
+        for job in build_jobs
+        if job.get("status") == "completed" and job.get("image_tag")
+    ]
+    completed_jobs.sort(key=lambda job: _parse_datetime(job.get("created_at")), reverse=True)
+    return completed_jobs
+
+
+async def _wait_for_build_job_completion(
+    api: BackendAPI,
+    job_id: str,
+    *,
+    timeout_seconds: float = IMAGE_REBUILD_TIMEOUT_SECONDS,
+    poll_seconds: float = IMAGE_REBUILD_POLL_SECONDS,
+) -> dict[str, Any]:
+    """Poll a build job until it reaches a terminal state or times out."""
+    deadline = asyncio.get_running_loop().time() + timeout_seconds
+
+    while True:
+        job = await api.get_build_job(job_id)
+        status = job.get("status")
+        if status == "completed":
+            return job
+        if status == "failed":
+            logs = (job.get("logs") or "").strip()
+            raise AgentCommunicationError(
+                f"Rebuild job {job_id} failed" + (f": {logs[-1000:]}" if logs else "")
+            )
+
+        if asyncio.get_running_loop().time() >= deadline:
+            raise AgentCommunicationError(
+                f"Timed out waiting {timeout_seconds:.0f}s for rebuild job {job_id} to complete"
+            )
+
+        await asyncio.sleep(poll_seconds)
+
+
+async def _rebuild_submission_image(submission_id: str, api: BackendAPI) -> str:
+    """Queue and wait for a rebuild, returning the rebuilt image tag."""
+    logger.warning("Queueing rebuild for submission %r because no local Docker image exists", submission_id)
+    rebuild_job = await api.rebuild_submission(submission_id)
+    raw_job_id = rebuild_job.get("id")
+    if not raw_job_id:
+        raise AgentCommunicationError(f"Backend did not return a rebuild job id for submission {submission_id}")
+    job_id = str(raw_job_id)
+
+    completed_job = await _wait_for_build_job_completion(api, job_id)
+    image_tag = completed_job.get("image_tag")
+    if not image_tag:
+        raise AgentCommunicationError(f"Rebuild job {job_id} completed without an image tag")
+
+    if not _image_exists(image_tag):
+        raise AgentCommunicationError(
+            f"Rebuild job {job_id} produced image {image_tag!r}, but it is still not available locally"
+        )
+
+    logger.info("Rebuild for submission %r completed with image %r", submission_id, image_tag)
+    return image_tag
+
+
 async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[str]:
     image_tags = []
     for agent_id in agent_ids:
@@ -72,15 +172,44 @@ async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[s
 
         build_jobs = submission.get("build_jobs", [])
         logger.debug(f"Agent {agent_id!r} submission {submission_id!r} has {len(build_jobs)} build job(s)")
+        completed_jobs = _completed_build_jobs_newest_first(build_jobs)
         tag = None
-        for job in build_jobs:
-            if job.get("status") == "completed" and job.get("image_tag"):
-                tag = job["image_tag"]
-                logger.debug(f"Resolved image tag for agent {agent_id!r}: {tag!r}")
+        missing_tags: list[str] = []
+        for job in completed_jobs:
+            candidate_tag = job["image_tag"]
+            if _image_exists(candidate_tag):
+                tag = candidate_tag
+                logger.info(
+                    "Resolved image tag for agent %r submission %r from build job %r: %r",
+                    agent_id,
+                    submission_id,
+                    job.get("id"),
+                    tag,
+                )
                 break
 
+            missing_tags.append(candidate_tag)
+            logger.warning(
+                "Skipping missing image for agent %r submission %r build job %r: %r",
+                agent_id,
+                submission_id,
+                job.get("id"),
+                candidate_tag,
+            )
+
         if not tag:
-            raise AgentCommunicationError(f"No valid Docker image tag found for agent {agent_id}")
+            if missing_tags:
+                logger.warning(
+                    "No local Docker image found for agent %r submission %r. Missing tags: %r. Rebuilding now.",
+                    agent_id,
+                    submission_id,
+                    missing_tags,
+                )
+                tag = await _rebuild_submission_image(str(submission_id), api)
+            else:
+                raise AgentCommunicationError(
+                    f"No completed build job with a Docker image tag found for agent {agent_id} submission {submission_id}"
+                )
 
         image_tags.append(tag)
     return image_tags

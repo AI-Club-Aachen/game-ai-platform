@@ -49,6 +49,69 @@ async def test_submission_upload_does_not_create_agent(api_client, fake_email_cl
 
 
 @pytest.mark.anyio
+async def test_submission_rebuild_queues_new_build_job(api_client, fake_email_client, db_session):
+    _, bearer_token = await _create_verified_user_and_token(
+        api_client,
+        fake_email_client,
+        random_username(),
+        random_email(),
+        strong_password(),
+    )
+
+    create_response = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.CHESS.value},
+        files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
+    )
+    assert create_response.status_code == 201
+    submission_id = create_response.json()["id"]
+
+    rebuild_response = await api_client.post(
+        f"{API_PREFIX}/submissions/{submission_id}/rebuild",
+        headers={"Authorization": bearer_token},
+    )
+
+    assert rebuild_response.status_code == 202
+    rebuild_job = rebuild_response.json()
+    assert rebuild_job["submission_id"] == submission_id
+    assert rebuild_job["status"] == JobStatus.QUEUED.value
+
+    build_jobs = db_session.exec(
+        select(BuildJob).where(BuildJob.submission_id == UUID(submission_id))
+    ).all()
+    assert len(build_jobs) == 2
+
+
+@pytest.mark.anyio
+async def test_worker_can_rebuild_submission_with_api_key(api_client, fake_email_client, db_session):
+    _, bearer_token = await _create_verified_user_and_token(
+        api_client,
+        fake_email_client,
+        random_username(),
+        random_email(),
+        strong_password(),
+    )
+
+    create_response = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.CHESS.value},
+        files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
+    )
+    assert create_response.status_code == 201
+    submission_id = create_response.json()["id"]
+
+    rebuild_response = await api_client.post(
+        f"{API_PREFIX}/submissions/{submission_id}/rebuild",
+        headers={"x-api-key": settings.WORKER_API_KEY},
+    )
+
+    assert rebuild_response.status_code == 202
+    assert rebuild_response.json()["submission_id"] == submission_id
+
+
+@pytest.mark.anyio
 async def test_agent_requires_successful_submission_and_submission_delete_unlinks_agent(
     api_client,
     fake_email_client,

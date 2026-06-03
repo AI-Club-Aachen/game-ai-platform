@@ -178,6 +178,14 @@ class BackendAPI:
         """
         return await self._get(f"/submissions/{submission_id}")
 
+    async def rebuild_submission(self, submission_id: str) -> dict[str, Any]:
+        """Queue a rebuild job for an existing submission."""
+        return await self._post(f"/submissions/{submission_id}/rebuild", {})
+
+    async def get_build_job(self, job_id: str) -> dict[str, Any]:
+        """Get a build job by ID."""
+        return await self._get(f"/jobs/build/{job_id}")
+
     async def get_agent(self, agent_id: str) -> dict[str, Any]:
         """
         Get an agent by ID.

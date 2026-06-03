@@ -7,6 +7,7 @@ from app.api.deps import get_current_user, get_submission_service
 from app.api.services.submission import SubmissionService, SubmissionServiceError
 from app.models.game import GameType
 from app.models.user import User, UserRole
+from app.schemas.job import BuildJobRead
 from app.schemas.submission import SubmissionRead
 
 
@@ -80,4 +81,32 @@ def delete_submission(
             raise HTTPException(status_code=404, detail=detail) from e
         if detail == "Not authorized to delete this submission":
             raise HTTPException(status_code=403, detail=detail) from e
+        raise HTTPException(status_code=400, detail=detail) from e
+
+
+@router.post("/{submission_id}/rebuild", response_model=BuildJobRead, status_code=status.HTTP_202_ACCEPTED)
+async def rebuild_submission(
+    submission_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: SubmissionService = Depends(get_submission_service),
+) -> BuildJobRead:
+    """Queue a rebuild for an existing submission.
+
+    Workers use this as a recovery path when an agent image referenced by a
+    completed build job no longer exists on the Docker daemon. Admins may also
+    use it manually.
+    """
+    submission = service.get_submission(submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    if submission.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized to rebuild this submission")
+
+    try:
+        return await service.enqueue_rebuild(submission_id)
+    except SubmissionServiceError as e:
+        detail = str(e)
+        if detail == "Submission not found":
+            raise HTTPException(status_code=404, detail=detail) from e
         raise HTTPException(status_code=400, detail=detail) from e
