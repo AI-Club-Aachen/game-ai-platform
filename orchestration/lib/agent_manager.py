@@ -196,9 +196,9 @@ def get_container_stats(container_id: str) -> dict:
     cpu_stats = stats.get("cpu_stats", {})
     precpu_stats = stats.get("precpu_stats", {})
 
-    cpu_delta = cpu_stats.get("cpu_usage", {}).get("total_usage", 0) - precpu_stats.get(
-        "cpu_usage", {}
-    ).get("total_usage", 0)
+    cpu_delta = cpu_stats.get("cpu_usage", {}).get("total_usage", 0) - precpu_stats.get("cpu_usage", {}).get(
+        "total_usage", 0
+    )
     system_delta = cpu_stats.get("system_cpu_usage", 0) - precpu_stats.get("system_cpu_usage", 0)
 
     cpus = cpu_stats.get("online_cpus")

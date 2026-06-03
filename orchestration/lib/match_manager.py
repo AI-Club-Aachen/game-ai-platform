@@ -60,6 +60,7 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse_datetime(value: Any) -> datetime:
     if not isinstance(value, str) or not value:
         return datetime.min.replace(tzinfo=UTC)
@@ -91,11 +92,7 @@ def _image_exists(image_tag: str) -> bool:
 
 
 def _completed_build_jobs_newest_first(build_jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    completed_jobs = [
-        job
-        for job in build_jobs
-        if job.get("status") == "completed" and job.get("image_tag")
-    ]
+    completed_jobs = [job for job in build_jobs if job.get("status") == "completed" and job.get("image_tag")]
     completed_jobs.sort(key=lambda job: _parse_datetime(job.get("created_at")), reverse=True)
     return completed_jobs
 
@@ -117,9 +114,7 @@ async def _wait_for_build_job_completion(
             return job
         if status == "failed":
             logs = (job.get("logs") or "").strip()
-            raise AgentCommunicationError(
-                f"Rebuild job {job_id} failed" + (f": {logs[-1000:]}" if logs else "")
-            )
+            raise AgentCommunicationError(f"Rebuild job {job_id} failed" + (f": {logs[-1000:]}" if logs else ""))
 
         if asyncio.get_running_loop().time() >= deadline:
             raise AgentCommunicationError(
@@ -208,7 +203,8 @@ async def _get_agent_image_tags(agent_ids: list[str], api: BackendAPI) -> list[s
                 tag = await _rebuild_submission_image(str(submission_id), api)
             else:
                 raise AgentCommunicationError(
-                    f"No completed build job with a Docker image tag found for agent {agent_id} submission {submission_id}"
+                    "No completed build job with a Docker image tag found for "
+                    f"agent {agent_id} submission {submission_id}"
                 )
 
         image_tags.append(tag)
@@ -314,6 +310,7 @@ async def _report_all_container_snapshots(
 # Logging helper
 # ---------------------------------------------------------------------------
 
+
 async def _log(api: BackendAPI, match_id: str, status: str, msg: str) -> None:
     """Push a single log line to the backend without raising on failure."""
     try:
@@ -325,6 +322,7 @@ async def _log(api: BackendAPI, match_id: str, status: str, msg: str) -> None:
 # ---------------------------------------------------------------------------
 # Main match entrypoint
 # ---------------------------------------------------------------------------
+
 
 async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str], api: BackendAPI) -> dict[str, Any]:
     """
@@ -346,7 +344,9 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             Engine = importlib.import_module(f"gamelib.{game_type}.engine").Engine
             State = importlib.import_module(f"gamelib.{game_type}.gamestate").GameState
             Move = importlib.import_module(f"gamelib.{game_type}.move").Move
-            logger.debug(f"[{match_id}] Imported Engine={Engine.__name__}, State={State.__name__}, Move={Move.__name__}")  # noqa: E501
+            logger.debug(
+                f"[{match_id}] Imported Engine={Engine.__name__}, State={State.__name__}, Move={Move.__name__}"
+            )  # noqa: E501
         except ImportError as e:
             logger.error(f"[{match_id}] Failed to import game modules for type {game_type!r}: {e}")
             return {"status": "error", "reason": f"Game type {game_type} not supported: {e}"}
@@ -382,7 +382,9 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         state = State.initial(state_init_data)
         logger.debug(f"[{match_id}] Game engine and initial state created")
         await _log(
-            api, match_id, "running",
+            api,
+            match_id,
+            "running",
             f"[INIT] Game={game_type} | Players={len(agent_ids)} | TurnTimeLimit={turn_limit_str}",
         )
 
@@ -396,13 +398,17 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                 started_at[agent.player_id] = datetime.now(UTC)
                 logger.debug(f"[{match_id}] Agent player {agent.player_id} init sent successfully")
                 await _log(
-                    api, match_id, "running",
+                    api,
+                    match_id,
+                    "running",
                     f"[INIT] Player {agent.player_id} started (image={image_tags[agent.player_id]!r})",
                 )
             except AgentCommunicationError as e:
                 logger.error(f"[{match_id}] Agent player {agent.player_id} failed to start/init: {e}")
                 await _log(
-                    api, match_id, "running",
+                    api,
+                    match_id,
+                    "running",
                     f"[ERROR] Player {agent.player_id} failed to start",
                 )
 
@@ -484,15 +490,15 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     await cur_agent.send_state(state_json)
                     # Allow some overhead here in time out but expect exact time limit in returned cpu_time
                     raw_move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
-                    logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
+                    logger.debug(
+                        f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}"
+                    )  # noqa: E501
 
                     # --- Safe JSON parsing ---------------------------------------
                     try:
                         parsed_output = json.loads(raw_move_json)
                     except json.JSONDecodeError as e:
-                        raise AgentCommunicationError(
-                            f"Player {current_player} returned invalid JSON: {e}"
-                        )
+                        raise AgentCommunicationError(f"Player {current_player} returned invalid JSON: {e}")
 
                     # parsed_output must be a mapping; reject any other type
                     # (e.g. a bare list or string) to prevent type confusion.
@@ -535,7 +541,9 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
                     winner_id = 1 - current_player
                     await _log(
-                        api, match_id, "running",
+                        api,
+                        match_id,
+                        "running",
                         f"[TURN {turn_count}] Player {current_player} exceeded time limit "
                         f"({parsed_config.turn_time_limit}s) — Player {winner_id} wins",
                     )
@@ -545,9 +553,10 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     logger.warning(f"[{match_id}] Turn {turn_count}: {reason}" + f": {e}")
                     winner_id = 1 - current_player
                     await _log(
-                        api, match_id, "running",
-                        f"[TURN {turn_count}] Player {current_player} communication error "
-                        f"— Player {winner_id} wins",
+                        api,
+                        match_id,
+                        "running",
+                        f"[TURN {turn_count}] Player {current_player} communication error — Player {winner_id} wins",
                     )
                     break
                 finally:
@@ -559,7 +568,9 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     logger.warning(f"[{match_id}] Turn {turn_count}: {reason} move={move_repr!r}")
                     winner_id = 1 - current_player
                     await _log(
-                        api, match_id, "running",
+                        api,
+                        match_id,
+                        "running",
                         f"[TURN {turn_count}] Player {current_player} invalid move: {move_repr} "
                         f"— Player {winner_id} wins",
                     )
@@ -635,8 +646,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
             result_summary = f"Draw after {turn_count} turn(s). Reason: {reason}"
         else:
             result_summary = (
-                f"Player {winner_id} (agent {winner_result}) wins after {turn_count} turn(s). "
-                f"Reason: {reason}"
+                f"Player {winner_id} (agent {winner_result}) wins after {turn_count} turn(s). Reason: {reason}"
             )
         await _log(api, match_id, "running", f"[RESULT] {result_summary}")
         logger.debug(f"[{match_id}] Match result: winner={winner_result!r} reason={reason!r} turns={turn_count}")

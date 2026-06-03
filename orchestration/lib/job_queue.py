@@ -46,9 +46,7 @@ class JobQueue:
             return
 
         try:
-            self._redis = aioredis.from_url(
-                self.redis_url, encoding="utf8", decode_responses=True
-            )
+            self._redis = aioredis.from_url(self.redis_url, encoding="utf8", decode_responses=True)
             # Verify connection
             await self._redis.ping()
             self._is_connected = True
@@ -69,9 +67,7 @@ class JobQueue:
         if not self._is_connected:
             await self.connect()
 
-    async def pop_job(
-        self, queue_name: str, timeout: int = 0
-    ) -> dict[str, Any] | None:
+    async def pop_job(self, queue_name: str, timeout: int = 0) -> dict[str, Any] | None:
         """
         Pop a job from the specified queue.
 

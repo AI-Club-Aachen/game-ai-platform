@@ -50,11 +50,7 @@ def _find_agent_entry(ctx: Path) -> str:
 
     Returns the filename of the entry point.
     """
-    candidates = [
-        p
-        for p in ctx.iterdir()
-        if p.is_file() and (p.name == "agent.py" or p.name.endswith("_agent.py"))
-    ]
+    candidates = [p for p in ctx.iterdir() if p.is_file() and (p.name == "agent.py" or p.name.endswith("_agent.py"))]
 
     if not candidates:
         raise BuildError(
@@ -90,9 +86,11 @@ def build_from_zip(
             logger.info("Logging into dhi.io registry...")
             client.login(username=reg_user, password=reg_pass, registry="dhi.io")
         else:
-            logger.warning("DOCKER_REGISTRY_USER or DOCKER_REGISTRY_PASSWORD not set. "
-                           "Skipping registry login, which may cause pull failures "
-                           "if the base image is not available locally.")
+            logger.warning(
+                "DOCKER_REGISTRY_USER or DOCKER_REGISTRY_PASSWORD not set. "
+                "Skipping registry login, which may cause pull failures "
+                "if the base image is not available locally."
+            )
 
         dockerfile_base_path = project_root / "Dockerfile.base"
         if not dockerfile_base_path.exists():
@@ -122,8 +120,9 @@ def build_from_zip(
                     shutil.copy2(project_root / "base_requirements.txt", req_path)
 
                     # Remove PyPI aica-gamelib dependency to force using the local copy
-                    req_lines = [line for line in req_path.read_text().splitlines()
-                                 if not line.startswith("aica-gamelib")]
+                    req_lines = [
+                        line for line in req_path.read_text().splitlines() if not line.startswith("aica-gamelib")
+                    ]
                     req_path.write_text("\n".join(req_lines))
 
                     # Copy gamelib source ignoring build artifacts/virtualenvs
@@ -131,7 +130,8 @@ def build_from_zip(
                         gamelib_src,
                         build_ctx / "gamelib",
                         ignore=shutil.ignore_patterns(
-                            '.venv', '__pycache__', '.pytest_cache', '*.pyc', '.git', '*.egg-info')
+                            ".venv", "__pycache__", ".pytest_cache", "*.pyc", ".git", "*.egg-info"
+                        ),
                     )
 
                     # Inject local package installation into the builder stage of Dockerfile
@@ -139,7 +139,9 @@ def build_from_zip(
                     new_df = []
                     injected = False
                     for line in df_lines:
-                        if not injected and (line.startswith("# Stage 2") or (line.startswith("FROM") and "builder" not in line)):  # noqa: E501
+                        if not injected and (
+                            line.startswith("# Stage 2") or (line.startswith("FROM") and "builder" not in line)
+                        ):  # noqa: E501
                             new_df.append("COPY gamelib /gamelib_local")
                             new_df.append("RUN pip install --no-cache-dir --prefix=/install /gamelib_local")
                             injected = True
@@ -235,11 +237,15 @@ def build_from_zip(
         try:
             client.containers.run(
                 image.id,
-                command=["python", "-c", f"with open('{entry_file}', 'rb') as f: compile(f.read(), '{entry_file}', 'exec')"],  # noqa: E501
-                remove=True
+                command=[
+                    "python",
+                    "-c",
+                    f"with open('{entry_file}', 'rb') as f: compile(f.read(), '{entry_file}', 'exec')",
+                ],  # noqa: E501
+                remove=True,
             )
         except docker.errors.ContainerError as e:
-            err_msg = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
+            err_msg = e.stderr.decode("utf-8") if isinstance(e.stderr, bytes) else str(e.stderr)
             try:
                 client.images.remove(image.id, force=True)
             except Exception:

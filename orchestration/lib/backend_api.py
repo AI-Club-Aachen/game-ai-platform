@@ -70,9 +70,7 @@ class BackendAPI:
             return response.json()
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error {e.response.status_code} for PATCH {url}: {e.response.text}")
-            raise BackendAPIError(
-                f"Failed to PATCH {endpoint}: {e.response.status_code} {e.response.text}"
-            ) from e
+            raise BackendAPIError(f"Failed to PATCH {endpoint}: {e.response.status_code} {e.response.text}") from e
         except Exception as e:
             logger.error(f"Error calling PATCH {url}: {e}")
             raise BackendAPIError(f"Failed to call {endpoint}: {e}") from e
@@ -97,9 +95,7 @@ class BackendAPI:
             return response.json()
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error {e.response.status_code} for GET {url}: {e.response.text}")
-            raise BackendAPIError(
-                f"Failed to GET {endpoint}: {e.response.status_code} {e.response.text}"
-            ) from e
+            raise BackendAPIError(f"Failed to GET {endpoint}: {e.response.status_code} {e.response.text}") from e
         except Exception as e:
             logger.error(f"Error calling GET {url}: {e}")
             raise BackendAPIError(f"Failed to call {endpoint}: {e}") from e
@@ -125,9 +121,7 @@ class BackendAPI:
             return response.json()
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error {e.response.status_code} for POST {url}: {e.response.text}")
-            raise BackendAPIError(
-                f"Failed to POST {endpoint}: {e.response.status_code} {e.response.text}"
-            ) from e
+            raise BackendAPIError(f"Failed to POST {endpoint}: {e.response.status_code} {e.response.text}") from e
         except Exception as e:
             logger.error(f"Error calling POST {url}: {e}")
             raise BackendAPIError(f"Failed to call {endpoint}: {e}") from e

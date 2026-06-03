@@ -89,12 +89,14 @@ def test_builder_succeeds_single_nested_folder(docker_client, create_zip, track_
 
 def test_builder_fails_multiple_nested_agent_not_found(create_zip):
     """Test that an agent deep in a subdirectory is NOT found if there are multiple root folders."""
-    zip_bytes = create_zip({
-        "subfolder/": "",
-        "subfolder/agent.py": "print('nested')",
-        "another_folder/": "",
-        "another_folder/file.txt": "abc"
-    })
+    zip_bytes = create_zip(
+        {
+            "subfolder/": "",
+            "subfolder/agent.py": "print('nested')",
+            "another_folder/": "",
+            "another_folder/file.txt": "abc",
+        }
+    )
     with pytest.raises(BuildError, match="No agent entry file found"):
         build_from_zip(zip_bytes, owner_id="fail_test")
 

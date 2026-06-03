@@ -17,6 +17,7 @@ class AgentCommunicationError(Exception):
 
 class AgentTimeLimitError(AgentCommunicationError):
     """Raised when an agent exceeds its per-turn time limit."""
+
     pass
 
 
@@ -27,6 +28,7 @@ def load_secure_defaults() -> dict[str, Any]:
         return {}
     with open(settings_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
 
 def build_docker_run_args() -> list[str]:
     settings = load_secure_defaults()
@@ -105,10 +107,11 @@ class AgentProcess:
 
         try:
             self.process = await asyncio.create_subprocess_exec(
-                "docker", *cmd_args,
+                "docker",
+                *cmd_args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
         except Exception as e:
             raise AgentCommunicationError(f"Failed to start container process: {e}")
@@ -209,9 +212,7 @@ class AgentProcess:
                             err_out = err_bytes.decode("utf-8", errors="replace").strip()
                             if err_out:
                                 self._stderr_tail = (
-                                    f"{self._stderr_tail}\n{err_out}".strip()
-                                    if self._stderr_tail
-                                    else err_out
+                                    f"{self._stderr_tail}\n{err_out}".strip() if self._stderr_tail else err_out
                                 )
                     except Exception:
                         pass
@@ -270,9 +271,7 @@ class AgentProcess:
                     if err:
                         decoded = err.decode("utf-8", errors="replace")
                         self._stderr_tail = (
-                            f"{self._stderr_tail}\n{decoded}".strip()
-                            if self._stderr_tail
-                            else decoded.strip()
+                            f"{self._stderr_tail}\n{decoded}".strip() if self._stderr_tail else decoded.strip()
                         )
                         logger.debug(f"Agent stdout/err remainder: {decoded}")
                 except Exception:

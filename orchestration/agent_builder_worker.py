@@ -25,9 +25,7 @@ async def process_build(submission_id: str, job_id: str, zip_path: str, api: Bac
         zip_bytes = zip_p.read_bytes()
 
         logger.info("Starting Docker build...")
-        result = await asyncio.to_thread(
-            build_from_zip, zip_bytes=zip_bytes, owner_id=submission_id
-        )
+        result = await asyncio.to_thread(build_from_zip, zip_bytes=zip_bytes, owner_id=submission_id)
 
         logger.info(f"Build success! Image ID: {result['image_id']}")
 

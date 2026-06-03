@@ -79,12 +79,7 @@ async def worker_loop():
                 logger.info(f"Received job: {job_data}")
 
                 if job_data.get("type") == "match":
-                    await process_match(
-                        job_data["match_id"],
-                        job_data["config"],
-                        job_data.get("agent_ids", []),
-                        api
-                    )
+                    await process_match(job_data["match_id"], job_data["config"], job_data.get("agent_ids", []), api)
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")
 
