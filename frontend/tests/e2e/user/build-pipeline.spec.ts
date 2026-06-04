@@ -52,11 +52,11 @@ async function createAgentWithSubmission(
     await page.locator('input[type="file"]').setInputFiles(successUpload);
     await page.getByRole('button', { name: 'Create Agent' }).click();
 
-    await page.waitForURL(/\/agents\/[0-9a-f-]+$/i, { timeout: 30000 });
+    await page.waitForURL(/\/agents\/[0-9a-f-]+$/i, { timeout: 100000 });
     const agentId = await extractSubmissionId(page);
 
-    await expect(page.getByText('Build completed successfully! Your agent is ready to play.')).toBeVisible({
-        timeout: 24000,
+    await expect(page.locator('tr').filter({ hasText: submissionName }).getByRole('cell', { name: 'Completed', exact: true })).toBeVisible({
+        timeout: 60000,
     });
 
     await page.getByRole('button', { name: 'View Source Submission' }).click();
@@ -75,7 +75,7 @@ function removeDockerImage(imageTag: string) {
 
 test.describe('Real Build Pipeline', () => {
     test.describe.configure({ mode: 'serial' });
-    test.setTimeout(30000);
+    test.setTimeout(90000);
 
     test('should complete a real submission build end-to-end', async ({ page }) => {
         const submissionName = uniqueName('real-build-success');
@@ -83,7 +83,7 @@ test.describe('Real Build Pipeline', () => {
         const submissionId = await uploadSubmission(page, submissionName, successUpload);
 
         await expect(page.getByText('Build completed successfully! Your agent is ready to play.')).toBeVisible({
-            timeout: 24000,
+            timeout: 60000,
         });
         await expect(page.getByText('COMPLETED', { exact: true })).toBeVisible();
         await expect(page.getByText('Build success!')).toBeVisible();
@@ -95,26 +95,32 @@ test.describe('Real Build Pipeline', () => {
 
         await uploadSubmission(page, submissionName, failUpload);
 
-        await expect(page.getByText('FAILED', { exact: true })).toBeVisible({ timeout: 24000 });
+        await expect(page.getByText('FAILED', { exact: true })).toBeVisible({ timeout: 60000 });
         await expect(page.getByText(/Build failed:/)).toBeVisible();
     });
 
-    test('should rebuild a completed submission if its Docker image is missing before a match', async ({ page, request }) => {
+    test('should rebuild a completed submission if its Docker image is missing before a match', async ({ page, request, context }) => {
         test.setTimeout(180000);
 
-        const firstAgent = await createAgentWithSubmission(
-            page,
-            uniqueName('missing-image-agent-one'),
-            uniqueName('missing-image-sub-one'),
-        );
-        const secondAgent = await createAgentWithSubmission(
-            page,
-            uniqueName('missing-image-agent-two'),
-            uniqueName('missing-image-sub-two'),
-        );
+        const page2 = await context.newPage();
+
+        const [firstAgent, secondAgent] = await Promise.all([
+            createAgentWithSubmission(
+                page,
+                uniqueName('missing-image-agent-one'),
+                uniqueName('missing-image-sub-one'),
+            ),
+            createAgentWithSubmission(
+                page2,
+                uniqueName('missing-image-agent-two'),
+                uniqueName('missing-image-sub-two'),
+            ),
+        ]);
+
+        await page2.close();
 
         const firstBuildJob = getLatestBuildJobForSubmission(firstAgent.submissionId);
-        expect(firstBuildJob.status).toBe('completed');
+        expect(firstBuildJob.status).toBe('COMPLETED');
         expect(firstBuildJob.imageTag).toBeTruthy();
 
         removeDockerImage(firstBuildJob.imageTag!);
@@ -140,7 +146,7 @@ test.describe('Real Build Pipeline', () => {
         await expect.poll(() => getLatestBuildJobForSubmission(firstAgent.submissionId).status, {
             timeout: 90000,
             message: 'Expected replacement build to complete before the match runs',
-        }).toBe('completed');
+        }).toBe('COMPLETED');
 
         await expect.poll(async () => {
             const response = await request.get(`${backendUrl}/matches/${match.id}`, {

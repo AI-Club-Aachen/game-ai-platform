@@ -31,7 +31,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-gameai}}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:-24}
@@ -88,6 +88,31 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - uploads_data:/app/uploads
+      - ../gamelib:/gamelib
+    user: root
+    networks:
+      - app-network
+
+  match-runner:
+    build:
+      context: ../orchestration
+      dockerfile: Dockerfile.worker
+    working_dir: /orchestration
+    command: python match_runner_worker.py
+    environment:
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:8000/api/v1}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - WORKER_API_KEY=${WORKER_API_KEY:-dev-worker-key-12345}
+      - LOG_LEVEL=${WORKER_LOG_LEVEL:-INFO}
+      - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:-10.0}
+      - USE_LOCAL_GAMELIB=True
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - ../gamelib:/gamelib
     user: root
     networks:
