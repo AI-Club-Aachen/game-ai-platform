@@ -51,12 +51,6 @@ const executeDbQuery = (sql: string, description: string) => {
     }
 };
 
-export type BuildJobSummary = {
-    id: string;
-    status: string;
-    imageTag: string | null;
-    createdAt: string;
-};
 
 
 export const promoteUserToAdmin = (email: string) => {
@@ -179,38 +173,3 @@ export const setSubmissionBuildStatus = (
     );
 };
 
-export const getLatestBuildJobForSubmission = (submissionId: string): BuildJobSummary => {
-    const safeSubmissionId = escapeSqlLiteral(submissionId);
-    const output = executeDbQuery(
-        `
-        SELECT id || '|' || status || '|' || COALESCE(image_tag, '') || '|' || created_at
-        FROM build_jobs
-        WHERE submission_id = '${safeSubmissionId}'
-        ORDER BY created_at DESC
-        LIMIT 1;
-        `,
-        `Reading latest build job for submission ${submissionId}`
-    );
-
-    const [id, status, imageTag, createdAt] = output.split('|');
-    if (!id || !status) {
-        throw new Error(`No build job found for submission ${submissionId}`);
-    }
-
-    return {
-        id,
-        status,
-        imageTag: imageTag || null,
-        createdAt,
-    };
-};
-
-export const countBuildJobsForSubmission = (submissionId: string): number => {
-    const safeSubmissionId = escapeSqlLiteral(submissionId);
-    const output = executeDbQuery(
-        `SELECT COUNT(*) FROM build_jobs WHERE submission_id = '${safeSubmissionId}';`,
-        `Counting build jobs for submission ${submissionId}`
-    );
-
-    return Number(output);
-};
