@@ -48,8 +48,8 @@ class AgentBase(ABC):
         """
         Writes output to stdout with prefix.
         """
-        PREFIX = "$$$OUTPUT$$$:"
-        print(PREFIX + output, flush=True)
+        prefix = "$$$OUTPUT$$$:"
+        print(prefix + output, flush=True)
 
     @abstractmethod
     def _read_init(self) -> dict:
