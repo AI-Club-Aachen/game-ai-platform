@@ -38,6 +38,8 @@ class BuildJob(SQLModel, table=True):
     image_id: str | None = Field(default=None, nullable=True)
     image_tag: str | None = Field(default=None, nullable=True)
 
+    cleanup_image: bool = Field(default=False, nullable=False)
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 

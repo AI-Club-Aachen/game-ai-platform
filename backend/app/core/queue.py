@@ -41,13 +41,14 @@ class JobQueue:
         else:
             logger.error(f"Failed to enqueue job to {queue_name}, Redis not connected")
 
-    async def enqueue_build(self, submission_id: UUID, zip_path: str, job_id: UUID) -> None:
+    async def enqueue_build(self, submission_id: UUID, zip_path: str, job_id: UUID, cleanup_image: bool = False) -> None:
         """Enqueue a build job for a submission."""
         payload = {
             "type": "build",
             "submission_id": str(submission_id),
             "job_id": str(job_id),
             "zip_path": zip_path,
+            "cleanup_image": cleanup_image,
         }
         await self._enqueue("queue:builds", payload)
 

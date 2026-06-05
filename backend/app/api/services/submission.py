@@ -39,6 +39,7 @@ class SubmissionService:
         file: UploadFile,
         game_type: GameType,
         name: str | None = None,
+        cleanup_image: bool = False,
     ) -> Submission:
         """
         Handle the full submission process:
@@ -72,11 +73,11 @@ class SubmissionService:
         self._repository.save(submission)
 
         # 3. Create job record
-        job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED)
+        job = BuildJob(submission_id=submission.id, status=JobStatus.QUEUED, cleanup_image=cleanup_image)
         job = self._job_repository.save_build_job(job)
 
         # 4. Enqueue job
-        await job_queue.enqueue_build(submission.id, submission.object_path, job.id)
+        await job_queue.enqueue_build(submission.id, submission.object_path, job.id, job.cleanup_image)
 
         return submission
 

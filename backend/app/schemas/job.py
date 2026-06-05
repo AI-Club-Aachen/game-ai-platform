@@ -22,6 +22,7 @@ class BuildJobRead(BaseModel):
     logs: str | None
     image_id: str | None
     image_tag: str | None
+    cleanup_image: bool
     created_at: datetime
     updated_at: datetime
 
