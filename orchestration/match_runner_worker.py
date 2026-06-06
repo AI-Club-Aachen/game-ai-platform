@@ -9,10 +9,10 @@ if os.getenv("USE_LOCAL_GAMELIB", "false").lower() == "true":
 
 import docker
 
+from lib.agent_builder import build_images_for_agents
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
 from lib.match_manager import _get_agent_image_tags, run_match
-from lib.agent_builder import build_images_for_agents
 
 _log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
 _log_level = getattr(logging, _log_level_name, logging.INFO)

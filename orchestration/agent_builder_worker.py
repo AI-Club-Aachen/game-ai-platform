@@ -78,7 +78,13 @@ async def worker_loop():
                 logger.info(f"Received job: {job_data}")
 
                 if job_data.get("type") == "build":
-                    await process_build(job_data["submission_id"], job_data["job_id"], job_data["zip_path"], job_data["cleanup_image"], api)
+                    await process_build(
+                        job_data["submission_id"],
+                        job_data["job_id"],
+                        job_data["zip_path"],
+                        job_data["cleanup_image"],
+                        api
+                    )
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")
 

@@ -5,18 +5,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps.services import (
     get_job_repository,
+    get_job_service,
     get_match_service,
     get_submission_service,
-    get_job_service,
 )
 from app.api.repositories.job import JobRepository
+from app.api.services.job import JobService, JobServiceError
 from app.api.services.match import MatchService
 from app.api.services.submission import SubmissionService
-from app.api.services.job import JobService, JobServiceError
 from app.schemas.job import (
+    BuildJobCreate,
     BuildJobRead,
     BuildJobUpdate,
-    BuildJobCreate,
     MatchJobRead,
     MatchJobUpdate,
 )

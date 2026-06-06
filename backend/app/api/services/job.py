@@ -1,8 +1,4 @@
 import logging
-from collections.abc import Sequence
-from datetime import UTC, datetime
-from typing import Any
-from uuid import UUID
 
 from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
@@ -43,6 +39,5 @@ class JobService:
             status=build_job_create.status,
             cleanup_image=build_job_create.cleanup_image,
         )
-        job = self._job_repository.save_build_job(job)
 
-        return job
+        return self._job_repository.save_build_job(job)

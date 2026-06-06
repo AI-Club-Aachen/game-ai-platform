@@ -197,7 +197,13 @@ async def _log(api: BackendAPI, match_id: str, status: str, msg: str) -> None:
 # Main match entrypoint
 # ---------------------------------------------------------------------------
 
-async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str], image_tags: list[str], api: BackendAPI) -> dict[str, Any]:
+async def run_match(
+    match_id: str,
+    config: dict[str, Any],
+    agent_ids: list[str],
+    image_tags: list[str],
+    api: BackendAPI
+) -> dict[str, Any]:
     """
     Execute a real match loop using standard I/O communication with dockerized agents.
     """

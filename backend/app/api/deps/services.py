@@ -15,8 +15,8 @@ from app.api.services.agent import AgentService
 from app.api.services.agent_container import AgentContainerService
 from app.api.services.auth import AuthService
 from app.api.services.email import EmailNotificationService
-from app.api.services.match import MatchService
 from app.api.services.job import JobService
+from app.api.services.match import MatchService
 from app.api.services.submission import SubmissionService
 from app.api.services.user import UserService
 from app.core.email import EmailClient, email_client
