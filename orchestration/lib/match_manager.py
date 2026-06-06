@@ -345,7 +345,7 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
                     logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
                     await cur_agent.send_state(state_json)
                     # Allow some overhead here in time out but expect exact time limit in returned cpu_time
-                    raw_move_json = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
+                    raw_move_json, _ = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
                     logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
 
                     # --- Safe JSON parsing ---------------------------------------

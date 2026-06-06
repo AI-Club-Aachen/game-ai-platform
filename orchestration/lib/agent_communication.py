@@ -182,9 +182,9 @@ class AgentProcess:
     # An agent producing more than this is either broken or adversarial.
     _MAX_RESPONSE_BYTES: int = 1 * 1024 * 1024
 
-    async def get_move(self, timeout: float | None = 30.0) -> str:
+    async def get_move(self, timeout: float | None = 30.0) -> tuple[str, list[str]]:
         """
-        Read one line of output from the agent (its move).
+        Read output from the agent (its move), along with any logs printed before the move.
 
         Args:
             timeout: Maximum seconds to wait. ``None`` means wait indefinitely.
@@ -197,38 +197,51 @@ class AgentProcess:
         if not self.process or not self.process.stdout:
             raise AgentCommunicationError("Process not started or stdout not available.")
 
+        logs = []
+        prefix = b"$$$OUTPUT$$$:"
+
         try:
-            coro = self.process.stdout.readline()
-            line: bytes = await asyncio.wait_for(coro, timeout=timeout)
-            if not line:
-                err_out = ""
-                if getattr(self.process, "stderr", None):
-                    try:
-                        err_bytes = await asyncio.wait_for(self.process.stderr.read(), timeout=2.0)
-                        if err_bytes:
-                            err_out = err_bytes.decode("utf-8", errors="replace").strip()
-                            if err_out:
-                                self._stderr_tail = (
-                                    f"{self._stderr_tail}\n{err_out}".strip()
-                                    if self._stderr_tail
-                                    else err_out
-                                )
-                    except Exception:
-                        pass
-                msg = "Agent process disconnected unexpectedly."
-                if err_out:
-                    msg += f" Stderr: {err_out}"
-                raise AgentCommunicationError(msg)
+            deadline = asyncio.get_event_loop().time() + timeout if timeout else None
 
-            # Enforce hard size cap before decoding to prevent memory exhaustion.
-            if len(line) > self._MAX_RESPONSE_BYTES:
-                raise AgentCommunicationError(
-                    f"Player {self.player_id} stdout response exceeds the "
-                    f"{self._MAX_RESPONSE_BYTES // 1024} KiB safety limit "
-                    f"({len(line)} bytes received)."
-                )
+            while True:
+                time_left = max(0.01, deadline - asyncio.get_event_loop().time()) if deadline else None
+                coro = self.process.stdout.readline()
+                line: bytes = await asyncio.wait_for(coro, timeout=time_left)
 
-            return line.decode("utf-8").strip()
+                if not line:
+                    err_out = ""
+                    if getattr(self.process, "stderr", None):
+                        try:
+                            err_bytes = await asyncio.wait_for(self.process.stderr.read(), timeout=2.0)
+                            if err_bytes:
+                                err_out = err_bytes.decode("utf-8", errors="replace").strip()
+                                if err_out:
+                                    self._stderr_tail = (
+                                        f"{self._stderr_tail}\n{err_out}".strip()
+                                        if self._stderr_tail
+                                        else err_out
+                                    )
+                        except Exception:
+                            pass
+                    msg = "Agent process disconnected unexpectedly."
+                    if err_out:
+                        msg += f" Stderr: {err_out}"
+                    raise AgentCommunicationError(msg)
+
+                # Enforce hard size cap before decoding to prevent memory exhaustion.
+                if len(line) > self._MAX_RESPONSE_BYTES:
+                    raise AgentCommunicationError(
+                        f"Player {self.player_id} stdout response exceeds the "
+                        f"{self._MAX_RESPONSE_BYTES // 1024} KiB safety limit "
+                        f"({len(line)} bytes received)."
+                    )
+
+                if line.startswith(prefix):
+                    move_str = line[len(prefix):].decode("utf-8", errors="replace").strip()
+                    return move_str, logs
+                else:
+                    logs.append(line.decode("utf-8", errors="replace").rstrip("\n"))
+
         except asyncio.TimeoutError:
             raise AgentTimeLimitError(
                 f"Player {self.player_id} exceeded the per-turn time limit of {timeout}s (including overhead)."
