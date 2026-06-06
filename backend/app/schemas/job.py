@@ -29,6 +29,12 @@ class BuildJobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BuildJobCreate(BaseModel):
+    submission_id: UUID
+    status: JobStatus = JobStatus.QUEUED
+    cleanup_image: bool = True
+
+
 class MatchJobUpdate(BaseModel):
     """Schema for updating a match job (used by workers)."""
 
@@ -39,6 +45,7 @@ class MatchJobRead(BaseModel):
     id: UUID
     match_id: UUID
     status: JobStatus
+    create_images: bool
     created_at: datetime
     updated_at: datetime
 

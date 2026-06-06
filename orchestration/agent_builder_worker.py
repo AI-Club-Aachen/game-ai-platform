@@ -13,8 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_builder_worker")
 
 
-async def process_build(submission_id: str, job_id: str, zip_path: str, api: BackendAPI, cleanup_image: bool = False):
-    logger.info(f"Processing build for job {job_id} (submission {submission_id})")
+async def process_build(submission_id: str, job_id: str, zip_path: str, cleanup_image: bool, api: BackendAPI):
+    logger.info(f"Processing build for job {job_id} (submission {submission_id}), cleanup: {cleanup_image})")
 
     try:
         # Update status to RUNNING
@@ -78,8 +78,7 @@ async def worker_loop():
                 logger.info(f"Received job: {job_data}")
 
                 if job_data.get("type") == "build":
-                    cleanup = job_data.get("cleanup_image", False)
-                    await process_build(job_data["submission_id"], job_data["job_id"], job_data["zip_path"], api, cleanup)
+                    await process_build(job_data["submission_id"], job_data["job_id"], job_data["zip_path"], job_data["cleanup_image"], api)
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")
 

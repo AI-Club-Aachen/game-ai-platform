@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import io
 import logging
@@ -9,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import docker
+
+from lib.backend_api import BackendAPI
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +261,70 @@ def build_from_zip(
         "labels": labels,
         "size": image.attrs.get("Size"),
     }
+
+
+async def build_images_for_agents(agent_ids: list[str], api: BackendAPI) -> list[str]:
+    """
+    Used by match runner worker to build images for agents.
+    This is needed when the agent builder cleans up images after building.
+    
+    Args:
+        agent_ids: List of agent UUIDs to build images for
+        api: BackendAPI instance for fetching agent and submission data
+    
+    Returns:
+        List of Docker image tags in the same order as agent_ids
+    
+    Raises:
+        BuildError: If any agent lacks an active submission, submission cannot be fetched,
+                   or image building fails
+    """
+    image_tags = []
+    
+    for agent_id in agent_ids:
+        logger.info(f"Building image for agent {agent_id}")
+        
+        try:
+            # Get agent to find its active submission
+            agent = await api.get_agent(agent_id)
+            submission_id = agent.get("active_submission_id")
+            
+            if not submission_id:
+                raise BuildError(f"Agent {agent_id} does not have an active submission")
+            
+            # Get submission to find the zip file path
+            submission = await api.get_submission(submission_id)
+            object_path = submission.get("object_path")
+            user_id = submission.get("user_id")
+            
+            if not object_path:
+                raise BuildError(f"Submission {submission_id} does not have an object_path")
+            
+            # Read the zip file
+            zip_file_path = Path(object_path)
+            if not zip_file_path.exists():
+                raise BuildError(f"ZIP file not found at {object_path}")
+            
+            zip_bytes = zip_file_path.read_bytes()
+            logger.debug(f"Read ZIP file for agent {agent_id}: {len(zip_bytes)} bytes")
+            
+            # Build the image
+            logger.info(f"Building Docker image for agent {agent_id} (submission {submission_id})")
+            result = await asyncio.to_thread(
+                build_from_zip, 
+                zip_bytes=zip_bytes, 
+                owner_id=str(user_id)
+            )
+            
+            image_tag = result["tag"]
+            logger.info(f"Successfully built image for agent {agent_id}: {image_tag}")
+            image_tags.append(image_tag)
+            
+        except Exception as e:
+            logger.error(f"Failed to build image for agent {agent_id}: {e}")
+            raise BuildError(f"Failed to build image for agent {agent_id}: {e}") from e
+    
+    return image_tags
 
 
 if __name__ == "__main__":

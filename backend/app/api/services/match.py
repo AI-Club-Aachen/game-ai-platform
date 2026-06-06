@@ -62,7 +62,7 @@ class MatchService:
         job = self._job_repository.save_match_job(job)
 
         # Enqueue job
-        await job_queue.enqueue_match(match.id, match.config, job.id, match.agent_ids)
+        await job_queue.enqueue_match(match.id, match.config, job.id, match.agent_ids, job.create_images)
 
         return match
 

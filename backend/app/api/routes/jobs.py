@@ -7,13 +7,16 @@ from app.api.deps.services import (
     get_job_repository,
     get_match_service,
     get_submission_service,
+    get_job_service,
 )
 from app.api.repositories.job import JobRepository
 from app.api.services.match import MatchService
 from app.api.services.submission import SubmissionService
+from app.api.services.job import JobService, JobServiceError
 from app.schemas.job import (
     BuildJobRead,
     BuildJobUpdate,
+    BuildJobCreate,
     MatchJobRead,
     MatchJobUpdate,
 )
@@ -57,6 +60,18 @@ def update_build_job(
             detail="Build job not found",
         )
     return job
+
+
+@router.post("", response_model=BuildJobRead, status_code=status.HTTP_201_CREATED)
+def create_build_job(
+    build_job_create: BuildJobCreate,
+    job_service: Annotated[JobService, Depends(get_job_service)],
+) -> BuildJobRead:
+    """Create a new build job. Only used if outside of submission creation and build worker flow."""
+    try:
+        return job_service.create_build_job_for_submission(build_job_create)
+    except JobServiceError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/match/{job_id}", response_model=MatchJobRead)

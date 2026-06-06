@@ -7,9 +7,12 @@ import sys
 if os.getenv("USE_LOCAL_GAMELIB", "false").lower() == "true":
     sys.path.insert(0, "/gamelib")
 
+import docker
+
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
-from lib.match_manager import run_match
+from lib.match_manager import _get_agent_image_tags, run_match
+from lib.agent_builder import build_images_for_agents
 
 _log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
 _log_level = getattr(logging, _log_level_name, logging.INFO)
@@ -21,15 +24,25 @@ logger = logging.getLogger("match_runner_worker")
 logger.info(f"Log level set to {_log_level_name}")
 
 
-async def process_match(match_id: str, config: dict, agent_ids: list[str], api: BackendAPI):
+async def process_match(match_id: str, config: dict, agent_ids: list[str], api: BackendAPI, create_images: bool):
     logger.info(f"Processing match {match_id}")
 
+    image_tags = []
+
     try:
+        if create_images:
+            logger.info(f"Creating images for agents: {agent_ids}")
+            image_tags = await build_images_for_agents(agent_ids, api)
+        else:
+            logger.debug(f"[{match_id}] Resolving image tags for {len(agent_ids)} agent(s): {agent_ids}")
+            image_tags = await _get_agent_image_tags(agent_ids, api)
+        logger.debug(f"[{match_id}] Image tags for {agent_ids}: {image_tags}")
+
         # Update status to RUNNING
         await api.update_match(match_id, status="running")
 
         logger.info("Starting Match execution...")
-        result = await run_match(match_id, config, agent_ids, api)
+        result = await run_match(match_id, config, agent_ids, image_tags, api)
 
         if result.get("status") == "error":
             logger.error(f"Match execution returned error: {result.get('reason')}")
@@ -53,12 +66,22 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
             result=result,
         )
 
-    except Exception:
+    except Exception as e:
         logger.exception(f"Match execution failed for {match_id}")
+        logger.error(f"Error details: {e}")
         await api.update_match(
             match_id,
             status="failed",
         )
+    finally:
+        logger.info(f"Cleaning up Docker images for match {match_id}...")
+        client = docker.from_env()
+        for image_tag in image_tags:
+            logger.info(f"Cleaning up image: {image_tag}")
+            try:
+                client.images.remove(image_tag, force=True)
+            except Exception as e:
+                logger.error(f"Failed to clean up image {image_tag}: {e}")
 
 
 async def worker_loop():
@@ -83,7 +106,8 @@ async def worker_loop():
                         job_data["match_id"],
                         job_data["config"],
                         job_data.get("agent_ids", []),
-                        api
+                        api,
+                        job_data["create_images"],
                     )
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")

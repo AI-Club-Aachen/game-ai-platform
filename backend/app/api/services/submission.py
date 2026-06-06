@@ -39,7 +39,7 @@ class SubmissionService:
         file: UploadFile,
         game_type: GameType,
         name: str | None = None,
-        cleanup_image: bool = False,
+        cleanup_image: bool = True,
     ) -> Submission:
         """
         Handle the full submission process:

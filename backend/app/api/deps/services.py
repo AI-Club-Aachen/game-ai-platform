@@ -16,6 +16,7 @@ from app.api.services.agent_container import AgentContainerService
 from app.api.services.auth import AuthService
 from app.api.services.email import EmailNotificationService
 from app.api.services.match import MatchService
+from app.api.services.job import JobService
 from app.api.services.submission import SubmissionService
 from app.api.services.user import UserService
 from app.core.email import EmailClient, email_client
@@ -87,6 +88,15 @@ def get_match_service(
 ) -> MatchService:
     """Provide a MatchService with an injected Repository."""
     return MatchService(repository, job_repository, agent_repository)
+
+
+def get_job_service(
+    job_repository: Annotated[JobRepository, Depends(get_job_repository)],
+    agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
+    submission_repository: Annotated[SubmissionRepository, Depends(get_submission_repository)],
+) -> JobService:
+    """Provide a JobService with injected repositories."""
+    return JobService(job_repository, agent_repository, submission_repository)
 
 
 def get_agent_service(

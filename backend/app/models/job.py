@@ -38,7 +38,7 @@ class BuildJob(SQLModel, table=True):
     image_id: str | None = Field(default=None, nullable=True)
     image_tag: str | None = Field(default=None, nullable=True)
 
-    cleanup_image: bool = Field(default=False, nullable=False)
+    cleanup_image: bool = Field(default=True, nullable=False)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
@@ -55,6 +55,8 @@ class MatchJob(SQLModel, table=True):
     match_id: UUID = Field(index=True, nullable=False)
 
     status: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
+
+    create_images: bool = Field(default=True, nullable=False)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
