@@ -13,18 +13,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_builder_worker")
 
 
-async def process_build(submission_id: str, job_id: str, zip_path: str, cleanup_image: bool, api: BackendAPI):
+async def process_build(submission_id: str, job_id: str, cleanup_image: bool, api: BackendAPI):
     logger.info(f"Processing build for job {job_id} (submission {submission_id}), cleanup: {cleanup_image})")
 
     try:
         # Update status to RUNNING
         await api.update_build_job(job_id, status="running", logs="Starting build...\n")
 
-        zip_p = Path(zip_path)
-        if not zip_p.exists():
-            raise FileNotFoundError(f"Zip file not found: {zip_path}")
-
-        zip_bytes = zip_p.read_bytes()
+        logger.info("Downloading submission ZIP from backend...")
+        zip_bytes = await api.download_submission(submission_id)
 
         logger.info("Starting Docker build...")
         result = await asyncio.to_thread(
@@ -81,7 +78,6 @@ async def worker_loop():
                     await process_build(
                         job_data["submission_id"],
                         job_data["job_id"],
-                        job_data["zip_path"],
                         job_data["cleanup_image"],
                         api
                     )

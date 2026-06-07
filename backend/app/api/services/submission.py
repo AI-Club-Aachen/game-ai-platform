@@ -77,7 +77,7 @@ class SubmissionService:
         job = self._job_repository.save_build_job(job)
 
         # 4. Enqueue job
-        await job_queue.enqueue_build(submission.id, submission.object_path, job.id, job.cleanup_image)
+        await job_queue.enqueue_build(submission.id, job.id, job.cleanup_image)
 
         return submission
 

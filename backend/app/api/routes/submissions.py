@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 
 from app.api.deps import get_current_user, get_submission_service
 from app.api.services.submission import SubmissionService, SubmissionServiceError
@@ -51,6 +53,35 @@ def get_submission(
         raise HTTPException(status_code=403, detail="Not authorized to view this submission")
 
     return SubmissionRead.model_validate(submission)
+
+
+# GET /api/v1/submissions/{submission_id}/download
+@router.get("/{submission_id}/download")
+def download_submission(
+    submission_id: str,  # UUID
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: SubmissionService = Depends(get_submission_service),
+) -> FileResponse:
+    """
+    Download the zip file for a submission.
+    """
+    submission = service.get_submission(submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    # Check if user owns submission or is admin (worker defaults to admin)
+    if submission.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to download this submission")
+
+    file_path = Path(submission.object_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Submission file not found on disk")
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/zip",
+        filename=f"{submission.id}.zip",
+    )
 
 
 # GET /api/v1/submissions/

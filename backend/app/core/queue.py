@@ -44,7 +44,6 @@ class JobQueue:
     async def enqueue_build(
         self,
         submission_id: UUID,
-        zip_path: str,
         job_id: UUID,
         cleanup_image: bool = False
     ) -> None:
@@ -53,7 +52,6 @@ class JobQueue:
             "type": "build",
             "submission_id": str(submission_id),
             "job_id": str(job_id),
-            "zip_path": zip_path,
             "cleanup_image": cleanup_image,
         }
         await self._enqueue("queue:builds", payload)

@@ -292,21 +292,13 @@ async def build_images_for_agents(agent_ids: list[str], api: BackendAPI) -> list
             if not submission_id:
                 raise BuildError(f"Agent {agent_id} does not have an active submission")
 
-            # Get submission to find the zip file path
+            # Get submission to find the user_id
             submission = await api.get_submission(submission_id)
-            object_path = submission.get("object_path")
             user_id = submission.get("user_id")
 
-            if not object_path:
-                raise BuildError(f"Submission {submission_id} does not have an object_path")
-
-            # Read the zip file
-            zip_file_path = Path(object_path)
-            if not zip_file_path.exists():
-                raise BuildError(f"ZIP file not found at {object_path}")
-
-            zip_bytes = zip_file_path.read_bytes()
-            logger.debug(f"Read ZIP file for agent {agent_id}: {len(zip_bytes)} bytes")
+            # Download the zip file from backend API
+            zip_bytes = await api.download_submission(submission_id)
+            logger.debug(f"Downloaded ZIP file for agent {agent_id}: {len(zip_bytes)} bytes")
 
             # Build the image
             logger.info(f"Building Docker image for agent {agent_id} (submission {submission_id})")

@@ -115,7 +115,8 @@ class JobQueue:
         {
             "type": "build",
             "submission_id": "<uuid>",
-            "zip_path": "<path>"
+            "job_id": "<uuid>",
+            "cleanup_image": bool
         }
 
         Args:
