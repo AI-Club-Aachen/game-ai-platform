@@ -6,12 +6,8 @@ on:
       - main
       - feat/publish-worker-images
     paths:
-      - 'orchestration/**'
+      - 'orchestration/Dockerfile.worker'
       - '.github/workflows/build-worker-image.yml'
-      - '!orchestration/Dockerfile.base'
-      - '!orchestration/base_requirements.txt'
-      - '!orchestration/README.md'
-      - '!orchestration/tests/**'
   workflow_dispatch:
 
 env:
