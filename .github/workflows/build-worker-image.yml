@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/publish-worker-images
     paths:
       - 'orchestration/Dockerfile.worker'
       - '.github/workflows/build-worker-image.yml'
