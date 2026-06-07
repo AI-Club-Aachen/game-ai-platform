@@ -122,7 +122,6 @@ services:
         condition: service_started
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - uploads_data:/app/uploads
       - ./gamelib:/gamelib:z
     user: root
     networks:
@@ -149,7 +148,6 @@ services:
         condition: service_started
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - uploads_data:/app/uploads
       - ./gamelib:/gamelib:z
     user: root
     networks:
