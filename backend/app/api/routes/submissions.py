@@ -26,7 +26,8 @@ async def create_submission(
     Upload an agent zip file and queue it for building.
     """
     try:
-        return await service.create_submission(current_user.id, file, game_type=game_type, name=name)
+        submission = await service.create_submission(current_user.id, file, game_type=game_type, name=name)
+        return SubmissionRead.model_validate(submission)
     except SubmissionServiceError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -49,7 +50,7 @@ def get_submission(
     if submission.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to view this submission")
 
-    return submission
+    return SubmissionRead.model_validate(submission)
 
 
 # GET /api/v1/submissions/
@@ -63,7 +64,8 @@ def list_submissions(
     """
     List submissions for the current user.
     """
-    return service.list_user_submissions(current_user.id, skip, limit)
+    submissions = service.list_user_submissions(current_user.id, skip, limit)
+    return [SubmissionRead.model_validate(s) for s in submissions]
 
 
 @router.delete("/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)

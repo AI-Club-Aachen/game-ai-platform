@@ -197,7 +197,13 @@ async def _log(api: BackendAPI, match_id: str, status: str, msg: str) -> None:
 # Main match entrypoint
 # ---------------------------------------------------------------------------
 
-async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str], api: BackendAPI) -> dict[str, Any]:
+async def run_match(
+    match_id: str,
+    config: dict[str, Any],
+    agent_ids: list[str],
+    image_tags: list[str],
+    api: BackendAPI
+) -> dict[str, Any]:
     """
     Execute a real match loop using standard I/O communication with dockerized agents.
     """
@@ -221,15 +227,6 @@ async def run_match(match_id: str, config: dict[str, Any], agent_ids: list[str],
         except ImportError as e:
             logger.error(f"[{match_id}] Failed to import game modules for type {game_type!r}: {e}")
             return {"status": "error", "reason": f"Game type {game_type} not supported: {e}"}
-
-        # Determine agent image tags
-        logger.debug(f"[{match_id}] Resolving image tags for {len(agent_ids)} agent(s): {agent_ids}")
-        try:
-            image_tags = await _get_agent_image_tags(agent_ids, api)
-            logger.debug(f"[{match_id}] Image tags resolved: {image_tags}")
-        except AgentCommunicationError as e:
-            logger.error(f"[{match_id}] Image tag resolution failed: {e}")
-            return {"status": "error", "reason": str(e)}
 
         agents = []
         started_at: list[datetime | None] = []

@@ -22,10 +22,17 @@ class BuildJobRead(BaseModel):
     logs: str | None
     image_id: str | None
     image_tag: str | None
+    cleanup_image: bool
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BuildJobCreate(BaseModel):
+    submission_id: UUID
+    status: JobStatus = JobStatus.QUEUED
+    cleanup_image: bool = True
 
 
 class MatchJobUpdate(BaseModel):
@@ -38,6 +45,7 @@ class MatchJobRead(BaseModel):
     id: UUID
     match_id: UUID
     status: JobStatus
+    create_images: bool
     created_at: datetime
     updated_at: datetime
 

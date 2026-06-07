@@ -3,6 +3,8 @@ import asyncio
 import logging
 from pathlib import Path
 
+import docker
+
 from lib.agent_builder import build_from_zip
 from lib.backend_api import BackendAPI
 from lib.job_queue import JobQueue
@@ -11,8 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_builder_worker")
 
 
-async def process_build(submission_id: str, job_id: str, zip_path: str, api: BackendAPI):
-    logger.info(f"Processing build for job {job_id} (submission {submission_id})")
+async def process_build(submission_id: str, job_id: str, zip_path: str, cleanup_image: bool, api: BackendAPI):
+    logger.info(f"Processing build for job {job_id} (submission {submission_id}), cleanup: {cleanup_image})")
 
     try:
         # Update status to RUNNING
@@ -39,6 +41,15 @@ async def process_build(submission_id: str, job_id: str, zip_path: str, api: Bac
             image_id=result["image_id"],
             image_tag=result["tag"],
         )
+
+        if cleanup_image:
+            logger.info(f"Cleaning up image {result['image_id']} as requested.")
+            client = docker.from_env()
+            try:
+                client.images.remove(result["image_id"], force=True)
+                logger.info("Image successfully cleaned up.")
+            except Exception as e:
+                logger.error(f"Failed to clean up image: {e}")
 
     except Exception as e:
         logger.exception(f"Build failed for job {job_id}: {e}")
@@ -67,7 +78,13 @@ async def worker_loop():
                 logger.info(f"Received job: {job_data}")
 
                 if job_data.get("type") == "build":
-                    await process_build(job_data["submission_id"], job_data["job_id"], job_data["zip_path"], api)
+                    await process_build(
+                        job_data["submission_id"],
+                        job_data["job_id"],
+                        job_data["zip_path"],
+                        job_data["cleanup_image"],
+                        api
+                    )
                 else:
                     logger.warning(f"Unknown job type: {job_data.get('type')}")
 
