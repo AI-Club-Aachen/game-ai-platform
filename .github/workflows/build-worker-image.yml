@@ -7,6 +7,7 @@ on:
       - feat/publish-worker-images
     paths:
       - 'orchestration/**'
+      - '.github/workflows/build-worker-image.yml'
       - '!orchestration/Dockerfile.base'
       - '!orchestration/base_requirements.txt'
       - '!orchestration/README.md'
@@ -61,4 +62,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
