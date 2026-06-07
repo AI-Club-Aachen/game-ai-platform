@@ -178,6 +178,30 @@ class BackendAPI:
         """
         return await self._get(f"/submissions/{submission_id}")
 
+    async def download_submission(self, submission_id: str) -> bytes:
+        """
+        Download submission zip file data.
+
+        Args:
+            submission_id: Submission UUID
+
+        Returns:
+            bytes: ZIP file content
+        """
+        url = f"{self.backend_url}/submissions/{submission_id}/download"
+        try:
+            response = await self._client.get(url)
+            response.raise_for_status()
+            return response.content
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error {e.response.status_code} for GET {url}: {e.response.text}")
+            raise BackendAPIError(
+                f"Failed to download submission {submission_id}: {e.response.status_code} {e.response.text}"
+            ) from e
+        except Exception as e:
+            logger.error(f"Error downloading submission {submission_id}: {e}")
+            raise BackendAPIError(f"Failed to download submission {submission_id}: {e}") from e
+
     async def get_agent(self, agent_id: str) -> dict[str, Any]:
         """
         Get an agent by ID.
