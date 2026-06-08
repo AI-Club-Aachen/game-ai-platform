@@ -24,6 +24,7 @@ BACKEND_URL=$(fetch_metadata "backend_url" || echo "")
 REDIS_URL=$(fetch_metadata "redis_url" || echo "")
 WORKER_TOKEN=$(fetch_metadata "worker_token" || echo "")
 WORKER_IMAGE=$(fetch_metadata "worker_image" || echo "")
+WORKER_COMMAND=$(fetch_metadata "worker_command" || echo "")
 
 # 2. Fail-fast validation
 MISSING_KEYS=()
@@ -40,10 +41,11 @@ fi
 echo "All required metadata values verified."
 echo "Worker Image: ${WORKER_IMAGE}"
 echo "Backend URL: ${BACKEND_URL}"
+if [ -n "${WORKER_COMMAND}" ]; then
+  echo "Worker Command: ${WORKER_COMMAND}"
+fi
 
 # 3. Authenticate with GCP Artifact Registry / Container Registry if needed
-# Container-Optimized OS has docker-credential-gcr built-in, which configures
-# Docker to use the instance service account credentials to pull from GCP registries.
 if [[ "${WORKER_IMAGE}" =~ gcr.io || "${WORKER_IMAGE}" =~ pkg.dev ]]; then
   echo "Configuring Docker credentials helper for GCP registries..."
   docker-credential-gcr configure-docker --registries="${WORKER_IMAGE%%/*}" || true
@@ -65,16 +67,41 @@ if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}$"; then
 fi
 
 # 6. Start the worker container
-# Standard output/error from the container will go to journald,
-# which Container-Optimized OS automatically forwards to Google Cloud Logging.
+# Mounting /var/run/docker.sock and running as root are necessary since the worker orchestrates
+# other docker containers for agent builds and matches.
+# Passes both WORKER_TOKEN and WORKER_API_KEY for compatibility.
 echo "Launching worker container..."
-docker run -d \
-  --name "${CONTAINER_NAME}" \
-  --restart unless-stopped \
-  -e BACKEND_URL="${BACKEND_URL}" \
-  -e REDIS_URL="${REDIS_URL}" \
-  -e WORKER_TOKEN="${WORKER_TOKEN}" \
-  "${WORKER_IMAGE}"
+
+if [ -n "${WORKER_COMMAND}" ]; then
+  echo "Executing command in container: ${WORKER_COMMAND}"
+  docker run -d \
+    --name "${CONTAINER_NAME}" \
+    --restart unless-stopped \
+    --user root \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e BACKEND_URL="${BACKEND_URL}" \
+    -e REDIS_URL="${REDIS_URL}" \
+    -e WORKER_TOKEN="${WORKER_TOKEN}" \
+    -e WORKER_API_KEY="${WORKER_TOKEN}" \
+    -e USE_LOCAL_GAMELIB="false" \
+    -e BUILD_LOCAL_BASE_IMAGE="false" \
+    "${WORKER_IMAGE}" \
+    sh -c "${WORKER_COMMAND}"
+else
+  echo "Executing default container command..."
+  docker run -d \
+    --name "${CONTAINER_NAME}" \
+    --restart unless-stopped \
+    --user root \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e BACKEND_URL="${BACKEND_URL}" \
+    -e REDIS_URL="${REDIS_URL}" \
+    -e WORKER_TOKEN="${WORKER_TOKEN}" \
+    -e WORKER_API_KEY="${WORKER_TOKEN}" \
+    -e USE_LOCAL_GAMELIB="false" \
+    -e BUILD_LOCAL_BASE_IMAGE="false" \
+    "${WORKER_IMAGE}"
+fi
 
 echo "==========================================="
 echo "Game Worker Initialization Completed Successfully"

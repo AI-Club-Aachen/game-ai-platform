@@ -42,6 +42,7 @@ resource "google_compute_instance_template" "worker" {
     redis_url      = var.redis_url
     worker_token   = var.worker_token
     worker_image   = var.worker_image
+    worker_command = var.worker_command
     startup-script = file("${path.module}/startup.sh")
   }
 

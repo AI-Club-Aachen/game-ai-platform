@@ -43,7 +43,8 @@ Create a `terraform.tfvars` file inside `deploy/terraform/` to configure the dep
 | `project_id` | `string` | The GCP Project ID where resources will be deployed. | *(Required)* |
 | `region` | `string` | The GCP region (e.g. `us-central1`). | *(Required)* |
 | `zone` | `string` | The GCP zone (e.g. `us-central1-a`). | *(Required)* |
-| `worker_image` | `string` | Docker image path for the worker container (e.g. `us-central1-docker.pkg.dev/my-project/my-repo/worker:v1`). | *(Required)* |
+| `worker_image` | `string` | Docker image path for the worker container. | `"ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"` |
+| `worker_command` | `string` | Optional command to override the container's entrypoint/CMD (e.g. `python agent_builder_worker.py`). | `""` |
 | `backend_url` | `string` | The connection URL for the orchestrator backend. | *(Required)* |
 | `redis_url` | `string` | The Redis connection URL (e.g. `redis://10.0.0.3:6379`). | *(Required)* |
 | `worker_token` | `string` | Secret authentication token used by the worker (marked sensitive). | *(Required)* |
@@ -54,13 +55,14 @@ Create a `terraform.tfvars` file inside `deploy/terraform/` to configure the dep
 ### Example `terraform.tfvars`
 
 ```hcl
-project_id   = "my-gcp-project-123"
-region       = "us-central1"
-zone         = "us-central1-a"
-worker_image = "us-central1-docker.pkg.dev/my-gcp-project-123/game-registry/worker:latest"
-backend_url  = "https://api.mygameplatform.com"
-redis_url    = "redis://10.128.0.5:6379"
-worker_token = "super-secret-auth-token-xyz"
+project_id     = "my-gcp-project-123"
+region         = "us-central1"
+zone           = "us-central1-a"
+worker_image   = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"
+worker_command = "python agent_builder_worker.py"
+backend_url    = "https://api.mygameplatform.com"
+redis_url      = "redis://10.128.0.5:6379"
+worker_token   = "super-secret-auth-token-xyz"
 ```
 
 ---

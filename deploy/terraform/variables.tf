@@ -14,8 +14,15 @@ variable "zone" {
 }
 
 variable "worker_image" {
-  description = "The Docker image tag for the worker container (e.g. gcr.io/my-project/game-worker:latest)."
+  description = "The Docker image tag for the worker container."
   type        = string
+  default     = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"
+}
+
+variable "worker_command" {
+  description = "The command to run inside the worker container (e.g. 'python agent_builder_worker.py' or 'python match_runner_worker.py')."
+  type        = string
+  default     = ""
 }
 
 variable "backend_url" {
