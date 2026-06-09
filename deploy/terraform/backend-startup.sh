@@ -1,0 +1,275 @@
+#!/bin/bash
+# Startup script for Ubuntu 24.04 LTS instances running the backend Docker Compose stack.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# Redirect all stdout/stderr to a log file for debugging
+exec > >(tee -i /var/log/backend-startup.log) 2>&1
+
+echo "==========================================="
+echo "Starting Backend VM Initialization Script"
+echo "==========================================="
+
+# 1. Install Docker & Docker Compose
+echo "Updating apt packages and installing dependencies..."
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y ca-certificates curl gnupg git openssl certbot
+
+# Add Docker's official GPG key
+echo "Adding Docker official GPG key..."
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add Docker repository to Apt sources
+echo "Adding Docker repository to sources..."
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Enable and start Docker service
+systemctl enable docker
+systemctl start docker
+
+# 2. Fetch parameters from metadata server
+METADATA_URL="http://metadata.google.internal/computeMetadata/v1/instance/attributes"
+fetch_metadata() {
+  local key="$1"
+  curl -s -f -H "Metadata-Flavor: Google" "${METADATA_URL}/${key}"
+}
+
+echo "Fetching configuration from metadata server..."
+REPO_URL=$(fetch_metadata "repo_url")
+
+# 3. Clone repository
+INSTALL_DIR="/opt/gameai"
+echo "Cloning repository ${REPO_URL} into ${INSTALL_DIR}..."
+mkdir -p "${INSTALL_DIR}"
+if [ -d "${INSTALL_DIR}/.git" ]; then
+  echo "Directory ${INSTALL_DIR} already contains a git repository. Pulling latest..."
+  cd "${INSTALL_DIR}"
+  git fetch --all
+  git reset --hard origin/feat/deploy-workers || git reset --hard HEAD
+else
+  rm -rf "${INSTALL_DIR}"
+  git clone "${REPO_URL}" "${INSTALL_DIR}"
+  cd "${INSTALL_DIR}"
+fi
+
+# 4. Generate SSL Certificates
+echo "Setting up SSL certificates..."
+mkdir -p "${INSTALL_DIR}/certs"
+
+# Fetch domain details from instance metadata
+DOMAIN_NAME=$(fetch_metadata "domain_name" || echo "")
+CERTBOT_EMAIL=$(fetch_metadata "certbot_email" || echo "")
+
+echo "Generating fallback self-signed SSL certificates..."
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout "${INSTALL_DIR}/certs/selfsigned.key" \
+  -out "${INSTALL_DIR}/certs/selfsigned.crt" \
+  -subj "/C=DE/ST=NRW/L=Aachen/O=AI-Club/CN=game-ai-platform"
+
+# Default active certificates to self-signed initially
+cp "${INSTALL_DIR}/certs/selfsigned.crt" "${INSTALL_DIR}/certs/active.crt"
+cp "${INSTALL_DIR}/certs/selfsigned.key" "${INSTALL_DIR}/certs/active.key"
+
+if [ -n "${DOMAIN_NAME}" ]; then
+  echo "Domain name '${DOMAIN_NAME}' detected. Attempting to retrieve Let's Encrypt certificate..."
+  
+  if [ -z "${CERTBOT_EMAIL}" ]; then
+    CERTBOT_EMAIL="admin@${DOMAIN_NAME}"
+  fi
+
+  # Attempt certbot standalone validation (requires port 80 to be free - Nginx is not running yet)
+  if certbot certonly --standalone \
+    -d "${DOMAIN_NAME}" \
+    --non-interactive \
+    --agree-tos \
+    --email "${CERTBOT_EMAIL}" \
+    --no-eff-email; then
+    
+    echo "Let's Encrypt certificate obtained successfully! Copying certificates..."
+    cp -L "/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem" "${INSTALL_DIR}/certs/active.crt"
+    cp -L "/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem" "${INSTALL_DIR}/certs/active.key"
+  else
+    echo "WARNING: Let's Encrypt certification failed. Falling back to self-signed certificates." >&2
+  fi
+else
+  echo "No domain name configured. Using self-signed SSL certificates."
+fi
+
+# 5. Generate nginx.conf
+echo "Generating nginx.conf..."
+cat <<'EOF' > "${INSTALL_DIR}/nginx.conf"
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    # Redirect HTTP to HTTPS
+    server {
+        listen 80;
+        server_name _;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name _;
+
+        ssl_certificate     /etc/nginx/certs/active.crt;
+        ssl_certificate_key /etc/nginx/certs/active.key;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        # Frontend proxy
+        location / {
+            proxy_pass http://frontend:3000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Backend API proxy
+        location /api/v1 {
+            proxy_pass http://backend:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Backend docs proxy
+        location /docs {
+            proxy_pass http://backend:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /openapi.json {
+            proxy_pass http://backend:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+EOF
+
+# 6. Generate .env file from Terraform metadata
+echo "Generating .env file from instance metadata..."
+ENV_FILE="${INSTALL_DIR}/.env"
+
+# Fetch database credentials first so they are defined when bash expands the heredoc below
+POSTGRES_USER=$(fetch_metadata "postgres_user")
+POSTGRES_PASSWORD=$(fetch_metadata "postgres_password")
+POSTGRES_DB=$(fetch_metadata "postgres_db")
+
+cat <<EOF > "${ENV_FILE}"
+# Generated by Terraform startup script on $(date)
+ENVIRONMENT=$(fetch_metadata "environment")
+
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+POSTGRES_PORT=5432
+
+# Database configuration
+DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gameai-postgres:5432/${POSTGRES_DB}
+DB_ECHO=$(fetch_metadata "db_echo")
+SEED_DB=$(fetch_metadata "seed_db")
+
+# JWT configuration
+JWT_SECRET_KEY=$(fetch_metadata "jwt_secret_key")
+JWT_ALGORITHM=$(fetch_metadata "jwt_algorithm")
+JWT_ACCESS_TOKEN_EXPIRE_HOURS=$(fetch_metadata "jwt_access_token_expire_hours")
+
+# API configuration
+API_V1_PREFIX=$(fetch_metadata "api_v1_prefix")
+PROJECT_NAME="$(fetch_metadata "project_name")"
+LOG_LEVEL=$(fetch_metadata "log_level")
+
+# Public URLs config
+FRONTEND_URL=$(fetch_metadata "frontend_url")
+ALLOW_ORIGINS=$(fetch_metadata "frontend_url")
+VITE_API_URL=$(fetch_metadata "api_url")
+TRUSTED_HOSTS=*
+
+# SMTP configuration
+SMTP_HOST=$(fetch_metadata "smtp_host")
+SMTP_PORT=$(fetch_metadata "smtp_port")
+SMTP_USERNAME=$(fetch_metadata "smtp_username")
+SMTP_PASSWORD=$(fetch_metadata "smtp_password")
+SMTP_FROM_ADDRESS=$(fetch_metadata "smtp_from_address")
+SMTP_FROM_NAME="$(fetch_metadata "smtp_from_name")"
+SMTP_USE_TLS=$(fetch_metadata "smtp_use_tls")
+EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS=$(fetch_metadata "email_verification_token_expire_hours")
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=$(fetch_metadata "password_reset_token_expire_minutes")
+BYPASS_EMAIL_VERIFICATION=$(fetch_metadata "bypass_email_verification")
+
+# Worker integration configuration
+WORKER_API_KEY=$(fetch_metadata "worker_api_key")
+WORKER_BACKEND_URL=http://backend:8000/api/v1
+WORKER_LOG_LEVEL=$(fetch_metadata "log_level" | tr '[:lower:]' '[:upper:]')
+BUILD_LOCAL_BASE_IMAGE=false
+USE_LOCAL_GAMELIB=false
+REDIS_URL=redis://redis:6379/0
+MAX_TURN_TIME_LIMIT_SECONDS=$(fetch_metadata "max_turn_time_limit_seconds")
+EOF
+
+echo ".env file generated successfully."
+
+# 7. Generate docker-compose.override.yml to publish ports
+# This ensures that frontend and backend are proxied via Nginx on ports 80 and 443,
+# while the workers continue to have private access to backend (8000) and redis (6379) directly.
+echo "Generating docker-compose.override.yml..."
+cat <<EOF > "${INSTALL_DIR}/docker-compose.override.yml"
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
+  backend:
+    ports:
+      - "8000:8000"
+
+  redis:
+    ports:
+      - "6379:6379"
+EOF
+
+# 8. Run docker compose up
+echo "Running docker compose up -d..."
+docker compose up -d nginx db redis frontend backend agent-builder
+
+echo "==========================================="
+echo "Backend VM Initialization Completed Successfully"
+echo "==========================================="
