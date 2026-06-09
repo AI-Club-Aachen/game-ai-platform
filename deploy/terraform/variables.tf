@@ -106,13 +106,13 @@ variable "smtp_password" {
 variable "frontend_url" {
   description = "Custom public URL of the frontend (if empty, defaults to external IP)."
   type        = string
-  default     = ""
+  default     = "https://game-ai-deploy.ai-club-aachen.com/"
 }
 
 variable "api_url" {
   description = "Custom public URL of the backend API (if empty, defaults to external IP)."
   type        = string
-  default     = ""
+  default     = "https://game-ai-deploy.ai-club-aachen.com/api/v1"
 }
 
 variable "environment" {
