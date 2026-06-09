@@ -54,3 +54,9 @@ postgres_data/
 .artifacts/
 ignore/**
 ci_run_log
+
+# terraform
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+*.tfstate*
