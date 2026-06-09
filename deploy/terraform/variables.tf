@@ -34,7 +34,7 @@ variable "worker_api_key" {
 variable "machine_type" {
   description = "The Compute Engine machine type for the workers."
   type        = string
-  default     = "c4-standard-4"
+  default     = "e2-micro"
 }
 
 variable "network" {
