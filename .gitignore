@@ -57,3 +57,5 @@ ci_run_log
 
 # terraform
 *.tfvars
+.terraform/
+.terraform.lock.hcl
