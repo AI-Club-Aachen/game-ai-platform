@@ -22,7 +22,7 @@ fetch_metadata() {
 echo "Fetching configuration from metadata server..."
 BACKEND_URL=$(fetch_metadata "backend_url" || echo "")
 REDIS_URL=$(fetch_metadata "redis_url" || echo "")
-WORKER_TOKEN=$(fetch_metadata "worker_token" || echo "")
+WORKER_API_KEY=$(fetch_metadata "worker_api_key" || echo "")
 WORKER_IMAGE=$(fetch_metadata "worker_image" || echo "")
 WORKER_COMMAND=$(fetch_metadata "worker_command" || echo "")
 
@@ -30,7 +30,7 @@ WORKER_COMMAND=$(fetch_metadata "worker_command" || echo "")
 MISSING_KEYS=()
 [ -z "${BACKEND_URL}" ] && MISSING_KEYS+=("backend_url")
 [ -z "${REDIS_URL}" ] && MISSING_KEYS+=("redis_url")
-[ -z "${WORKER_TOKEN}" ] && MISSING_KEYS+=("worker_token")
+[ -z "${WORKER_API_KEY}" ] && MISSING_KEYS+=("worker_api_key")
 [ -z "${WORKER_IMAGE}" ] && MISSING_KEYS+=("worker_image")
 
 if [ ${#MISSING_KEYS[@]} -ne 0 ]; then
@@ -69,7 +69,6 @@ fi
 # 6. Start the worker container
 # Mounting /var/run/docker.sock and running as root are necessary since the worker orchestrates
 # other docker containers for agent builds and matches.
-# Passes both WORKER_TOKEN and WORKER_API_KEY for compatibility.
 echo "Launching worker container..."
 
 if [ -n "${WORKER_COMMAND}" ]; then
@@ -81,8 +80,7 @@ if [ -n "${WORKER_COMMAND}" ]; then
     -v /var/run/docker.sock:/var/run/docker.sock \
     -e BACKEND_URL="${BACKEND_URL}" \
     -e REDIS_URL="${REDIS_URL}" \
-    -e WORKER_TOKEN="${WORKER_TOKEN}" \
-    -e WORKER_API_KEY="${WORKER_TOKEN}" \
+    -e WORKER_API_KEY="${WORKER_API_KEY}" \
     -e USE_LOCAL_GAMELIB="false" \
     -e BUILD_LOCAL_BASE_IMAGE="false" \
     "${WORKER_IMAGE}" \
@@ -96,8 +94,7 @@ else
     -v /var/run/docker.sock:/var/run/docker.sock \
     -e BACKEND_URL="${BACKEND_URL}" \
     -e REDIS_URL="${REDIS_URL}" \
-    -e WORKER_TOKEN="${WORKER_TOKEN}" \
-    -e WORKER_API_KEY="${WORKER_TOKEN}" \
+    -e WORKER_API_KEY="${WORKER_API_KEY}" \
     -e USE_LOCAL_GAMELIB="false" \
     -e BUILD_LOCAL_BASE_IMAGE="false" \
     "${WORKER_IMAGE}"
