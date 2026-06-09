@@ -38,12 +38,12 @@ resource "google_compute_instance_template" "worker" {
 
   # Metadata variables read by the startup script
   metadata = {
-    backend_url    = var.backend_url
-    redis_url      = var.redis_url
-    worker_token   = var.worker_token
+    backend_url    = "http://${google_compute_address.backend_internal_ip.address}:8000/api/v1"
+    redis_url      = "redis://${google_compute_address.backend_internal_ip.address}:6379"
+    worker_token   = var.worker_api_key
     worker_image   = var.worker_image
     worker_command = var.worker_command
-    startup-script = file("${path.module}/startup.sh")
+    startup-script = file("${path.module}/worker-startup.sh")
   }
 
   # VM tags for network policies and firewalls

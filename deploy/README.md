@@ -1,8 +1,42 @@
-# GCP Game Worker Fleet Deployment
+# GCP Game Platform Infrastructure Deployment
 
-This directory contains the Terraform configuration and instance startup script to provision a manually-scaled worker fleet on Google Cloud Platform (GCP).
+This directory contains the Terraform configuration and instance startup scripts to provision the platform infrastructure on Google Cloud Platform (GCP).
 
-The instances run on **Container-Optimized OS (COS)**, hosting a Docker container pulled from your container registry. The configuration (backend, Redis, credentials, image) is injected via GCE instance metadata, allowing the startup script to run completely hands-off.
+## Architecture Overview
+
+The infrastructure consists of two main components running in the same VPC:
+
+1. **Backend VM**:
+   - A single Compute Engine VM (`e2-standard-4`, 50GB SSD, Ubuntu 24.04 LTS) tagged `backend`.
+   - Attaches a static internal IP (`backend-internal-ip`) for private communication with workers, and a static external IP (`backend-external-ip`) for public internet access.
+   - Runs the services via Docker Compose: `frontend`, `backend` (FastAPI), `postgres`, `redis`, and **`nginx`** as a reverse proxy.
+   - Ports `80` and `443` (HTTPS) are exposed publicly, with Nginx redirecting port 80 to 443.
+   - Ports `8000` (FastAPI) and `6379` (Redis) are exposed internally only for VPC workers.
+   - A self-signed SSL certificate is generated automatically during startup to secure connections immediately.
+
+2. **Worker Fleet (MIG)**:
+   - A zonal Managed Instance Group (MIG) housing the worker VM instances running Container-Optimized OS (COS).
+   - Worker instances run a standalone Docker container (`agent-worker`) tagged `game-worker`.
+   - Workers query the GCE metadata server to dynamically retrieve connection strings pointing to the backend VM's static internal IP (`http://<backend_internal_ip>:8000/api/v1` and `redis://<backend_internal_ip>:6379`).
+
+```text
+       Internet
+          │
+          ▼ (Ports: 80, 443)
+┌─────────────────────────────────┐
+│           Backend VM            │
+│ ├─ nginx    (reverse proxy)     │
+│ ├─ frontend (port 3000)         │
+│ ├─ backend  (port 8000) ◄─────┐ │
+│ ├─ redis    (port 6379) ◄───┐ │ │
+│ └─ postgres (port 5432)     │ │ │
+└─────────────────────────────┼─┼─┘
+                              │ │ (Ports: 8000, 6379 via VPC internal)
+┌─────────────────────────────┼─┼─┐
+│         Worker MIG          │ │ │
+│ └─ game-worker instances ───┴─┴─┘
+└─────────────────────────────────┘
+```
 
 ---
 
@@ -13,24 +47,17 @@ deploy/
 ├── terraform/
 │   ├── main.tf              # Shared configurations and local variables
 │   ├── variables.tf         # Input variables and defaults
-│   ├── outputs.tf           # Exported output values (MIG URI, Service Account, etc.)
+│   ├── outputs.tf           # Exported output values (MIG, Backend IPs, etc.)
 │   ├── providers.tf         # Google Cloud provider configurations
 │   ├── service-account.tf   # Dedicated least-privilege IAM service account
-│   ├── worker-template.tf   # Compute Engine Instance Template
-│   ├── mig.tf               # Zonal Managed Instance Group
-│   └── startup.sh           # COS boot script (validates metadata & starts Docker container)
+│   ├── worker-template.tf   # Compute Engine Instance Template for workers
+│   ├── worker-mig.tf        # Zonal Managed Instance Group for workers
+│   ├── worker-startup.sh    # COS boot script for worker instances
+│   ├── backend-vm.tf        # Compute Engine VM configuration for backend stack
+│   └── backend-startup.sh   # Bash boot script for backend VM
 │
 └── README.md                # This setup and operation guide
 ```
-
----
-
-## Architecture Overview
-
-1. **Zonal Managed Instance Group (MIG)**: Houses the worker VM instances. The initial fleet size is set to `0`. Fleet scaling is controlled externally by the backend application or scripts modifying the MIG's target size.
-2. **Container-Optimized OS (COS)**: A minimal, security-hardened Linux image maintained by Google that has Docker pre-installed.
-3. **Dedicated Service Account**: The instances run as `game-worker-sa`, which has permissions to write logs and metrics to GCP, and read-access to GCP Artifact Registry to pull the docker image.
-4. **No Spot VMs**: Standard VMs (`c4-standard-4` by default) are used to ensure that game workers are not preempted during active workloads.
 
 ---
 
@@ -38,31 +65,37 @@ deploy/
 
 Create a `terraform.tfvars` file inside `deploy/terraform/` to configure the deployment:
 
-| Variable | Type | Description | Default |
+### Required & Key Variables
+
+| Variable | Type | Description | Default / Example |
 | :--- | :--- | :--- | :--- |
 | `project_id` | `string` | The GCP Project ID where resources will be deployed. | *(Required)* |
-| `region` | `string` | The GCP region (e.g. `us-central1`). | *(Required)* |
-| `zone` | `string` | The GCP zone (e.g. `us-central1-a`). | *(Required)* |
+| `region` | `string` | The GCP region (e.g. `europe-west3`). | *(Required)* |
+| `zone` | `string` | The GCP zone (e.g. `europe-west3-a`). | *(Required)* |
+| `postgres_password` | `string` | Password for the PostgreSQL container (sensitive). | *(Required)* |
+| `jwt_secret_key` | `string` | Secret key used to sign JWT access tokens (sensitive). | *(Required)* |
+| `worker_api_key` | `string` | Authentication token shared between backend and workers (sensitive). | *(Required)* |
+| `smtp_password` | `string` | Password for SMTP email verification service (sensitive). | *(Required)* |
+| `repo_url` | `string` | Git repository containing the docker compose stack to clone on VM. | `"https://github.com/AI-Club-Aachen/game-ai-platform.git"` |
 | `worker_image` | `string` | Docker image path for the worker container. | `"ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"` |
-| `worker_command` | `string` | Optional command to override the container's entrypoint/CMD (e.g. `python agent_builder_worker.py`). | `""` |
-| `backend_url` | `string` | The connection URL for the orchestrator backend. | *(Required)* |
-| `redis_url` | `string` | The Redis connection URL (e.g. `redis://10.0.0.3:6379`). | *(Required)* |
-| `worker_token` | `string` | Secret authentication token used by the worker (marked sensitive). | *(Required)* |
-| `machine_type` | `string` | Compute Engine VM Machine Type. | `"c4-standard-4"` |
+| `worker_command` | `string` | Optional command to override the worker container's entrypoint. | `""` |
 | `network` | `string` | The VPC network name. | `"default"` |
 | `subnetwork` | `string` | The VPC subnet name. | `"default"` |
+
+*Note: Additional parameters for SMTP hosts, token lifetimes, and environment settings are defined with sensible defaults inside `variables.tf` and can be overridden as needed.*
 
 ### Example `terraform.tfvars`
 
 ```hcl
-project_id     = "my-gcp-project-123"
-region         = "us-central1"
-zone           = "us-central1-a"
-worker_image   = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"
-worker_command = "python agent_builder_worker.py"
-backend_url    = "https://api.mygameplatform.com"
-redis_url      = "redis://10.128.0.5:6379"
-worker_token   = "super-secret-auth-token-xyz"
+project_id        = "my-gcp-project-123"
+region            = "europe-west3"
+zone              = "europe-west3-a"
+worker_image      = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"
+
+postgres_password = "a-very-strong-postgres-password"
+jwt_secret_key    = "openssl-generated-hex-jwt-secret-key"
+worker_api_key    = "openssl-generated-hex-worker-api-key"
+smtp_password     = "my-smtp-password-key"
 ```
 
 ---
@@ -74,7 +107,7 @@ worker_token   = "super-secret-auth-token-xyz"
 - Install [Google Cloud CLI](https://cloud.google.com/sdk/docs/install).
 
 ### Step 1: GCP Authentication
-Log in to GCP and set up Application Default Credentials so Terraform can authenticate:
+Log in to GCP and set up Application Default Credentials:
 ```bash
 gcloud auth login
 gcloud auth application-default login
@@ -98,57 +131,43 @@ If the plan looks correct, apply the configuration:
 terraform apply
 ```
 
----
-
-## Scaling the Fleet
-
-Because we configure the MIG with:
-```hcl
-lifecycle {
-  ignore_changes = [target_size]
-}
-```
-Terraform will **not** scale the fleet back to `0` on subsequent runs of `terraform apply`.
-
-### Manual Scaling (via gcloud)
-You can manually resize the group using the gcloud command line tool:
-```bash
-gcloud compute instance-groups managed resize game-worker-mig \
-    --size=5 \
-    --zone=us-central1-a
-```
-
-### Automated Scaling (via API)
-Your orchestrator backend can call the [Google Compute Engine REST API](https://cloud.google.com/compute/docs/reference/rest/v1/instanceGroupManagers/resize) directly to resize the group:
-```http
-POST https://compute.googleapis.com/compute/v1/projects/{project}/zones/{zone}/instanceGroupManagers/game-worker-mig/resize?size=10
-Authorization: Bearer <oauth2-token>
-```
+### Step 4: Accessing the Outputs
+After a successful apply, Terraform outputs the connection details for the backend:
+- `backend_external_ip`: The public IP to access the frontend (port 80) and API (port 8000).
+- `backend_internal_ip`: The private IP used for worker communications.
+- `backend_instance_name`: The VM name of the backend.
 
 ---
 
 ## Troubleshooting & Verification
 
-Once instances are running, they execute `startup.sh` automatically.
-
-### 1. View Startup Script Logs
-Connect to an instance via SSH:
+### 1. Backend VM Configuration
+To verify that the backend services launched successfully, SSH into the backend VM:
 ```bash
-gcloud compute ssh <instance-name> --zone=<zone>
+gcloud compute ssh backend --zone=<zone>
 ```
-To view the output of the instance's startup script execution:
+Inspect the startup script logs:
+```bash
+sudo tail -f /var/log/backend-startup.log
+```
+Check the status of the Docker Compose services:
+```bash
+cd /opt/gameai
+sudo docker compose ps
+sudo docker compose logs -f backend
+```
+
+### 2. Worker Fleet Configuration
+To verify that the workers are connecting to the backend VM over the VPC network:
+```bash
+gcloud compute ssh <worker-instance-name> --zone=<zone>
+```
+Inspect the worker's startup progress:
 ```bash
 sudo journalctl -u google-startup-scripts.service -f
 ```
-
-### 2. View Worker Container Logs
-To inspect the Docker container logs directly:
+Verify the worker container is running:
 ```bash
 sudo docker ps
 sudo docker logs game-worker -f
 ```
-
-### 3. Fail-Fast Verification
-If you miss any metadata settings during VM creation, the startup script will exit immediately. You will see a message in the system log like:
-`CRITICAL ERROR: The following required metadata attributes are missing: backend_url worker_token`
-This prevents launching misconfigured workers that cannot connect to the backend.

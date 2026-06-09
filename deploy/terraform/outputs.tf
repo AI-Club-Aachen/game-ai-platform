@@ -22,3 +22,18 @@ output "instance_template_name" {
   description = "The name of the instance template used by the MIG."
   value       = google_compute_instance_template.worker.name
 }
+
+output "backend_internal_ip" {
+  description = "The static internal IP address of the backend VM."
+  value       = google_compute_address.backend_internal_ip.address
+}
+
+output "backend_external_ip" {
+  description = "The static external IP address of the backend VM."
+  value       = google_compute_address.backend_external_ip.address
+}
+
+output "backend_instance_name" {
+  description = "The name of the backend VM instance."
+  value       = google_compute_instance.backend.name
+}

@@ -6,23 +6,21 @@ resource "google_service_account" "worker" {
   description  = "Service account for instances in the game worker Managed Instance Group."
 }
 
-# Grant the service account permissions to write logs to Cloud Logging
-resource "google_project_iam_member" "logging" {
+# IAM roles required by the game worker instances
+locals {
+  worker_roles = [
+    "roles/logging.logWriter",
+    "roles/monitoring.metricWriter",
+    "roles/artifactregistry.reader",
+  ]
+}
+
+# Grant the necessary IAM permissions to the worker service account
+resource "google_project_iam_member" "worker_roles" {
+  for_each = toset(local.worker_roles)
+
   project = var.project_id
-  role    = "roles/logging.logWriter"
+  role    = each.value
   member  = "serviceAccount:${google_service_account.worker.email}"
 }
 
-# Grant the service account permissions to write metrics to Cloud Monitoring
-resource "google_project_iam_member" "monitoring" {
-  project = var.project_id
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.worker.email}"
-}
-
-# Grant the service account reader access to Artifact Registry so it can pull the worker image (if stored there)
-resource "google_project_iam_member" "artifact_registry" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${google_service_account.worker.email}"
-}
