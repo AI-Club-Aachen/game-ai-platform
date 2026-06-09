@@ -18,17 +18,18 @@ resource "google_compute_address" "backend_external_ip" {
   region = var.region
 }
 
-# Compute backend URLs automatically based on static external IP if not custom configured
+# Compute backend URLs automatically based on domain name or static external IP
 locals {
   backend_external_ip = google_compute_address.backend_external_ip.address
-  frontend_url        = var.frontend_url != "" ? var.frontend_url : "https://${local.backend_external_ip}"
-  api_url             = var.api_url != "" ? var.api_url : "https://${local.backend_external_ip}/api/v1"
+  web_host            = var.domain_name != "" ? var.domain_name : local.backend_external_ip
+  frontend_url        = var.frontend_url != "" ? var.frontend_url : "https://${local.web_host}"
+  api_url             = var.api_url != "" ? var.api_url : "https://${local.web_host}/api/v1"
 }
 
 # Compute Engine VM instance for the orchestration backend
 resource "google_compute_instance" "backend" {
   name         = "backend"
-  machine_type = "e2-standard-4"
+  machine_type = "e2-standard-2"
   zone         = var.zone
 
   # VM tags for network policies and firewalls
@@ -83,6 +84,8 @@ resource "google_compute_instance" "backend" {
     seed_db                               = var.seed_db
     max_turn_time_limit_seconds           = var.max_turn_time_limit_seconds
     db_echo                               = var.db_echo
+    domain_name                           = var.domain_name
+    certbot_email                         = var.certbot_email
 
     # Boot script
     startup-script = file("${path.module}/backend-startup.sh")

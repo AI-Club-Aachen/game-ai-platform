@@ -204,3 +204,16 @@ variable "db_echo" {
   type        = string
   default     = "false"
 }
+
+variable "domain_name" {
+  description = "The registered domain name pointing to the VM external IP address (e.g. game.example.com). Leave empty to use self-signed certificates."
+  type        = string
+  default     = "game-ai-deploy.ai-club-aachen.com"
+}
+
+variable "certbot_email" {
+  description = "The email address for Let's Encrypt renewal warnings and notifications. Required if domain_name is specified."
+  type        = string
+  default     = "info@ai-club-aachen.com"
+}
+

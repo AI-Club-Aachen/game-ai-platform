@@ -16,7 +16,7 @@ echo "==========================================="
 echo "Updating apt packages and installing dependencies..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y ca-certificates curl gnupg git openssl
+apt-get install -y ca-certificates curl gnupg git openssl certbot
 
 # Add Docker's official GPG key
 echo "Adding Docker official GPG key..."
@@ -56,7 +56,7 @@ if [ -d "${INSTALL_DIR}/.git" ]; then
   echo "Directory ${INSTALL_DIR} already contains a git repository. Pulling latest..."
   cd "${INSTALL_DIR}"
   git fetch --all
-  git reset --hard origin/main || git reset --hard HEAD
+  git reset --hard origin/feat/deploy-workers || git reset --hard HEAD
 else
   rm -rf "${INSTALL_DIR}"
   git clone "${REPO_URL}" "${INSTALL_DIR}"
@@ -64,12 +64,47 @@ else
 fi
 
 # 4. Generate SSL Certificates
-echo "Generating self-signed SSL certificates..."
+echo "Setting up SSL certificates..."
 mkdir -p "${INSTALL_DIR}/certs"
+
+# Fetch domain details from instance metadata
+DOMAIN_NAME=$(fetch_metadata "domain_name" || echo "")
+CERTBOT_EMAIL=$(fetch_metadata "certbot_email" || echo "")
+
+echo "Generating fallback self-signed SSL certificates..."
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout "${INSTALL_DIR}/certs/server.key" \
-  -out "${INSTALL_DIR}/certs/server.crt" \
+  -keyout "${INSTALL_DIR}/certs/selfsigned.key" \
+  -out "${INSTALL_DIR}/certs/selfsigned.crt" \
   -subj "/C=DE/ST=NRW/L=Aachen/O=AI-Club/CN=game-ai-platform"
+
+# Default active certificates to self-signed initially
+cp "${INSTALL_DIR}/certs/selfsigned.crt" "${INSTALL_DIR}/certs/active.crt"
+cp "${INSTALL_DIR}/certs/selfsigned.key" "${INSTALL_DIR}/certs/active.key"
+
+if [ -n "${DOMAIN_NAME}" ]; then
+  echo "Domain name '${DOMAIN_NAME}' detected. Attempting to retrieve Let's Encrypt certificate..."
+  
+  if [ -z "${CERTBOT_EMAIL}" ]; then
+    CERTBOT_EMAIL="admin@${DOMAIN_NAME}"
+  fi
+
+  # Attempt certbot standalone validation (requires port 80 to be free - Nginx is not running yet)
+  if certbot certonly --standalone \
+    -d "${DOMAIN_NAME}" \
+    --non-interactive \
+    --agree-tos \
+    --email "${CERTBOT_EMAIL}" \
+    --no-eff-email; then
+    
+    echo "Let's Encrypt certificate obtained successfully! Copying certificates..."
+    cp -L "/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem" "${INSTALL_DIR}/certs/active.crt"
+    cp -L "/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem" "${INSTALL_DIR}/certs/active.key"
+  else
+    echo "WARNING: Let's Encrypt certification failed. Falling back to self-signed certificates." >&2
+  fi
+else
+  echo "No domain name configured. Using self-signed SSL certificates."
+fi
 
 # 5. Generate nginx.conf
 echo "Generating nginx.conf..."
@@ -93,8 +128,8 @@ http {
         listen 443 ssl;
         server_name _;
 
-        ssl_certificate     /etc/nginx/certs/server.crt;
-        ssl_certificate_key /etc/nginx/certs/server.key;
+        ssl_certificate     /etc/nginx/certs/active.crt;
+        ssl_certificate_key /etc/nginx/certs/active.key;
         ssl_protocols       TLSv1.2 TLSv1.3;
         ssl_ciphers         HIGH:!aNULL:!MD5;
 

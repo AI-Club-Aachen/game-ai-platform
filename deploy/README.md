@@ -149,12 +149,19 @@ gcloud compute ssh backend --zone=<zone>
 Inspect the startup script logs:
 ```bash
 sudo tail -f /var/log/backend-startup.log
+or
+sudo journalctl -u google-startup-scripts.service -f
 ```
 Check the status of the Docker Compose services:
 ```bash
 cd /opt/gameai
 sudo docker compose ps
 sudo docker compose logs -f backend
+```
+
+Replace backend (reruns startup script on vm but we lose all data):
+```bash
+terraform apply -replace="google_compute_instance.backend"
 ```
 
 ### 2. Worker Fleet Configuration
