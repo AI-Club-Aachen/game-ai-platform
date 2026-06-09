@@ -543,6 +543,79 @@ worker. Closed by fixing C-1.
 
 ---
 
+### [ ] M-10 — User-controlled `state_init_data` reaches the game engine in the privileged worker
+
+**Files**
+- `backend/app/models/match.py:40` (`state_init_data: dict[str, Any] = {}`, no validation)
+- `backend/app/api/routes/matches.py:92-96` (merged with game defaults, queued as-is)
+- `orchestration/lib/match_manager.py:249-250` (`State.initial(state_init_data)` runs in-process)
+
+**Evidence.** `POST /matches` accepts arbitrary `config.state_init_data`; only `turn_time_limit` is
+bounded (`match.py:49`). The match runner passes it straight to `State.initial(...)`, executed in the
+**worker process** (not a sandboxed container) — the process that holds the Docker socket and worker API
+key. The agent *code* is sandboxed; engine/state initialization is not.
+
+**Impact.** Crafted init data (e.g., huge dimensions, or a gamelib parsing bug) → CPU/memory DoS or code
+paths in the privileged worker. Reachable by any match creator (today even guests, H-1).
+
+**Fix.** Validate/whitelist `state_init_data` per game type (allowed keys, types, numeric bounds) in the
+backend before queueing; treat engine init input as untrusted.
+
+---
+
+### [ ] M-11 — No session invalidation on password change or reset
+
+**Files**
+- `backend/app/core/security.py:107-145` (JWT has no `jti`/version claim)
+- `backend/app/models/user.py` (no token-version / `tokens_valid_after` column)
+- `backend/app/api/services/auth.py:403-406` (`reset_password` rotates hash only)
+- `backend/app/api/services/user.py` (`change_password` rotates hash only)
+
+**Evidence.** Access tokens are stateless with only `sub`/`role`/`exp`; nothing ties a token to a
+password generation. Changing or resetting the password does not revoke existing tokens.
+
+**Impact.** After a password reset — exactly when recovering a compromised account — the attacker's
+existing JWT remains valid for up to `JWT_ACCESS_TOKEN_EXPIRE_HOURS` (24h). Same for role downgrades.
+
+**Fix.** Add a `token_version` (or `tokens_valid_after` timestamp) column + claim; reject tokens older
+than the user's current value; bump on password change/reset (and ideally role change/logout-all).
+
+---
+
+### [ ] L-3 — `profile_picture_url` is unvalidated user input
+
+**Files**
+- `backend/app/schemas/user.py:15` (`UserCreate`), `:31` (`UserUpdate`) — arbitrary string, no validator
+- returned in `UserResponse` (`:55`) and rendered by the frontend
+
+**Evidence.** Unlike `username` (restricted to `[A-Za-z0-9_-]`), `profile_picture_url` accepts any string
+and is stored/returned verbatim.
+
+**Impact.** `javascript:`/`data:` URIs → potential stored XSS depending on how the frontend renders the
+avatar; stored-content injection; an SSRF sink if any server-side code ever fetches it.
+
+**Fix.** Validate scheme (`https?://` only) and length; consider hosting avatars instead of storing URLs.
+
+---
+
+### [ ] L-4 — Account enumeration and unverified-account pre-hijack
+
+**Files**
+- `backend/app/api/services/auth.py:185-193` (401 "Invalid email or password" vs 403 "Email not verified")
+- `backend/app/api/services/auth.py:85-128` (re-registration deletes an existing **unverified** account)
+
+**Evidence.** Login distinguishes unverified accounts (403) from invalid creds (401), and short-circuits
+the password check when the user does not exist (timing). Re-registering a victim's still-unverified
+username/email deletes their pending registration.
+
+**Impact.** Email/username enumeration; pre-verification denial/hijack of a pending account. Low.
+
+**Fix.** Return a uniform 401 for login failures (surface "verify your email" only after correct
+credentials, or via a separate authenticated check); for re-registration, avoid destroying an existing
+pending account on mere collision (e.g., require proof of ownership or rate-limit/notify).
+
+---
+
 ### [ ] L-1 — Frontend route guards are authentication-only, not role-aware
 
 **Files**
