@@ -78,9 +78,13 @@ Create a `terraform.tfvars` file inside `deploy/terraform/` to configure the dep
 | `smtp_password` | `string` | Password for SMTP email verification service (sensitive). | *(Required)* |
 | `repo_url` | `string` | Git repository containing the docker compose stack to clone on VM. | `"https://github.com/AI-Club-Aachen/game-ai-platform.git"` |
 | `worker_image` | `string` | Docker image path for the worker container. | `"ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"` |
-| `worker_command` | `string` | Optional command to override the worker container's entrypoint. | `""` |
+| `worker_command` | `string` | The command to run inside the worker container (e.g. 'python agent_builder_worker.py' or 'python match_runner_worker.py'). | `"python match_runner_worker.py"` |
 | `network` | `string` | The VPC network name. | `"default"` |
 | `subnetwork` | `string` | The VPC subnet name. | `"default"` |
+| `domain_name` | `string` | The registered domain name pointing to the VM external IP address. Leave empty to use self-signed certificates. | `""` |
+| `certbot_email` | `string` | The email address for Let's Encrypt renewal warnings. Required if `domain_name` is set. | `""` |
+| `frontend_url` | `string` | Custom public URL of the frontend (defaults to external IP if empty). | `""` |
+| `api_url` | `string` | Custom public URL of the backend API (defaults to external IP if empty). | `""` |
 
 *Note: Additional parameters for SMTP hosts, token lifetimes, and environment settings are defined with sensible defaults inside `variables.tf` and can be overridden as needed.*
 
@@ -96,6 +100,12 @@ postgres_password = "a-very-strong-postgres-password"
 jwt_secret_key    = "openssl-generated-hex-jwt-secret-key"
 worker_api_key    = "openssl-generated-hex-worker-api-key"
 smtp_password     = "my-smtp-password-key"
+
+# Optional: Custom domain configuration (Uncomment to enable Let's Encrypt SSL)
+# domain_name   = "game.example.com"
+# certbot_email = "admin@example.com"
+# frontend_url  = "https://game.example.com/"
+# api_url       = "https://game.example.com/api/v1"
 ```
 
 ---

@@ -106,13 +106,13 @@ variable "smtp_password" {
 variable "frontend_url" {
   description = "Custom public URL of the frontend (if empty, defaults to external IP)."
   type        = string
-  default     = "https://game-ai-deploy.ai-club-aachen.com/"
+  default     = ""
 }
 
 variable "api_url" {
   description = "Custom public URL of the backend API (if empty, defaults to external IP)."
   type        = string
-  default     = "https://game-ai-deploy.ai-club-aachen.com/api/v1"
+  default     = ""
 }
 
 variable "environment" {
@@ -208,12 +208,12 @@ variable "db_echo" {
 variable "domain_name" {
   description = "The registered domain name pointing to the VM external IP address (e.g. game.example.com). Leave empty to use self-signed certificates."
   type        = string
-  default     = "game-ai-deploy.ai-club-aachen.com"
+  default     = ""
 }
 
 variable "certbot_email" {
   description = "The email address for Let's Encrypt renewal warnings and notifications. Required if domain_name is specified."
   type        = string
-  default     = "info@ai-club-aachen.com"
+  default     = ""
 }
 
