@@ -449,12 +449,16 @@ endpoints accept arbitrarily large `limit` (e.g. `?limit=1000000`).
 
 ---
 
-### [~] M-5 — Production config validation is incomplete
+### [x] M-5 — Production config validation is incomplete
 
-> **PARTIAL (rate-limit slice, with H-3):** `RATE_LIMITING_ENABLED=false` now rejected at config load in
-> production (the redundant `RATE_LIMIT_BYPASS` flag was dropped in favor of guarding the existing
-> switch); `TRUST_PROXY_HEADERS` added (default false). Still open: default/short `WORKER_API_KEY`
-> rejection, required `TRUSTED_HOSTS`, `BYPASS_EMAIL_VERIFICATION` rejection, `.env.example` weak secrets.
+> **FIXED:** production `model_validator`s in `backend/app/core/config.py` now reject, at config load,
+> a deploy that: disables rate limiting (`RATE_LIMITING_ENABLED=false`, the redundant `RATE_LIMIT_BYPASS`
+> flag was dropped in favor of guarding the existing switch), ships the default or a <32-char
+> `WORKER_API_KEY`, omits `TRUSTED_HOSTS`, or leaves `BYPASS_EMAIL_VERIFICATION=true` — all problems are
+> reported together. `TRUST_PROXY_HEADERS` added (default false). Regression-tested in
+> `tests/api/test_rate_limiting.py::TestProductionHardening`. (`.env.example` ships placeholder secrets
+> with "generate a strong value" hints by design — not a deploy-time check.) M-6 (`*` in `ALLOW_ORIGINS`)
+> remains tracked separately.
 
 **Files**
 - `backend/app/core/config.py:48` (`WORKER_API_KEY` default `"dev-worker-key-12345"`)
@@ -807,12 +811,12 @@ path-traversal guard (`agent_builder.py:25-34`).
 
 # Production-hardening checklist
 
-- [ ] Reject prod if `WORKER_API_KEY` is default/short (M-5).
+- [x] Reject prod if `WORKER_API_KEY` is default/short (M-5).
 - [x] Reject prod if rate limiting is disabled (`RATE_LIMITING_ENABLED=false`) (H-3/M-5).
 - [x] Add `TRUST_PROXY_HEADERS` (default false); only trust client IP behind a known proxy (H-3).
-- [ ] Require `TRUSTED_HOSTS` in production (M-5).
+- [x] Require `TRUSTED_HOSTS` in production (M-5).
 - [ ] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
-- [ ] Reject `BYPASS_EMAIL_VERIFICATION=true` at config load in production (M-5).
+- [x] Reject `BYPASS_EMAIL_VERIFICATION=true` at config load in production (M-5).
 - [ ] Add upload size + per-user quota settings (H-4).
 - [ ] Add max log / result / game-state size settings (M-3).
 - [ ] Bound all pagination `limit`s (M-4).
@@ -856,7 +860,7 @@ Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests
 4. Move reset token/password/email into request bodies (H-6).
 5. Require auth on anonymous match/job/leaderboard routes (H-2).
 6. Add `Query(ge=…, le=…)` bounds to pagination (M-4).
-7. Prod config rejects default worker key + bypass flags (M-5).
+7. ~~Prod config rejects default worker key + bypass flags (M-5).~~ ✅ (`test_rate_limiting.py::TestProductionHardening`)
 8. Apply secure run kwargs to the post-build syntax-check container (orchestration).
 
 **Larger refactors:**

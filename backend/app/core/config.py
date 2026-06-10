@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     # Validation constants
     MIN_JWT_SECRET_LENGTH: ClassVar[int] = 32
+    MIN_WORKER_API_KEY_LENGTH: ClassVar[int] = 32
+    DEFAULT_WORKER_API_KEY: ClassVar[str] = "dev-worker-key-12345"
     MIN_EMAIL_TOKEN_HOURS: ClassVar[int] = 1
     MAX_EMAIL_TOKEN_HOURS: ClassVar[int] = 168
     MIN_PASSWORD_RESET_MINUTES: ClassVar[int] = 5
@@ -85,7 +87,7 @@ class Settings(BaseSettings):
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Game Competition Platform"
-    WORKER_API_KEY: str = "dev-worker-key-12345"
+    WORKER_API_KEY: str = DEFAULT_WORKER_API_KEY
     MAX_TURN_TIME_LIMIT_SECONDS: float = Field(
         default=120.0,
         description="Maximum allowed per-turn time limit in seconds for match config.",
@@ -329,6 +331,35 @@ class Settings(BaseSettings):
         """Rate limiting must never be disabled in production."""
         if self.is_production and not self.RATE_LIMITING_ENABLED:
             raise ValueError("RATE_LIMITING_ENABLED must not be false in production")
+        return self
+
+    @model_validator(mode="after")
+    def validate_production_hardening(self) -> "Settings":
+        """
+        Production startup guards (M-5): reject deployments that ship a
+        default/short worker key, omit TRUSTED_HOSTS, or leave the email
+        verification bypass on. All problems are reported together.
+        """
+        if not self.is_production:
+            return self
+
+        errors: list[str] = []
+
+        if self.WORKER_API_KEY == self.DEFAULT_WORKER_API_KEY:
+            errors.append("WORKER_API_KEY must not use the default development value in production")
+        elif len(self.WORKER_API_KEY) < self.MIN_WORKER_API_KEY_LENGTH:
+            errors.append(
+                f"WORKER_API_KEY must be at least {self.MIN_WORKER_API_KEY_LENGTH} characters in production"
+            )
+
+        if not self.trusted_hosts_list:
+            errors.append("TRUSTED_HOSTS must be set in production")
+
+        if self.BYPASS_EMAIL_VERIFICATION:
+            errors.append("BYPASS_EMAIL_VERIFICATION must be false in production")
+
+        if errors:
+            raise ValueError("Invalid production configuration: " + "; ".join(errors))
         return self
 
 

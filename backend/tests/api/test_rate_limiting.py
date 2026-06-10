@@ -35,6 +35,9 @@ PRODUCTION_SETTINGS = {
     **REQUIRED_SETTINGS,
     "ENVIRONMENT": "production",
     "ALLOW_ORIGINS": "https://example.com",
+    "TRUSTED_HOSTS": "api.example.com",
+    "WORKER_API_KEY": "w" * 48,
+    "BYPASS_EMAIL_VERIFICATION": False,
     "SMTP_HOST": "smtp.example.com",
     "SMTP_PORT": 465,
     "SMTP_USERNAME": "user",
@@ -113,6 +116,51 @@ class TestRateLimitSettings:
     def test_development_allows_disabled_rate_limiting(self):
         s = Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMITING_ENABLED=False)
         assert s.RATE_LIMITING_ENABLED is False
+
+
+# ---------------------------------------------------------------------------
+# Production config hardening (M-5)
+# ---------------------------------------------------------------------------
+
+
+class TestProductionHardening:
+    def test_valid_production_config_accepted(self):
+        s = Settings(_env_file=None, **PRODUCTION_SETTINGS)
+        assert s.is_production is True
+
+    def test_rejects_default_worker_key(self):
+        cfg = {**PRODUCTION_SETTINGS}
+        cfg.pop("WORKER_API_KEY")  # fall back to the default dev key
+        with pytest.raises(ValidationError, match="WORKER_API_KEY must not use the default"):
+            Settings(_env_file=None, **cfg)
+
+    def test_rejects_short_worker_key(self):
+        with pytest.raises(ValidationError, match="WORKER_API_KEY must be at least"):
+            Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "WORKER_API_KEY": "too-short"})
+
+    def test_rejects_missing_trusted_hosts(self):
+        with pytest.raises(ValidationError, match="TRUSTED_HOSTS must be set"):
+            Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "TRUSTED_HOSTS": ""})
+
+    def test_rejects_email_verification_bypass(self):
+        with pytest.raises(ValidationError, match="BYPASS_EMAIL_VERIFICATION must be false"):
+            Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "BYPASS_EMAIL_VERIFICATION": True})
+
+    def test_reports_all_problems_together(self):
+        cfg = {**PRODUCTION_SETTINGS, "TRUSTED_HOSTS": "", "BYPASS_EMAIL_VERIFICATION": True}
+        cfg.pop("WORKER_API_KEY")
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(_env_file=None, **cfg)
+        message = str(exc_info.value)
+        assert "WORKER_API_KEY" in message
+        assert "TRUSTED_HOSTS" in message
+        assert "BYPASS_EMAIL_VERIFICATION" in message
+
+    def test_development_allows_default_key_and_no_trusted_hosts(self):
+        s = Settings(_env_file=None, **REQUIRED_SETTINGS, BYPASS_EMAIL_VERIFICATION=True)
+        assert s.WORKER_API_KEY == Settings.DEFAULT_WORKER_API_KEY
+        assert s.trusted_hosts_list == []
+        assert s.BYPASS_EMAIL_VERIFICATION is True
 
 
 # ---------------------------------------------------------------------------
