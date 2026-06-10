@@ -15,7 +15,9 @@ from app.api.deps import (
     require_worker_api_key,
 )
 from app.api.services.match import MatchPermissionError, MatchService, MatchServiceError
+from app.core.config import settings
 from app.core.match_events import subscribe_match_events
+from app.core.rate_limit import limiter
 from app.models.game import GameType
 from app.models.match import MatchStatus
 from app.models.user import UserRole
@@ -34,6 +36,7 @@ class MatchSchedulerConfig(BaseModel):
 
 
 @router.get("/scheduler/config", response_model=MatchSchedulerConfig)
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 def get_scheduler_config(
     request: Request,
     _admin: CurrentAdmin,
@@ -54,6 +57,7 @@ def get_scheduler_config(
 
 
 @router.put("/scheduler/config", response_model=MatchSchedulerConfig)
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 def update_scheduler_config(
     config: MatchSchedulerConfig,
     request: Request,
@@ -80,7 +84,9 @@ def update_scheduler_config(
 
 # POST /api/v1/matches/
 @router.post("", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: settings.RATE_LIMIT_MATCH_CREATE)
 async def create_match(
+    request: Request,  # noqa: ARG001
     match_in: MatchCreate,
     current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
@@ -163,7 +169,9 @@ def list_matches(
 
 # GET /api/v1/matches/{match_id}/stream
 @router.get("/{match_id}/stream")
+@limiter.limit(lambda: settings.RATE_LIMIT_STREAM)
 async def stream_match(
+    request: Request,  # noqa: ARG001
     match_id: str,
     _current_user: VerifiedGuestOrHigher,
     service: MatchService = Depends(get_match_service),

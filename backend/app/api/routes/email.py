@@ -5,8 +5,6 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.api.deps import (
     CurrentAdmin,
@@ -19,6 +17,8 @@ from app.api.services.auth import (
     AuthServiceError,
     AuthValidationError,
 )
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.schemas.email import (
     AdminEmailVerificationResponse,
     EmailVerificationRequest,
@@ -32,14 +32,13 @@ logger = logging.getLogger(__name__)
 
 # Minimum length for email verification tokens
 MIN_TOKEN_LENGTH = 16
-limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
 
 # POST /api/v1/email/resend-verification
 @router.post("/resend-verification", status_code=status.HTTP_200_OK, response_model=EmailVerificationResponse)
-@limiter.limit("10/day")
+@limiter.limit(lambda: settings.RATE_LIMIT_EMAIL_TOKEN)
 async def resend_verification_email(
     request: Request,  # noqa: ARG001
     user: CurrentUser,
@@ -49,7 +48,7 @@ async def resend_verification_email(
     """
     Resend email verification link to current user.
 
-    Rate limited: 10 per day per user (by IP).
+    Rate limited per RATE_LIMIT_EMAIL_TOKEN (keyed by user id).
     """
     try:
         auth_service.resend_verification_for_user(
@@ -76,7 +75,7 @@ async def resend_verification_email(
 @router.post(
     "/{user_id}/resend-verification", status_code=status.HTTP_200_OK, response_model=AdminEmailVerificationResponse
 )
-@limiter.limit("1000/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 async def admin_resend_verification_email(
     request: Request,  # noqa: ARG001
     user_id: UUID,
@@ -118,7 +117,7 @@ async def admin_resend_verification_email(
 
 # POST /api/v1/email/verify-email
 @router.post("/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
+@limiter.limit(lambda: settings.RATE_LIMIT_EMAIL_TOKEN)
 async def verify_email(
     request: Request,  # noqa: ARG001
     verification_request: EmailVerificationRequest,

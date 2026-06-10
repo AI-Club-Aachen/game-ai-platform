@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.deps import (
     VerifiedGuestOrHigher,
@@ -9,6 +9,8 @@ from app.api.deps import (
     get_agent_service,
 )
 from app.api.services.agent import AgentNotFoundError, AgentPermissionError, AgentService, AgentValidationError
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.models.user import UserRole
 from app.schemas.agent import AgentCreate, AgentRead, AgentUpdate
 
@@ -17,7 +19,9 @@ router = APIRouter()
 
 
 @router.post("", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: settings.RATE_LIMIT_MUTATIONS)
 def create_agent(
+    request: Request,  # noqa: ARG001
     agent_create: AgentCreate,
     current_user: VerifiedUserOrHigher,
     service: AgentService = Depends(get_agent_service),
@@ -92,7 +96,9 @@ def list_agents(
 
 
 @router.patch("/{agent_id}", response_model=AgentRead)
+@limiter.limit(lambda: settings.RATE_LIMIT_MUTATIONS)
 def update_agent(
+    request: Request,  # noqa: ARG001
     agent_id: UUID,
     agent_update: AgentUpdate,
     current_user: VerifiedUserOrHigher,
@@ -115,7 +121,9 @@ def update_agent(
 
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(lambda: settings.RATE_LIMIT_MUTATIONS)
 def delete_agent(
+    request: Request,  # noqa: ARG001
     agent_id: UUID,
     current_user: VerifiedUserOrHigher,
     service: AgentService = Depends(get_agent_service),

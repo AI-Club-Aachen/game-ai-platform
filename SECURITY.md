@@ -166,7 +166,8 @@ resources; admin unaffected.
 > least a verified login. **Policy decision:** there is NO public-spectating exception —
 > spectating and the leaderboard are Guest+. The frontend SSE hook (`useMatchStream`) was
 > rewritten from `EventSource` to fetch-based streaming so it can send the Authorization header.
-> SSE connection caps / aggressive rate limits remain open under H-3.
+> SSE connection attempts are now rate-limited (`RATE_LIMIT_STREAM`, H-3); a concurrent-connection
+> cap remains open.
 
 **Files**
 - `backend/app/api/routes/agents.py:35` `GET /agents/leaderboard/{game_type}` (anonymous)
@@ -190,7 +191,12 @@ SSE connection caps and auth.
 
 ---
 
-### [ ] H-3 — Rate limiting is hard-coded, inconsistent, and not configurable
+### [x] H-3 — Rate limiting is hard-coded, inconsistent, and not configurable
+
+> **FIXED:** central limiter in `backend/app/core/rate_limit.py` (keyed worker-exempt / user-id / IP),
+> per-category `RATE_LIMIT_*` settings + `RATE_LIMIT_BYPASS` (prod-rejected), `DISABLE_IP_RATE_LIMITING`,
+> `TRUST_PROXY_HEADERS=false` in `config.py`; explicit limits on upload/match-create/SSE-stream/admin;
+> regression-tested in `tests/api/test_rate_limiting.py`. Concurrent SSE connection cap remains open.
 
 **Files**
 - `backend/app/main.py:39-49` (global limiter; `default_limits=["500/hour","30/minute"]`, IP-keyed)
@@ -442,7 +448,11 @@ endpoints accept arbitrarily large `limit` (e.g. `?limit=1000000`).
 
 ---
 
-### [ ] M-5 — Production config validation is incomplete
+### [~] M-5 — Production config validation is incomplete
+
+> **PARTIAL (rate-limit slice, with H-3):** `RATE_LIMIT_BYPASS=true` now rejected at config load in
+> production; `TRUST_PROXY_HEADERS` added (default false). Still open: default/short `WORKER_API_KEY`
+> rejection, required `TRUSTED_HOSTS`, `BYPASS_EMAIL_VERIFICATION` rejection, `.env.example` weak secrets.
 
 **Files**
 - `backend/app/core/config.py:48` (`WORKER_API_KEY` default `"dev-worker-key-12345"`)
@@ -736,7 +746,7 @@ own ≥1 participating agent (M-1).
 | POST | `/matches` | User+ (own agent, M-1) | User+ (own agent) | **H-1/M-1 fixed** |
 | GET | `/matches/{id}` | Guest+ or WorkerKey | Guest+ or WorkerKey | **H-2/C-2 fixed** (worker reads at run time) |
 | GET | `/matches` | Guest+ | Guest+ (policy 2) | **H-2 fixed**; **M-4** limit open |
-| GET | `/matches/{id}/stream` | Guest+ | Guest+ (+ conn limit) | **H-2 fixed**; conn cap open (**H-3**) |
+| GET | `/matches/{id}/stream` | Guest+ | Guest+ (+ conn limit) | **H-2 fixed**; attempt limit added (**H-3**); concurrent conn cap open |
 | PATCH | `/matches/{id}` | WorkerKey | WorkerKey | **C-1 fixed** |
 | GET | `/jobs/build/{id}` | WorkerKey or sub-owner/admin | WorkerKey/owner | **H-2 fixed** |
 | PATCH | `/jobs/build/{id}` | WorkerKey | WorkerKey | **C-1 fixed** |
@@ -751,23 +761,26 @@ own ≥1 participating agent (M-1).
 
 # Rate-limit coverage matrix
 
+All limits are now settings-driven (`backend/app/core/config.py`) and enforced by the shared limiter in
+`backend/app/core/rate_limit.py` (keys: valid worker `x-api-key` → exempt, JWT → user id, else client IP).
+
 | Category | Required default | Current | Gap |
 |---|---|---|---|
-| Login | `10/min + 60/hour` | `30/min;200/day` (IP) | too loose / wrong window |
-| Register | `6/min + 40/hour` | `20/hour` (IP) | missing minute burst |
-| Email verify / pw reset | `6/min + 20/hour` | mixed `10/min`,`10/hour`,`5/min`,`10/day` | inconsistent |
-| Authenticated reads | `600/min + 10000/hour` | global `500/hour;30/min` IP only | not user-keyed; too low |
-| Profile | `120/min` | `60/min`, `15/day` | not aligned |
-| General user mutations | `120/min + 2000/hour` | global default only | not categorized |
-| Submission upload | `10/min + 60/hour` | global default only | needs explicit + small |
-| Match creation | `20/min + 200/hour` | global default only | needs explicit |
-| Match stream attempts | `60/min` | global default only | SSE conn cap missing |
-| Worker callbacks | `1200/min` | global `30/min` **throttles workers** | needs key-keyed/high |
-| Admin / API-key | `20000/min` or exempt | `1000/hour` hard-coded | not configurable |
-| `RATE_LIMITING_ENABLED=false` | disables all | present (`config.py:38`, wired `main.py:45-49`) | ok |
-| `RATE_LIMIT_BYPASS` (dev/test only) | reject in prod | **missing** | add + prod reject |
-| `DISABLE_IP_RATE_LIMITING` | keep user-id limits | **missing** | add keyed strategy |
-| `TRUST_PROXY_HEADERS=false` default | trust only when set | **missing** | add before trusting client IP |
+| Login | `10/min + 60/hour` | `RATE_LIMIT_LOGIN=10/minute;60/hour` | ok |
+| Register | `6/min + 40/hour` | `RATE_LIMIT_REGISTER=6/minute;40/hour` | ok |
+| Email verify / pw reset | `6/min + 20/hour` | `RATE_LIMIT_EMAIL_TOKEN=6/minute;20/hour` (all 5 endpoints) | ok |
+| Authenticated reads | `600/min + 10000/hour` | `RATE_LIMIT_READS=600/minute;10000/hour` (global default, user-keyed) | ok |
+| Profile | `120/min` | `RATE_LIMIT_PROFILE=120/minute` (roles, me GET/PATCH, change-password) | ok |
+| General user mutations | `120/min + 2000/hour` | `RATE_LIMIT_MUTATIONS=120/minute;2000/hour` (agent CUD, submission delete) | ok |
+| Submission upload | `10/min + 60/hour` | `RATE_LIMIT_UPLOAD=10/minute;60/hour` | ok |
+| Match creation | `20/min + 200/hour` | `RATE_LIMIT_MATCH_CREATE=20/minute;200/hour` | ok |
+| Match stream attempts | `60/min` | `RATE_LIMIT_STREAM=60/minute` | concurrent conn cap still open |
+| Worker callbacks | `1200/min` | valid `x-api-key` exempt via key function (policy decision) | ok |
+| Admin / API-key | `20000/min` or exempt | `RATE_LIMIT_ADMIN=20000/minute` (user-id keyed) | ok |
+| `RATE_LIMITING_ENABLED=false` | disables all | present; `rate_limiting_active` wired into shared limiter | ok |
+| `RATE_LIMIT_BYPASS` (dev/test only) | reject in prod | present; prod `model_validator` rejects `true` | ok |
+| `DISABLE_IP_RATE_LIMITING` | keep user-id limits | present; anonymous keys randomized, user keys kept | ok |
+| `TRUST_PROXY_HEADERS=false` default | trust only when set | present; right-most `X-Forwarded-For` hop only when true | ok |
 
 ---
 
@@ -794,15 +807,15 @@ path-traversal guard (`agent_builder.py:25-34`).
 # Production-hardening checklist
 
 - [ ] Reject prod if `WORKER_API_KEY` is default/short (M-5).
-- [ ] Reject prod if `RATE_LIMIT_BYPASS=true` (H-3/M-5).
-- [ ] Add `TRUST_PROXY_HEADERS` (default false); only trust client IP behind a known proxy (H-3).
+- [x] Reject prod if `RATE_LIMIT_BYPASS=true` (H-3/M-5).
+- [x] Add `TRUST_PROXY_HEADERS` (default false); only trust client IP behind a known proxy (H-3).
 - [ ] Require `TRUSTED_HOSTS` in production (M-5).
 - [ ] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
 - [ ] Reject `BYPASS_EMAIL_VERIFICATION=true` at config load in production (M-5).
 - [ ] Add upload size + per-user quota settings (H-4).
 - [ ] Add max log / result / game-state size settings (M-3).
 - [ ] Bound all pagination `limit`s (M-4).
-- [ ] Add all rate-limit category defaults to both `.env.example` files (H-3).
+- [x] Add all rate-limit category defaults to both `.env.example` files (H-3).
 - [ ] Isolate Docker-socket workers from the public backend; consider rootless/remote builder (H-7).
 - [ ] Move reset token/new password/email into request bodies (H-6).
 - [ ] Fix `backend/.env.example` (no `BYPASS_EMAIL_VERIFICATION=True`, no weak JWT example for shared use).
@@ -827,8 +840,8 @@ Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests
 12. Submission path containment on download/delete (M-2).
 13. Oversized logs/game-state rejected or truncated (M-3).
 14. Pagination `limit` capping (M-4).
-15. Rate-limit categories present in settings; prod rejects `RATE_LIMIT_BYPASS` (H-3/M-5).
-16. SSE connection-attempt limiting (H-2/H-3).
+15. ~~Rate-limit categories present in settings; prod rejects `RATE_LIMIT_BYPASS` (H-3/M-5).~~ ✅ (`test_rate_limiting.py`)
+16. ~~SSE connection-attempt limiting (H-2/H-3).~~ ✅ (`RATE_LIMIT_STREAM`; concurrent conn cap still untested/open)
 
 ---
 

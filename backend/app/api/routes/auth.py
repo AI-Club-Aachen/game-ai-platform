@@ -4,8 +4,6 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.api.deps import get_auth_service
 from app.api.services.auth import (
@@ -15,6 +13,8 @@ from app.api.services.auth import (
     AuthServiceError,
     AuthValidationError,
 )
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -25,14 +25,13 @@ from app.schemas.user import UserCreate, UserResponse
 
 
 logger = logging.getLogger(__name__)
-limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
 
 # POST /api/v1/auth/register
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegistrationResponse)
-@limiter.limit("20/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_REGISTER)
 async def register(
     request: Request,  # noqa: ARG001
     user_data: UserCreate,
@@ -43,7 +42,7 @@ async def register(
     Register new user with email verification.
 
     Allows re-registration if previous account is unverified.
-    Rate limited: 20 registrations per hour per IP.
+    Rate limited per RATE_LIMIT_REGISTER.
     """
     try:
         user, _plain_token = auth_service.register(
@@ -77,7 +76,7 @@ async def register(
 
 # POST /api/v1/auth/login
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("30/minute;200/day")
+@limiter.limit(lambda: settings.RATE_LIMIT_LOGIN)
 async def login(
     request: Request,  # noqa: ARG001
     login_request: LoginRequest,
@@ -86,7 +85,7 @@ async def login(
     """
     Login with email and password.
 
-    Rate limited: 30 per minute, 200 per day per IP.
+    Rate limited per RATE_LIMIT_LOGIN.
     """
     try:
         access_token, user = auth_service.login(login_request)
@@ -121,7 +120,7 @@ async def login(
 
 # POST /api/v1/auth/request-password-reset
 @router.post("/request-password-reset", status_code=status.HTTP_200_OK, response_model=PasswordResetRequestResponse)
-@limiter.limit("10/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_EMAIL_TOKEN)
 async def request_password_reset(
     request: Request,  # noqa: ARG001
     email: str,
@@ -131,7 +130,7 @@ async def request_password_reset(
     """
     Request password reset via email.
 
-    Rate limited: 10 per hour per IP.
+    Rate limited per RATE_LIMIT_EMAIL_TOKEN.
     """
     # Always return same message to prevent email enumeration
     auth_service.request_password_reset(
@@ -143,7 +142,7 @@ async def request_password_reset(
 
 # POST /api/v1/auth/reset-password
 @router.post("/reset-password", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("5/minute")
+@limiter.limit(lambda: settings.RATE_LIMIT_EMAIL_TOKEN)
 async def reset_password(
     request: Request,  # noqa: ARG001
     token: str,

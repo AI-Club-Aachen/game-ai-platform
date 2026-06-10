@@ -3,6 +3,7 @@
 import os
 from typing import ClassVar
 
+from limits import parse_many
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -35,7 +36,47 @@ class Settings(BaseSettings):
         description="Override default DB SQL echoing behavior. Defaults to True in dev environment, False otherwise.",
     )
     REDIS_URL: str = "redis://redis:6379/0"
+
+    # Rate limiting (H-3). Limit strings use the slowapi/limits format,
+    # multiple limits separated by ";" (e.g. "10/minute;60/hour").
     RATE_LIMITING_ENABLED: bool = True
+    RATE_LIMIT_BYPASS: bool = Field(
+        default=False,
+        description="Disable rate limiting for dev/test convenience. MUST NOT BE TRUE IN PRODUCTION.",
+    )
+    DISABLE_IP_RATE_LIMITING: bool = Field(
+        default=False,
+        description=(
+            "Shared-IP (hackathon) mode: drop IP-keyed limits for anonymous requests "
+            "while keeping per-user-id limits for authenticated requests."
+        ),
+    )
+    TRUST_PROXY_HEADERS: bool = Field(
+        default=False,
+        description=(
+            "Trust X-Forwarded-For for the client IP. Enable only behind a reverse proxy "
+            "that overwrites/appends the header; the proxy-adjacent (right-most) hop is used."
+        ),
+    )
+    RATE_LIMIT_LOGIN: str = "10/minute;60/hour"
+    RATE_LIMIT_REGISTER: str = "6/minute;40/hour"
+    RATE_LIMIT_EMAIL_TOKEN: str = Field(
+        default="6/minute;20/hour",
+        description="Email verification and password-reset token endpoints.",
+    )
+    RATE_LIMIT_READS: str = Field(
+        default="600/minute;10000/hour",
+        description="Global default applied to all routes without an explicit category.",
+    )
+    RATE_LIMIT_PROFILE: str = "120/minute"
+    RATE_LIMIT_MUTATIONS: str = "120/minute;2000/hour"
+    RATE_LIMIT_UPLOAD: str = "10/minute;60/hour"
+    RATE_LIMIT_MATCH_CREATE: str = "20/minute;200/hour"
+    RATE_LIMIT_STREAM: str = Field(
+        default="60/minute",
+        description="SSE match-stream connection attempts.",
+    )
+    RATE_LIMIT_ADMIN: str = "20000/minute"
 
     # JWT Configuration
     JWT_SECRET_KEY: str
@@ -125,6 +166,11 @@ class Settings(BaseSettings):
         return self.is_development or self.is_staging
 
     @property
+    def rate_limiting_active(self) -> bool:
+        """Effective rate-limiting switch: enabled and not bypassed."""
+        return self.RATE_LIMITING_ENABLED and not self.RATE_LIMIT_BYPASS
+
+    @property
     def smtp_required(self) -> bool:
         # Only require SMTP in staging and production
         return self.is_staging or self.is_production
@@ -210,6 +256,29 @@ class Settings(BaseSettings):
         cls._reject_json_style_list(v, "TRUSTED_HOSTS")
         return v
 
+    @field_validator(
+        "RATE_LIMIT_LOGIN",
+        "RATE_LIMIT_REGISTER",
+        "RATE_LIMIT_EMAIL_TOKEN",
+        "RATE_LIMIT_READS",
+        "RATE_LIMIT_PROFILE",
+        "RATE_LIMIT_MUTATIONS",
+        "RATE_LIMIT_UPLOAD",
+        "RATE_LIMIT_MATCH_CREATE",
+        "RATE_LIMIT_STREAM",
+        "RATE_LIMIT_ADMIN",
+    )
+    @classmethod
+    def validate_rate_limit_format(cls, v: str, info: ValidationInfo) -> str:
+        try:
+            parse_many(v)
+        except ValueError as e:
+            raise ValueError(
+                f"{info.field_name} is not a valid rate limit string. "
+                f'Use the limits format, e.g. "10/minute;60/hour". Got: {v!r}'
+            ) from e
+        return v
+
     @field_validator("SMTP_PORT")
     @classmethod
     def validate_smtp_port(cls, v: int | None) -> int | None:
@@ -254,6 +323,13 @@ class Settings(BaseSettings):
                 missing.append("SMTP_FROM_ADDRESS")
             if missing:
                 raise ValueError(f"Missing SMTP configuration in {self.ENVIRONMENT}: {', '.join(missing)}")
+        return self
+
+    @model_validator(mode="after")
+    def validate_rate_limit_bypass_not_in_production(self) -> "Settings":
+        """RATE_LIMIT_BYPASS is a dev/test convenience and must never reach production."""
+        if self.is_production and self.RATE_LIMIT_BYPASS:
+            raise ValueError("RATE_LIMIT_BYPASS must not be enabled in production")
         return self
 
 

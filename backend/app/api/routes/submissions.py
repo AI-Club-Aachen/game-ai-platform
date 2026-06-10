@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.deps import (
@@ -12,6 +12,8 @@ from app.api.deps import (
     get_submission_service,
 )
 from app.api.services.submission import SubmissionService, SubmissionServiceError
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.models.game import GameType
 from app.models.user import UserRole
 from app.schemas.submission import SubmissionRead
@@ -22,7 +24,9 @@ router = APIRouter()
 
 # POST /api/v1/submissions/
 @router.post("", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: settings.RATE_LIMIT_UPLOAD)
 async def create_submission(
+    request: Request,  # noqa: ARG001
     file: Annotated[UploadFile, File(...)],
     game_type: Annotated[GameType, Form(...)],
     current_user: VerifiedUserOrHigher,
@@ -114,7 +118,9 @@ def list_submissions(
 
 
 @router.delete("/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(lambda: settings.RATE_LIMIT_MUTATIONS)
 def delete_submission(
+    request: Request,  # noqa: ARG001
     submission_id: UUID,
     current_user: VerifiedUserOrHigher,
     service: SubmissionService = Depends(get_submission_service),
