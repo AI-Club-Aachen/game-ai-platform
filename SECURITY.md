@@ -874,7 +874,7 @@ pending account on mere collision (e.g., require proof of ownership or rate-limi
 
 ---
 
-### [ ] L-7 — `request_password_reset` email enumeration is correctly mitigated
+### [x] L-7 — `request_password_reset` email enumeration is correctly mitigated
 
 Informational/positive: always returns the same message (`auth.py:141`) and the service no-ops on
 unknown email (`auth.py:341-343`). Keep.

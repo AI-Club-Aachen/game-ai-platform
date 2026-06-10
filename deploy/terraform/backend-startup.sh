@@ -100,6 +100,7 @@ if [ -n "${DOMAIN_NAME}" ]; then
   # Attempt certbot standalone validation (requires port 80 to be free - Nginx is not running yet)
   if certbot certonly --standalone \
     -d "${DOMAIN_NAME}" \
+    -d "api.${DOMAIN_NAME}" \
     --non-interactive \
     --agree-tos \
     --email "${CERTBOT_EMAIL}" \

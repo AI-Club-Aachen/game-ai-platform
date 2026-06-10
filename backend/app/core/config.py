@@ -253,7 +253,12 @@ class Settings(BaseSettings):
 
     @property
     def allow_origins_list(self) -> list[str]:
-        return self._parse_csv(self.ALLOW_ORIGINS) or ["http://localhost:3000"]
+        # Browsers send the Origin header without a trailing slash or path, and
+        # Starlette's CORSMiddleware matches origins by exact string. Normalize away
+        # any trailing slash so a config value like "https://example.com/" still
+        # matches the "https://example.com" the browser actually sends.
+        origins = [origin.rstrip("/") for origin in self._parse_csv(self.ALLOW_ORIGINS)]
+        return origins or ["http://localhost:3000"]
 
     @property
     def trusted_hosts_list(self) -> list[str]:
