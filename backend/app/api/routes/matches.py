@@ -1,18 +1,24 @@
 import asyncio
 import json
 import logging
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.api.deps import get_current_user, get_match_service
-from app.api.services.match import MatchService, MatchServiceError
+from app.api.deps import (
+    CurrentAdmin,
+    VerifiedGuestOrHigher,
+    VerifiedUserOrHigher,
+    WorkerOrVerifiedUser,
+    get_match_service,
+    require_worker_api_key,
+)
+from app.api.services.match import MatchPermissionError, MatchService, MatchServiceError
 from app.core.match_events import subscribe_match_events
 from app.models.game import GameType
 from app.models.match import MatchStatus
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.schemas.match import MatchCreate, MatchRead, MatchUpdate
 
 
@@ -30,12 +36,9 @@ class MatchSchedulerConfig(BaseModel):
 @router.get("/scheduler/config", response_model=MatchSchedulerConfig)
 def get_scheduler_config(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    _admin: CurrentAdmin,
 ) -> MatchSchedulerConfig:
-    """Get the current match scheduler configuration."""
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
+    """Get the current match scheduler configuration. Admin only."""
     task_runner = getattr(request.app.state, "task_runner", None)
     if not task_runner:
         raise HTTPException(status_code=500, detail="Task runner not found")
@@ -54,12 +57,9 @@ def get_scheduler_config(
 def update_scheduler_config(
     config: MatchSchedulerConfig,
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    _admin: CurrentAdmin,
 ) -> MatchSchedulerConfig:
-    """Update the match scheduler configuration."""
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
+    """Update the match scheduler configuration. Admin only."""
     task_runner = getattr(request.app.state, "task_runner", None)
     if not task_runner:
         raise HTTPException(status_code=500, detail="Task runner not found")
@@ -82,18 +82,26 @@ def update_scheduler_config(
 @router.post("", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
 async def create_match(
     match_in: MatchCreate,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
 ) -> MatchRead:
     """
-    Create a new match request.
+    Create a new match request. Requires the USER role or higher; non-admin
+    callers must own at least one of the participating agents.
     """
     try:
         additional_data = match_in.game_type.additional_data
         for k, v in additional_data.items():
             if k not in match_in.config.state_init_data:
                 match_in.config.state_init_data[k] = v
-        return await service.create_match(match_in.game_type, match_in.config, match_in.agent_ids)
+        return await service.create_match(
+            match_in.game_type,
+            match_in.config,
+            match_in.agent_ids,
+            owner_user_id=None if current_user.role == UserRole.ADMIN else current_user.id,
+        )
+    except MatchPermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except MatchServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
@@ -102,10 +110,12 @@ async def create_match(
 @router.get("/{match_id}", response_model=MatchRead)
 def get_match(
     match_id: str,
+    _actor: WorkerOrVerifiedUser,
     service: MatchService = Depends(get_match_service),
 ) -> MatchRead:
     """
-    Get a match by ID.
+    Get a match by ID. Requires a verified login (any role) or the worker API
+    key (the match worker reads match data at run time).
     """
     match = service.get_match(match_id)
     if not match:
@@ -114,16 +124,14 @@ def get_match(
 
 
 # PATCH /api/v1/matches/{match_id}
-@router.patch("/{match_id}", response_model=MatchRead)
+@router.patch("/{match_id}", response_model=MatchRead, dependencies=[Depends(require_worker_api_key)])
 async def update_match(
     match_id: str,
     update_data: MatchUpdate,
     service: MatchService = Depends(get_match_service),
 ) -> MatchRead:
     """
-    Update a match (used by workers).
-    Note: This endpoint has no authentication for worker access.
-    In production, consider adding API key authentication for workers.
+    Update a match. Worker API key required.
     """
     match = await service.update_match(
         match_id,
@@ -140,6 +148,7 @@ async def update_match(
 # GET /api/v1/matches/
 @router.get("", response_model=list[MatchRead])
 def list_matches(
+    _current_user: VerifiedGuestOrHigher,
     service: MatchService = Depends(get_match_service),
     skip: int = 0,
     limit: int = 20,
@@ -147,7 +156,7 @@ def list_matches(
     status: MatchStatus | None = None,
 ) -> list[MatchRead]:
     """
-    List matches.
+    List matches. Requires a verified login (any role).
     """
     return service.list_matches(skip, limit, game_type=game_type, status=status)
 
@@ -156,6 +165,7 @@ def list_matches(
 @router.get("/{match_id}/stream")
 async def stream_match(
     match_id: str,
+    _current_user: VerifiedGuestOrHigher,
     service: MatchService = Depends(get_match_service),
 ) -> StreamingResponse:
     """
@@ -166,7 +176,7 @@ async def stream_match(
       real-time game state updates as SSE events.
     - Closes the stream when the match ends or the client disconnects.
 
-    No authentication is required — spectating is public.
+    Requires a verified login (any role); spectating is not anonymous.
     """
     match = service.get_match(match_id)
     if not match:

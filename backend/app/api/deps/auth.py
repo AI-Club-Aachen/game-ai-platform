@@ -12,7 +12,7 @@ from app.api.deps.services import get_user_repository
 from app.api.repositories.user import UserRepository
 from app.core.config import settings
 from app.core.security import decode_access_token
-from app.models.user import User, UserRole
+from app.models.user import User
 
 
 logger = logging.getLogger(__name__)
@@ -41,10 +41,12 @@ def require_worker_api_key(api_key: str | None = Security(worker_api_key_header)
 def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
-    is_worker: bool = Depends(verify_worker_api_key),
 ) -> User:
     """
     Dependency to get current authenticated user from JWT token.
+
+    JWT auth is strictly separate from worker-key auth: a worker API key never
+    yields a User here. Worker-only endpoints use require_worker_api_key.
 
     Args:
         credentials: Bearer token from request header
@@ -56,16 +58,6 @@ def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    if is_worker:
-        return User(
-            id=UUID("00000000-0000-0000-0000-000000000000"),
-            username="worker",
-            email="worker@system.local",
-            password_hash="",
-            role=UserRole.ADMIN,
-            email_verified=True,
-        )
-
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

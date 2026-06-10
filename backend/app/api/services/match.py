@@ -24,6 +24,10 @@ class MatchServiceError(Exception):
     """Base exception for match service errors."""
 
 
+class MatchPermissionError(MatchServiceError):
+    """Raised when the caller is not allowed to use the requested agents."""
+
+
 class MatchService:
     """Service for managing matches."""
 
@@ -42,14 +46,19 @@ class MatchService:
         game_type: GameType,
         config: MatchConfig,
         agent_ids: list[UUID],
+        owner_user_id: UUID | None = None,
     ) -> Match:
         """
         Create a match and queue it for execution.
+
+        If owner_user_id is given (non-admin API callers), at least one of the
+        participating agents must belong to that user. Admin callers and the
+        internal match scheduler pass None and may match any agents.
         """
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
 
-        self._validate_agents_for_match(game_type, agent_ids)
+        self._validate_agents_for_match(game_type, agent_ids, owner_user_id=owner_user_id)
 
         config_dict = config.model_dump()
         match = Match(
@@ -143,7 +152,12 @@ class MatchService:
     ) -> Sequence[Match]:
         return self._repository.list_matches(skip, limit, game_type=game_type, status=status)
 
-    def _validate_agents_for_match(self, game_type: GameType, agent_ids: list[UUID]) -> None:
+    def _validate_agents_for_match(
+        self,
+        game_type: GameType,
+        agent_ids: list[UUID],
+        owner_user_id: UUID | None = None,
+    ) -> None:
         if not (game_type.min_players <= len(agent_ids) <= game_type.max_players):
             raise MatchServiceError(
                 f"Game '{game_type.value}' requires between {game_type.min_players} and "
@@ -153,6 +167,9 @@ class MatchService:
         agents = self._agent_repository.list_by_ids(agent_ids)
         if len(agents) != len(agent_ids):
             raise MatchServiceError("One or more agents were not found")
+
+        if owner_user_id is not None and all(agent.user_id != owner_user_id for agent in agents):
+            raise MatchPermissionError("At least one participating agent must belong to you")
 
         agents_by_id = {agent.id: agent for agent in agents}
         for agent_id in agent_ids:

@@ -17,13 +17,21 @@ from app.api.deps.auth import (
     OptionalUser,
     get_current_user,
     get_optional_current_user,
+    require_worker_api_key,
 )
 
 # Authorization/Permissions
 from app.api.deps.permissions import (
+    AdminOnly,
     CurrentAdmin,
+    RequestActor,
+    VerifiedGuestOrHigher,
     VerifiedUser,
+    VerifiedUserOrHigher,
+    WorkerOrVerifiedUser,
     get_current_admin,
+    get_verified_user_or_higher,
+    get_worker_or_verified_user,
     verify_email_verified,
     verify_user_role,
 )
@@ -56,10 +64,18 @@ __all__ = [
     "OptionalUser",
     "get_current_user",
     "get_optional_current_user",
+    "require_worker_api_key",
     # Authorization/Permissions
+    "AdminOnly",
     "CurrentAdmin",
+    "RequestActor",
+    "VerifiedGuestOrHigher",
     "VerifiedUser",
+    "VerifiedUserOrHigher",
+    "WorkerOrVerifiedUser",
     "get_current_admin",
+    "get_verified_user_or_higher",
+    "get_worker_or_verified_user",
     "verify_email_verified",
     "verify_user_role",
 ]

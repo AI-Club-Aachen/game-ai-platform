@@ -1,12 +1,11 @@
-from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_current_user
+from app.api.deps import VerifiedGuestOrHigher, require_worker_api_key
 from app.api.deps.services import get_agent_container_service
 from app.api.services.agent_container import AgentContainerService, AgentContainerServiceError
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.schemas.agent_container import AgentContainerCreate, AgentContainerRead, AgentContainerUpdate
 
 
@@ -15,7 +14,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[AgentContainerRead])
 def list_agent_containers(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: VerifiedGuestOrHigher,
     service: AgentContainerService = Depends(get_agent_container_service),
     skip: int = 0,
     limit: int = 100,
@@ -36,24 +35,25 @@ def list_agent_containers(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
-@router.post("/upsert", response_model=AgentContainerRead)
+@router.post("/upsert", response_model=AgentContainerRead, dependencies=[Depends(require_worker_api_key)])
 def upsert_agent_container(
     payload: AgentContainerCreate,
     service: AgentContainerService = Depends(get_agent_container_service),
 ) -> AgentContainerRead:
-    """Worker endpoint for writing latest container telemetry snapshots."""
+    """Write latest container telemetry snapshots. Worker API key required."""
     try:
         return service.upsert_container(payload)
     except AgentContainerServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
-@router.patch("/{container_id}", response_model=AgentContainerRead)
+@router.patch("/{container_id}", response_model=AgentContainerRead, dependencies=[Depends(require_worker_api_key)])
 def update_agent_container(
     container_id: str,
     payload: AgentContainerUpdate,
     service: AgentContainerService = Depends(get_agent_container_service),
 ) -> AgentContainerRead:
+    """Update a container record. Worker API key required."""
     try:
         updated = service.update_container(container_id=container_id, payload=payload)
     except AgentContainerServiceError as e:

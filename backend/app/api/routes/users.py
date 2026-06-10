@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from app.api.deps import (
     CurrentAdmin,
     CurrentUser,
+    VerifiedGuestOrHigher,
     get_user_service,
 )
 from app.api.services.user import (
@@ -68,10 +69,15 @@ async def get_current_user_profile(
 async def update_current_user_profile(
     request: Request,  # noqa: ARG001
     user_update: UserUpdate,
-    user: CurrentUser,
+    user: VerifiedGuestOrHigher,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> UserResponse:
-    """Update current user's profile (username or email)."""
+    """
+    Update current user's profile (username or email).
+
+    Account-lifecycle exception: verified guests may manage their OWN profile
+    even though they are read-only for app data.
+    """
     try:
         updated_user = user_service.update_current_user_profile(
             current_user=user,
@@ -102,11 +108,14 @@ async def update_current_user_profile(
 async def change_password(
     request: Request,  # noqa: ARG001
     password_request: PasswordChangeRequest,
-    user: CurrentUser,
+    user: VerifiedGuestOrHigher,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> ChangePasswordResponse:
     """
     Change current user's password.
+
+    Account-lifecycle exception: verified guests may rotate their OWN password
+    even though they are read-only for app data.
 
     Rate limited: 15 changes per day per IP.
     """
