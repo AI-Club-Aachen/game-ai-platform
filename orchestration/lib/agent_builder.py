@@ -3,35 +3,157 @@ import hashlib
 import io
 import logging
 import os
+import re
 import shutil
+import stat
 import tempfile
+import time
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import docker
+import yaml
 
+from lib.agent_runner import _build_docker_run_kwargs
 from lib.backend_api import BackendAPI
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_DOCKERIGNORE_PATH = Path(__file__).parent / "default_dockerignore"
+SECURE_SETTINGS_PATH = Path(__file__).parent.parent / "secure_default_settings.yaml"
+
+# Each path component of a ZIP entry must match this charset. This neutralizes
+# command-injection via crafted filenames (H-8) and keeps extraction predictable.
+_SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+# Syntax-check program. The agent filename is passed via the AGENT_FILE env var
+# and read with os.environ — never interpolated into the program text (H-8).
+_SYNTAX_CHECK_PROGRAM = (
+    "import os; _f = os.environ['AGENT_FILE']; "
+    "compile(open(_f, 'rb').read(), _f, 'exec')"
+)
+
+# Defaults applied when a key is missing from secure_default_settings.yaml.
+_DEFAULT_BUILD_LIMITS: dict = {
+    "max_archive_bytes": 50 * 1024 * 1024,
+    "max_uncompressed_bytes": 256 * 1024 * 1024,
+    "max_file_count": 2000,
+    "max_nesting_depth": 16,
+    "build_timeout_seconds": 300,
+    "syntax_check_timeout_seconds": 30,
+    "build_network_mode": "none",
+}
 
 
 class BuildError(Exception):
     pass
 
 
-def _safe_extract_zip(zip_bytes: bytes, dst: Path) -> None:
+def _load_secure_settings() -> dict:
+    if not SECURE_SETTINGS_PATH.exists():
+        logger.warning("secure_default_settings.yaml not found; using built-in defaults")
+        return {}
+    return yaml.safe_load(SECURE_SETTINGS_PATH.read_text(encoding="utf-8")) or {}
+
+
+def _load_build_limits(settings: dict | None = None) -> dict:
+    settings = settings if settings is not None else _load_secure_settings()
+    limits = dict(_DEFAULT_BUILD_LIMITS)
+    limits.update(settings.get("build_limits") or {})
+    return limits
+
+
+def _validate_member_name(name: str, max_depth: int) -> None:
+    """Reject ZIP entry names with unsafe characters or excessive nesting (H-4, H-8)."""
+    components = [c for c in name.replace("\\", "/").split("/") if c not in ("", ".")]
+    if len(components) > max_depth:
+        raise BuildError(f"ZIP entry nesting too deep (>{max_depth}): {name}")
+    for component in components:
+        if component == "..":
+            raise BuildError(f"Illegal Path in ZIP: {name}")
+        if not _SAFE_NAME_RE.match(component):
+            raise BuildError(f"Illegal characters in ZIP entry name: {name!r}")
+
+
+def _safe_extract_zip(zip_bytes: bytes, dst: Path, limits: dict | None = None) -> None:
+    limits = limits if limits is not None else _load_build_limits()
     dst = dst.resolve()
+
+    if len(zip_bytes) > limits["max_archive_bytes"]:
+        raise BuildError(
+            f"ZIP archive too large: {len(zip_bytes)} bytes (max {limits['max_archive_bytes']})"
+        )
+
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        for m in zf.infolist():
+        infos = zf.infolist()
+        if len(infos) > limits["max_file_count"]:
+            raise BuildError(f"ZIP has too many entries: {len(infos)} (max {limits['max_file_count']})")
+
+        total_uncompressed = 0
+        for m in infos:
+            # Reject symlinks and other special files. Only inspect the file-type
+            # field when it is actually set; zipfile.writestr stores plain perms
+            # (e.g. 0o600) with no S_IFMT bits, which must be treated as regular.
+            fmt = stat.S_IFMT(m.external_attr >> 16)
+            if fmt == stat.S_IFLNK:
+                raise BuildError(f"ZIP entry is a symlink, which is not allowed: {m.filename}")
+            if fmt not in (0, stat.S_IFREG, stat.S_IFDIR):
+                raise BuildError(f"ZIP entry is a special file, which is not allowed: {m.filename}")
+
+            _validate_member_name(m.filename, limits["max_nesting_depth"])
+
+            total_uncompressed += m.file_size
+            if total_uncompressed > limits["max_uncompressed_bytes"]:
+                raise BuildError(
+                    f"ZIP uncompressed size exceeds limit of {limits['max_uncompressed_bytes']} bytes"
+                )
+
+            # Robust containment: the resolved target must stay within dst (replaces
+            # the weak str.startswith prefix check that mis-handled sibling prefixes).
             p = (dst / m.filename).resolve()
-            # will trigger when one tries to escape from the zip by trying to access
-            # folders higher up
-            if not str(p).startswith(str(dst)):
+            if p != dst and not p.is_relative_to(dst):
                 raise BuildError(f"Illegal Path in ZIP: {m.filename}")
+
         zf.extractall(dst)
+
+
+def _build_image_with_timeout(
+    client: "docker.DockerClient",
+    *,
+    path: str,
+    dockerfile: str,
+    tag: str,
+    labels: dict,
+    buildargs: dict,
+    network_mode: str,
+    timeout: float,
+):
+    """Stream a docker build with a wall-clock deadline (M-8/H-7).
+
+    Consuming the low-level build stream lets us stop waiting once the deadline
+    passes instead of blocking indefinitely on a stalling submission.
+    """
+    deadline = time.monotonic() + timeout
+    resp = client.api.build(
+        path=path,
+        dockerfile=dockerfile,
+        tag=tag,
+        labels=labels,
+        rm=True,
+        pull=False,
+        nocache=True,
+        buildargs=buildargs,
+        network_mode=network_mode,
+        decode=True,
+    )
+    for chunk in resp:
+        if time.monotonic() > deadline:
+            raise BuildError(f"Image build exceeded timeout of {timeout}s")
+        if isinstance(chunk, dict) and chunk.get("error"):
+            raise BuildError(chunk["error"])
+    # Resolve by tag — robust across classic builder and BuildKit output formats.
+    return client.images.get(tag)
 
 
 def _content_hash(root: Path) -> str:
@@ -70,7 +192,13 @@ def _find_agent_entry(ctx: Path) -> str:
         names = ", ".join(p.name for p in candidates)
         raise BuildError(f"Multiple agent entry files found: {names}. Provide exactly one file.")
 
-    return candidates[0].name
+    entry_name = candidates[0].name
+    # Defense in depth (H-8): the entry filename is passed to a container; reject
+    # anything outside the safe charset even though extraction already validated it.
+    if not _SAFE_NAME_RE.match(entry_name):
+        raise BuildError(f"Illegal characters in agent entry filename: {entry_name!r}")
+
+    return entry_name
 
 
 def build_from_zip(
@@ -184,9 +312,12 @@ def build_from_zip(
     if not dockerfile_path.exists():
         raise BuildError(str(Path(__file__).resolve().parent.parent) + f"/{dockerfile_path.name} not found.")
 
+    secure_settings = _load_secure_settings()
+    build_limits = _load_build_limits(secure_settings)
+
     with tempfile.TemporaryDirectory(prefix="agent-build-") as td:
         ctx = Path(td)
-        _safe_extract_zip(zip_bytes, ctx)
+        _safe_extract_zip(zip_bytes, ctx, build_limits)
 
         # Flatten directory if the user zipped a folder instead of its contents
         top_level_items = [p for p in ctx.iterdir() if p.name not in ("__MACOSX", ".DS_Store")]
@@ -223,37 +354,76 @@ def build_from_zip(
             f"{base_label_ns}.kind": "agent",
         }
 
-        image, _ = client.images.build(
+        # Build with no network (egress disabled) and a wall-clock timeout. Both
+        # Dockerfiles only `COPY . .`; the base image is pulled separately above,
+        # so the build itself needs no network (H-7, M-8).
+        image = _build_image_with_timeout(
+            client,
             path=str(ctx),
             dockerfile=str(dockerfile_path),
             tag=full_tag,
             labels=labels,
-            rm=True,
-            pull=False,
-            nocache=True,
             buildargs={"AGENT_FILE": entry_file},
-            network_mode="default",  # allow this for the build, but not for the containers later
+            network_mode=str(build_limits["build_network_mode"]),
+            timeout=float(build_limits["build_timeout_seconds"]),
         )
 
+        # Post-build syntax check. Run the freshly built untrusted image with the
+        # SAME hardened kwargs as runtime agents (network none, cap_drop=ALL,
+        # read_only, mem/pids limits, tmpfs) instead of default Docker settings
+        # (H-7). The filename is passed via env var, not interpolated (H-8).
+        # DEPLOY TODO: also isolate the Docker-socket builder from internet-facing
+        # services and run it rootless/remote (topology hardening, out of code scope).
+        run_kwargs = _build_docker_run_kwargs(secure_settings)
+        syntax_timeout = float(build_limits["syntax_check_timeout_seconds"])
         try:
-            client.containers.run(
+            container = client.containers.run(
                 image.id,
-                command=["python", "-c", f"with open('{entry_file}', 'rb') as f: compile(f.read(), '{entry_file}', 'exec')"],  # noqa: E501
-                remove=True
+                command=["python", "-c", _SYNTAX_CHECK_PROGRAM],
+                environment={"AGENT_FILE": entry_file},
+                detach=True,
+                **run_kwargs,
             )
-        except docker.errors.ContainerError as e:
-            err_msg = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else str(e.stderr)
-            try:
-                client.images.remove(image.id, force=True)
-            except Exception:
-                pass
-            raise BuildError(f"Agent code has syntax errors:\n{err_msg}")
         except docker.errors.APIError as e:
             try:
                 client.images.remove(image.id, force=True)
             except Exception:
                 pass
             raise BuildError(f"Failed to verify agent code: {e}")
+
+        try:
+            try:
+                result = container.wait(timeout=syntax_timeout)
+            except Exception as e:
+                try:
+                    container.kill()
+                except Exception:
+                    pass
+                try:
+                    client.images.remove(image.id, force=True)
+                except Exception:
+                    pass
+                raise BuildError(f"Agent syntax check timed out after {syntax_timeout}s: {e}")
+
+            exit_code = result.get("StatusCode")
+            if exit_code != 0:
+                err_msg = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
+                try:
+                    client.images.remove(image.id, force=True)
+                except Exception:
+                    pass
+                raise BuildError(f"Agent code has syntax errors:\n{err_msg}")
+        finally:
+            try:
+                container.remove(force=True)
+            except Exception:
+                pass
+
+        # Reclaim dangling layers produced by nocache builds (M-8).
+        try:
+            client.images.prune(filters={"dangling": True})
+        except Exception as e:
+            logger.debug(f"Dangling image prune failed (non-fatal): {e}")
 
     return {
         "image_id": image.id,

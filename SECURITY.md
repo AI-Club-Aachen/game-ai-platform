@@ -231,7 +231,18 @@ SSE, and worker callbacks. See the rate-limit matrix below for targets.
 
 ---
 
-### [ ] H-4 — Upload / ZIP / build pipeline lacks resource-exhaustion controls
+### [x] H-4 — Upload / ZIP / build pipeline lacks resource-exhaustion controls
+
+> **FIXED:** **App layer** — `create_submission` now checks content-type, enforces a configurable
+> `MAX_UPLOAD_BYTES` (advertised size *and* a streamed cap so a missing/lying Content-Length cannot
+> bypass it), and a per-user `MAX_SUBMISSIONS_PER_USER` quota (both in `config.py`; quota default 0 =
+> disabled). **Extraction** — `_safe_extract_zip` now enforces `build_limits` from
+> `secure_default_settings.yaml`: max archive bytes, max total uncompressed size (ZIP-bomb guard),
+> max entry count, max nesting depth, rejects symlinks/special files, and replaces the weak
+> `str.startswith` containment with `Path.resolve().is_relative_to(dst)`. Build timeout/limits overlap
+> M-8 (implemented once, see there). Regression tests: backend
+> `test_submissions_and_agents.py::test_upload_rejects_oversized_file`; orchestration
+> `test_agent_builder.py::{test_safe_extract_rejects_too_many_files,_zip_bomb_uncompressed,_symlink_entry}`.
 
 **Files**
 - `backend/app/api/services/submission.py:50-66` (upload)
@@ -303,7 +314,18 @@ access logs, the browser history/referrer, and any intermediary — credential d
 
 ---
 
-### [ ] H-7 — Build-stage agent execution happens in an UNSANDBOXED container on a root Docker-socket worker
+### [x] H-7 — Build-stage agent execution happens in an UNSANDBOXED container on a root Docker-socket worker
+
+> **FIXED:** the post-build syntax-check container now runs with the SAME hardened kwargs as runtime
+> agents — `_build_docker_run_kwargs(secure_default_settings.yaml)` supplies `network_mode=none`,
+> `cap_drop=[ALL]`, `read_only`, `mem_limit`, `pids_limit`, `no-new-privileges`, and size-bounded
+> tmpfs — so user code can no longer reach the bridge network / metadata server or exhaust resources
+> during the check. The image build itself now uses `network_mode="none"` (a new configurable
+> `build_limits.build_network_mode`; both Dockerfiles are `COPY . .` only and the base image is pulled
+> separately, so no build egress is needed) and a wall-clock build timeout. The check container is run
+> detached with a `container.wait(timeout=…)` deadline and always removed.
+> **DEPLOY TODO (out of code scope):** isolate the Docker-socket builder from internet-facing services
+> and run it rootless/remote — noted as a comment at the syntax-check call site.
 
 **Files**
 - `orchestration/lib/agent_builder.py:238-243` (post-build syntax-check `containers.run` with **no** secure kwargs)
@@ -342,7 +364,15 @@ isolate Docker-socket workers from internet-facing services (rootless/remote bui
 
 ---
 
-### [ ] H-8 — Command injection via crafted agent filename into the build-time syntax check
+### [x] H-8 — Command injection via crafted agent filename into the build-time syntax check
+
+> **FIXED:** the syntax-check command no longer interpolates the filename — it is a fixed program
+> (`_SYNTAX_CHECK_PROGRAM`) that reads the path from `os.environ['AGENT_FILE']`, passed via the
+> container `environment=` kwarg. In addition, `_safe_extract_zip` now validates every ZIP entry's
+> path components against `^[A-Za-z0-9._-]+$` and rejects anything else at extraction time, so a
+> payload like `evil'); __import__('os').system(...)#_agent.py` is refused before it is ever written
+> (`_find_agent_entry` re-checks the chosen entry as defense in depth). Regression test:
+> `orchestration/tests/test_agent_builder.py::test_safe_extract_rejects_command_injection_filename`.
 
 **Files**
 - `orchestration/lib/agent_builder.py:239-243` (f-string interpolates `entry_file` into `python -c`)
@@ -396,7 +426,15 @@ document open matchmaking explicitly and rate-limit (see H-3).
 
 ---
 
-### [ ] M-2 — Submission download/delete trust a DB-stored absolute filesystem path
+### [x] M-2 — Submission download/delete trust a DB-stored absolute filesystem path
+
+> **FIXED:** `create_submission` now stores only the relative key (`{id}.zip`) in `object_path`, never
+> an absolute path. A new `SubmissionService._resolve_submission_file` reduces any stored value to its
+> basename (defensively handling legacy absolute rows with no migration needed), joins it under
+> `SUBMISSIONS_DIR`, rejects symlinks, and verifies containment with `Path.resolve().relative_to(base)`.
+> Both the download route (`get_submission_file_path`) and `delete_submission` go through it, so a
+> corrupted/traversal path can neither disclose nor delete a file outside the submissions directory.
+> Regression test: `test_submissions_and_agents.py::test_download_path_is_contained_to_submissions_dir`.
 
 **Files**
 - `backend/app/api/routes/submissions.py:76-84` (`Path(submission.object_path)` → `FileResponse`)
@@ -539,7 +577,16 @@ Also enables rate-limit-store tampering and Redis-native file-write attacks (mit
 
 ---
 
-### [ ] M-8 — Build/run resource exhaustion on worker hosts from untrusted submissions
+### [x] M-8 — Build/run resource exhaustion on worker hosts from untrusted submissions
+
+> **FIXED:** the image build runs through `_build_image_with_timeout`, which streams the low-level
+> build with a configurable wall-clock deadline (`build_limits.build_timeout_seconds`), and the
+> builder prunes dangling layers after each build to reclaim `nocache=True` churn. `tmpfs` mounts in
+> `secure_default_settings.yaml` now carry `size=` (`/tmp` 64m, `/run` 16m). In `match_manager.run_match`,
+> stored `history` is capped at `MATCH_MAX_HISTORY_STATES` and the match loop honors a
+> `MATCH_WALL_CLOCK_SECONDS` deadline (both env-configurable). The match-runner worker loop processes
+> matches sequentially (one concurrent match per worker), so an explicit concurrency semaphore was
+> unnecessary; coordinated with H-4 so build limits are implemented once.
 
 **Files**
 - `orchestration/lib/agent_builder.py:226-236` (`client.images.build` — no timeout; `nocache=True`)
@@ -750,9 +797,9 @@ own ≥1 participating agent (M-1).
 | DELETE | `/agents/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed** |
 | GET | `/submissions` | Guest+ own | Guest+ own | **H-1 fixed** (read tier) |
 | GET | `/submissions/{id}` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed** |
-| GET | `/submissions/{id}/download` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed**; **M-2** open |
-| POST | `/submissions` | User+ | User+ | **H-1 fixed**; **H-4** open |
-| DELETE | `/submissions/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed**; **M-2** open |
+| GET | `/submissions/{id}/download` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed**; **M-2 fixed** |
+| POST | `/submissions` | User+ | User+ | **H-1 fixed**; **H-4 fixed** |
+| DELETE | `/submissions/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed**; **M-2 fixed** |
 | GET | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
 | PUT | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
 | POST | `/matches` | User+ (own agent, M-1) | User+ (own agent) | **H-1/M-1 fixed** |
@@ -804,14 +851,16 @@ All limits are now settings-driven (`backend/app/core/config.py`) and enforced b
 path-traversal guard (`agent_builder.py:25-34`).
 
 **Risks (this review).**
-- Build-time network enabled + untrusted `pip` execution (**H-7**).
-- No ZIP-bomb / file-count / uncompressed-size limits (**H-4**).
-- Post-build syntax-check container `client.containers.run(...)` at `agent_builder.py:239-243` does
-  **not** pass the secure run kwargs (no `network_mode=none`, no caps drop, no mem/pid limits) — it runs
-  the freshly built untrusted image with default Docker settings. Harden it with the same
-  `_build_docker_run_kwargs` defaults.
-- Worker runs as `root` with host Docker socket (**H-7**).
-- Server-side log/result/game-state are unbounded (**M-3**).
+- ~~Build-time network enabled~~ → build now runs with `network_mode="none"` and a wall-clock timeout (**H-7/M-8 fixed**).
+- ~~No ZIP-bomb / file-count / uncompressed-size limits~~ → `_safe_extract_zip` enforces archive/uncompressed/
+  count/depth caps, rejects symlinks, and uses `is_relative_to` containment (**H-4 fixed**).
+- ~~Post-build syntax-check container runs with default Docker settings~~ → now passes
+  `_build_docker_run_kwargs` (network none, cap_drop, read_only, mem/pid limits, tmpfs) + a wait timeout,
+  and reads the filename from an env var instead of an interpolated command (**H-7/H-8 fixed**).
+- Worker runs as `root` with host Docker socket — topology hardening (rootless/remote builder) remains a
+  **deploy TODO** (out of code scope, noted at the call site) (**H-7**).
+- Server-side log/result/game-state are unbounded (**M-3**, still open; orchestration-side `history`/
+  wall-clock caps added under M-8).
 
 ---
 
@@ -823,7 +872,7 @@ path-traversal guard (`agent_builder.py:25-34`).
 - [x] Require `TRUSTED_HOSTS` in production (M-5).
 - [ ] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
 - [x] Reject `BYPASS_EMAIL_VERIFICATION=true` at config load in production (M-5).
-- [ ] Add upload size + per-user quota settings (H-4).
+- [x] Add upload size + per-user quota settings (H-4).
 - [ ] Add max log / result / game-state size settings (M-3).
 - [ ] Bound all pagination `limit`s (M-4).
 - [x] Add all rate-limit category defaults to both `.env.example` files (H-3).
@@ -847,8 +896,9 @@ Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests
 8. ~~Worker key can still read/download submissions + read agents (C-2 migration).~~ ✅
 9. ~~User cannot change elo/wins/losses via `PATCH /agents` (H-5); match completion still updates them.~~ ✅
 10. Reset password uses a body, not query params (H-6).
-11. Upload max-size + ZIP-bomb + traversal/symlink/file-count rejection (H-4).
-12. Submission path containment on download/delete (M-2).
+11. ~~Upload max-size + ZIP-bomb + traversal/symlink/file-count rejection (H-4).~~ ✅
+    (`test_submissions_and_agents.py` upload size; `test_agent_builder.py` ZIP-bomb/symlink/count/injection)
+12. ~~Submission path containment on download/delete (M-2).~~ ✅ (`test_submissions_and_agents.py`)
 13. Oversized logs/game-state rejected or truncated (M-3).
 14. Pagination `limit` capping (M-4).
 15. ~~Rate-limit categories present in settings; prod rejects disabled rate limiting (H-3/M-5).~~ ✅ (`test_rate_limiting.py`)

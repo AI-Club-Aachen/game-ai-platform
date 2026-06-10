@@ -108,6 +108,16 @@ class Settings(BaseSettings):
         description="Maximum number of agents a user can create per game. 0 disables the limit.",
     )
 
+    # Upload limits (H-4)
+    MAX_UPLOAD_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum accepted submission upload size in bytes. 0 disables the limit.",
+    )
+    MAX_SUBMISSIONS_PER_USER: int = Field(
+        default=0,
+        description="Maximum number of submissions a user may store. 0 disables the quota.",
+    )
+
     # CORS/Security
     ALLOW_ORIGINS: str = Field(
         default="http://localhost:3000",

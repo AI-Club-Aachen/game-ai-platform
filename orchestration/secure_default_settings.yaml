@@ -3,10 +3,10 @@ cap_drop: ["ALL"]   # if something breaks because of this, grant the correspondi
 security_opt: ["no-new-privileges"]
 read_only: true
 
-# tmpfs mounts with secure options
+# tmpfs mounts with secure options (size= bounds memory-backed disk usage, M-8)
 tmpfs:
-  "/tmp": "rw,noexec,nosuid,nodev"
-  "/run": "rw,noexec,nosuid,nodev"
+  "/tmp": "rw,noexec,nosuid,nodev,size=64m"
+  "/run": "rw,noexec,nosuid,nodev,size=16m"
 
 # limits
 pids_limit: 256
@@ -25,3 +25,15 @@ network_mode: "none"
 # runtime
 time_limit_seconds: 30
 log_tail: 10000
+
+# build / extraction limits for untrusted submissions (H-4, H-7, M-8).
+# All values are overridable here; the builder applies the defaults below if a
+# key is omitted.
+build_limits:
+  max_archive_bytes: 52428800       # 50 MiB compressed ZIP upper bound
+  max_uncompressed_bytes: 268435456 # 256 MiB total uncompressed (ZIP-bomb guard)
+  max_file_count: 2000              # max ZIP entries
+  max_nesting_depth: 16             # max path-component depth per entry
+  build_timeout_seconds: 300        # wall-clock cap on `docker build`
+  syntax_check_timeout_seconds: 30  # wall-clock cap on the syntax-check container
+  build_network_mode: "none"        # network for the agent image build (no egress)

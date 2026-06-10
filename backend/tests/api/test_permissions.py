@@ -74,9 +74,13 @@ async def _admin(api_client, fake_email_client, db_session) -> tuple[str, dict]:
 def _make_submission(db_session: Session, user_id: str, tmp_path: Path | None = None) -> Submission:
     object_path = "path/to/zip"
     if tmp_path is not None:
-        zip_file = tmp_path / f"{uuid.uuid4()}.zip"
-        zip_file.write_bytes(b"PK\x05\x06" + b"\x00" * 18)  # minimal empty zip
-        object_path = str(zip_file)
+        # M-2: submissions are stored as a relative key under SUBMISSIONS_DIR and
+        # resolved with containment, so a downloadable fixture must live there.
+        key = f"{uuid.uuid4()}.zip"
+        submissions_dir = Path(settings.SUBMISSIONS_DIR)
+        submissions_dir.mkdir(parents=True, exist_ok=True)
+        (submissions_dir / key).write_bytes(b"PK\x05\x06" + b"\x00" * 18)  # minimal empty zip
+        object_path = key
     submission = Submission(
         user_id=uuid.UUID(user_id),
         name=random_lower_string(8),

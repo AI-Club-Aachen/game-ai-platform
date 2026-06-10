@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
@@ -91,7 +90,10 @@ def download_submission(
     ):
         raise HTTPException(status_code=403, detail="Not authorized to download this submission")
 
-    file_path = Path(submission.object_path)
+    try:
+        file_path = service.get_submission_file_path(submission)
+    except SubmissionServiceError as e:
+        raise HTTPException(status_code=404, detail="Submission file not found") from e
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Submission file not found on disk")
 

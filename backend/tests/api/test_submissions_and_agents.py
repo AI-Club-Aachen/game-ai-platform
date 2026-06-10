@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
+from app.models.submission import Submission
 from tests.api.test_users import _create_member_and_token
 from tests.utils import random_email, random_lower_string, random_username, strong_password
 
@@ -204,3 +205,87 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
     )
     assert match_response.status_code == 400
     assert "does not belong to game" in match_response.json()["detail"]
+
+
+def _make_zip_of_size(min_bytes: int) -> bytes:
+    """Build a valid ZIP whose total bytes exceed min_bytes (stored, uncompressed)."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as zip_file:
+        zip_file.writestr("agent.py", b"A" * min_bytes)
+    return buffer.getvalue()
+
+
+@pytest.mark.anyio
+async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_session, monkeypatch):
+    """H-4: an upload larger than MAX_UPLOAD_BYTES is rejected, not written."""
+    _user_id, bearer_token = await _create_member_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        random_username(),
+        random_email(),
+        strong_password(),
+    )
+
+    monkeypatch.setattr(settings, "MAX_UPLOAD_BYTES", 1024)
+    big_zip = _make_zip_of_size(4096)
+
+    response = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.TICTACTOE.value},
+        files={"file": ("agent.zip", big_zip, "application/zip")},
+    )
+
+    assert response.status_code == 400
+    assert "maximum allowed size" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_download_path_is_contained_to_submissions_dir(api_client, fake_email_client, db_session):
+    """M-2: a corrupted absolute/traversal object_path cannot serve files outside
+    SUBMISSIONS_DIR; the stored value is reduced to its basename and contained."""
+    _owner_id, bearer_token = await _create_member_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        random_username(),
+        random_email(),
+        strong_password(),
+    )
+
+    create_response = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.TICTACTOE.value},
+        files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
+    )
+    assert create_response.status_code == 201
+    submission_id = create_response.json()["id"]
+
+    # The stored object_path must be a relative key, not an absolute path.
+    submission = db_session.exec(
+        select(Submission).where(Submission.id == UUID(submission_id))
+    ).first()
+    assert submission is not None
+    assert submission.object_path == f"{submission_id}.zip"
+
+    # Happy path: the owner can download the real file.
+    ok = await api_client.get(
+        f"{API_PREFIX}/submissions/{submission_id}/download",
+        headers={"Authorization": bearer_token},
+    )
+    assert ok.status_code == 200
+
+    # Corrupt the path to point outside the submissions dir; download must NOT
+    # disclose that file (resolves to a basename under SUBMISSIONS_DIR -> 404).
+    submission.object_path = "../../../../../../etc/passwd"
+    db_session.add(submission)
+    db_session.commit()
+
+    escaped = await api_client.get(
+        f"{API_PREFIX}/submissions/{submission_id}/download",
+        headers={"Authorization": bearer_token},
+    )
+    assert escaped.status_code == 404
+    assert b"root:" not in escaped.content

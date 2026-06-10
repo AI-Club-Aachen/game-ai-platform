@@ -1,7 +1,15 @@
+import io
+import zipfile
+
 import docker
 import pytest
 
-from lib.agent_builder import BuildError, build_from_zip
+from lib.agent_builder import (
+    _DEFAULT_BUILD_LIMITS,
+    BuildError,
+    _safe_extract_zip,
+    build_from_zip,
+)
 
 
 def test_builder_success_valid_zip(docker_client, create_zip, track_images):
@@ -97,6 +105,80 @@ def test_builder_fails_multiple_nested_agent_not_found(create_zip):
     })
     with pytest.raises(BuildError, match="No agent entry file found"):
         build_from_zip(zip_bytes, owner_id="fail_test")
+
+
+# ---------------------------------------------------------------------------
+# Extraction-hardening regression tests (H-8 command injection, H-4 ZIP limits).
+# These exercise _safe_extract_zip directly and need no Docker daemon.
+# ---------------------------------------------------------------------------
+
+
+def _zip_with(entries: dict[str, bytes | str]) -> bytes:
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w") as z:
+        for name, content in entries.items():
+            z.writestr(name, content)
+    return bio.getvalue()
+
+
+def test_safe_extract_rejects_command_injection_filename(tmp_path):
+    """H-8: a ZIP entry whose name carries a shell/python injection payload must be
+    rejected at extraction, never extracted or interpolated into a command."""
+    malicious = "evil'); __import__('os').system('echo pwned')#_agent.py"
+    zip_bytes = _zip_with({malicious: "print('x')"})
+
+    with pytest.raises(BuildError, match="Illegal characters"):
+        _safe_extract_zip(zip_bytes, tmp_path)
+
+    # Nothing should have been written to disk.
+    assert not any(tmp_path.iterdir())
+
+
+def test_safe_extract_rejects_too_many_files(tmp_path):
+    """H-4: archives exceeding the entry-count cap are rejected."""
+    limits = {**_DEFAULT_BUILD_LIMITS, "max_file_count": 3}
+    zip_bytes = _zip_with({f"file_{i}.txt": "x" for i in range(10)})
+
+    with pytest.raises(BuildError, match="too many entries"):
+        _safe_extract_zip(zip_bytes, tmp_path, limits)
+
+
+def test_safe_extract_rejects_zip_bomb_uncompressed(tmp_path):
+    """H-4: archives whose total uncompressed size exceeds the cap are rejected."""
+    limits = {**_DEFAULT_BUILD_LIMITS, "max_uncompressed_bytes": 1024}
+    # Highly compressible payload: small on disk, large uncompressed.
+    zip_bytes = _zip_with({"agent.py": b"0" * (64 * 1024)})
+
+    with pytest.raises(BuildError, match="uncompressed size"):
+        _safe_extract_zip(zip_bytes, tmp_path, limits)
+
+
+def test_safe_extract_rejects_symlink_entry(tmp_path):
+    """H-4: symlink entries are rejected to prevent write/escape via links."""
+    import stat as stat_mod
+
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w") as z:
+        info = zipfile.ZipInfo("link_agent.py")
+        info.external_attr = (stat_mod.S_IFLNK | 0o777) << 16
+        z.writestr(info, "/etc/passwd")
+
+    with pytest.raises(BuildError, match="symlink"):
+        _safe_extract_zip(bio.getvalue(), tmp_path)
+
+
+def test_safe_extract_accepts_normal_archive(tmp_path):
+    """Happy path: a standard agent ZIP (incl. a subfolder) extracts cleanly."""
+    zip_bytes = _zip_with(
+        {
+            "agent.py": "print('hello')",
+            "requirements.txt": "",
+            "helpers/util.py": "x = 1",
+        }
+    )
+    _safe_extract_zip(zip_bytes, tmp_path)
+    assert (tmp_path / "agent.py").exists()
+    assert (tmp_path / "helpers" / "util.py").exists()
 
 
 def test_builder_prevents_tag_collision(docker_client, create_zip, track_images):

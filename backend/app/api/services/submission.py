@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from uuid import UUID
 
@@ -12,6 +11,18 @@ from app.core.queue import job_queue
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
+
+
+# Content types accepted for ZIP uploads. Empty/None is tolerated because some
+# clients omit the header; the .zip extension is still required (H-4).
+_ALLOWED_UPLOAD_CONTENT_TYPES = {
+    "application/zip",
+    "application/x-zip-compressed",
+    "application/octet-stream",
+    "multipart/x-zip",
+}
+
+_UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 
 class SubmissionServiceError(Exception):
@@ -47,8 +58,7 @@ class SubmissionService:
         2. Save file to disk
         3. Enqueue build job
         """
-        if not file.filename or not file.filename.endswith(".zip"):
-            raise SubmissionServiceError("Only .zip files are allowed.")
+        self._validate_upload(user_id, file)
 
         # 1. Create initial record
         submission = Submission(user_id=user_id, name=name or "", game_type=game_type, object_path="pending")
@@ -56,20 +66,24 @@ class SubmissionService:
             submission.name = str(submission.id)
         submission = self._repository.save(submission)
 
-        # 2. Save file
+        # 2. Save file. Store only the relative key, never an absolute path (M-2).
         safe_filename = f"{submission.id}.zip"
         file_path = self._upload_dir / safe_filename
         self._upload_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            with file_path.open("wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+            self._write_capped(file, file_path)
+        except SubmissionServiceError:
+            file_path.unlink(missing_ok=True)
+            self._repository.delete(submission)
+            raise
         except Exception as e:
+            file_path.unlink(missing_ok=True)
             self._repository.delete(submission)
             raise SubmissionServiceError(f"Failed to save file: {e}") from e
 
-        # Update path
-        submission.object_path = str(file_path.absolute())
+        # Update path with the relative key only.
+        submission.object_path = safe_filename
         self._repository.save(submission)
 
         # 3. Create job record
@@ -81,8 +95,66 @@ class SubmissionService:
 
         return submission
 
+    def _validate_upload(self, user_id: UUID, file: UploadFile) -> None:
+        """Pre-save upload validation: content type, advertised size, and quota (H-4)."""
+        if file.content_type and file.content_type not in _ALLOWED_UPLOAD_CONTENT_TYPES:
+            raise SubmissionServiceError(f"Unsupported content type: {file.content_type}")
+
+        max_bytes = settings.MAX_UPLOAD_BYTES
+        if max_bytes and file.size is not None and file.size > max_bytes:
+            raise SubmissionServiceError(f"Upload exceeds the maximum allowed size of {max_bytes} bytes.")
+
+        quota = settings.MAX_SUBMISSIONS_PER_USER
+        if quota:
+            existing = self._repository.list_by_user(user_id, skip=0, limit=quota + 1)
+            if len(existing) >= quota:
+                raise SubmissionServiceError(f"Submission quota of {quota} reached.")
+
+    def _write_capped(self, file: UploadFile, file_path: Path) -> None:
+        """Stream the upload to disk, enforcing MAX_UPLOAD_BYTES even if the
+        advertised Content-Length was missing or wrong (H-4)."""
+        max_bytes = settings.MAX_UPLOAD_BYTES
+        written = 0
+        with file_path.open("wb") as buffer:
+            while chunk := file.file.read(_UPLOAD_CHUNK_SIZE):
+                written += len(chunk)
+                if max_bytes and written > max_bytes:
+                    raise SubmissionServiceError(
+                        f"Upload exceeds the maximum allowed size of {max_bytes} bytes."
+                    )
+                buffer.write(chunk)
+
     def get_submission(self, submission_id: str | UUID) -> Submission | None:
         return self._repository.get_by_id(submission_id)
+
+    def _resolve_submission_file(self, object_path: str) -> Path:
+        """Resolve a stored object_path to a real file under SUBMISSIONS_DIR (M-2).
+
+        Only the basename is trusted, which neutralizes legacy rows that stored an
+        absolute path as well as any path-traversal value. The result is verified
+        to stay within the submissions directory and must not be a symlink.
+        """
+        base = self._upload_dir.resolve()
+        # Reduce to the filename key; tolerates legacy absolute paths and rejects
+        # any directory component a corrupted value might carry.
+        key = Path(object_path).name
+        if not key:
+            raise SubmissionServiceError("Invalid submission path")
+
+        candidate = base / key
+        if candidate.is_symlink():
+            raise SubmissionServiceError("Refusing to access a submission stored as a symlink")
+
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(base)
+        except ValueError as e:
+            raise SubmissionServiceError("Submission path escapes the submissions directory") from e
+        return resolved
+
+    def get_submission_file_path(self, submission: Submission) -> Path:
+        """Return the on-disk path for a submission's ZIP, validated for containment."""
+        return self._resolve_submission_file(submission.object_path)
 
     def update_build_job(
         self,
@@ -125,7 +197,12 @@ class SubmissionService:
         except SubmissionRepositoryError as e:
             raise SubmissionServiceError("Failed to delete submission") from e
 
-        file_path = Path(submission.object_path)
+        # Resolve under SUBMISSIONS_DIR before unlinking so a corrupted/legacy
+        # absolute object_path can never delete an arbitrary file (M-2).
+        try:
+            file_path = self._resolve_submission_file(submission.object_path)
+        except SubmissionServiceError:
+            return
         if file_path.exists():
             file_path.unlink()
 
