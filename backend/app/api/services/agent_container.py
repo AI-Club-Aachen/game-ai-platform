@@ -19,25 +19,31 @@ class AgentContainerService:
     def __init__(self, repository: AgentContainerRepository) -> None:
         self._repo = repository
 
-    def list_containers(
+    def list_container_page(
         self,
         skip: int = 0,
         limit: int = 100,
         match_id: UUID | None = None,
         status: str | None = None,
         owner_user_id: UUID | None = None,
-    ) -> list[AgentContainer]:
+    ) -> tuple[list[AgentContainer], int, dict[str, int]]:
+        """Return a page of containers plus the filtered total and per-status tallies.
+
+        The total and tallies are computed across the whole filtered set (not just
+        the page) so callers can paginate accurately and show global summaries.
+        """
         try:
-            return self._repo.list_containers(
-                skip=skip,
-                limit=limit,
-                match_id=match_id,
-                status=status,
-                owner_user_id=owner_user_id,
+            items = self._repo.list_containers(
+                skip=skip, limit=limit, match_id=match_id, status=status, owner_user_id=owner_user_id
+            )
+            total = self._repo.count_containers(match_id=match_id, status=status, owner_user_id=owner_user_id)
+            status_counts = self._repo.status_counts(
+                match_id=match_id, status=status, owner_user_id=owner_user_id
             )
         except AgentContainerRepositoryError as e:
             logger.exception("Failed to list container snapshots")
             raise AgentContainerServiceError("Failed to list container snapshots") from e
+        return items, total, status_counts
 
     def upsert_container(self, payload: AgentContainerCreate) -> AgentContainer:
         try:

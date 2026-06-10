@@ -399,7 +399,7 @@ export function LiveMatch() {
 
   useEffect(() => {
     if (!matchId) return;
-    const fetchAgents = agentsApi.getAgents(0, 1000, true).then(res => {
+    const fetchAgents = agentsApi.getAllAgents(true).then(res => {
       const agentsData = Array.isArray(res) ? res : (res as any).data || [];
       const map: Record<string, string> = {};
       agentsData.forEach((a: any) => { map[a.id] = a.name; });

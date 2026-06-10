@@ -178,7 +178,7 @@ export function GameDetails() {
             .finally(() => setLbLoading(false));
 
         // Agents (filtered client-side by game)
-        agentsApi.getAgents()
+        agentsApi.getAllAgents()
             .then(data => setAgents(data.filter(agent => fromApiGameType(agent.game_type) === gameId)))
             .catch(err => setAgentsError(err.message || 'Failed to load agents'))
             .finally(() => setAgentsLoading(false));

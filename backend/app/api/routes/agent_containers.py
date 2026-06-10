@@ -7,13 +7,18 @@ from app.api.deps import VerifiedGuestOrHigher, require_worker_api_key
 from app.api.deps.services import get_agent_container_service
 from app.api.services.agent_container import AgentContainerService, AgentContainerServiceError
 from app.models.user import UserRole
-from app.schemas.agent_container import AgentContainerCreate, AgentContainerRead, AgentContainerUpdate
+from app.schemas.agent_container import (
+    AgentContainerCreate,
+    AgentContainerListResponse,
+    AgentContainerRead,
+    AgentContainerUpdate,
+)
 
 
 router = APIRouter()
 
 
-@router.get("", response_model=list[AgentContainerRead])
+@router.get("", response_model=AgentContainerListResponse)
 def list_agent_containers(
     current_user: VerifiedGuestOrHigher,
     service: AgentContainerService = Depends(get_agent_container_service),
@@ -21,11 +26,11 @@ def list_agent_containers(
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
     match_id: UUID | None = None,
     status: str | None = None,
-) -> list[AgentContainerRead]:
+) -> AgentContainerListResponse:
     owner_user_id = None if current_user.role == UserRole.ADMIN else current_user.id
 
     try:
-        return service.list_containers(
+        items, total, status_counts = service.list_container_page(
             skip=skip,
             limit=limit,
             match_id=match_id,
@@ -33,7 +38,17 @@ def list_agent_containers(
             owner_user_id=owner_user_id,
         )
     except AgentContainerServiceError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # NB: the `status` query param shadows fastapi.status in this scope, so use
+        # the literal code here.
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    return AgentContainerListResponse(
+        data=[AgentContainerRead.model_validate(item) for item in items],
+        total=total,
+        skip=skip,
+        limit=limit,
+        status_counts=status_counts,
+    )
 
 
 @router.post("/upsert", response_model=AgentContainerRead, dependencies=[Depends(require_worker_api_key)])

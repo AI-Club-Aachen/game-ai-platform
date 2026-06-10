@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, CardContent } from '@mui/material';
+import { Box, Container, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent } from '@mui/material';
 import { Close, Refresh, Lock, Storage, Article } from '@mui/icons-material';
 import { palette, overlays } from '../theme';
 import { containersApi } from '../services/api';
@@ -103,12 +103,22 @@ export function ContainerManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const loadContainers = async () => {
+  // Server-side pagination. The backend caps `limit` at 100 (SECURITY.md M-4)
+  // and returns a paginated envelope; `total` and `statusCounts` cover the whole
+  // fleet so the summary cards stay global while the table pages.
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalContainers, setTotalContainers] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+
+  const loadContainers = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const data = await containersApi.getContainers({ limit: 200 });
-      const mapped: ContainerInfo[] = data.map((item) => ({
+      const response = await containersApi.getContainers({ skip: page * rowsPerPage, limit: rowsPerPage });
+      setTotalContainers(response.total ?? 0);
+      setStatusCounts(response.status_counts ?? {});
+      const mapped: ContainerInfo[] = (response.data ?? []).map((item) => ({
         id: item.id,
         containerId: item.container_id,
         matchId: item.match_id,
@@ -133,7 +143,7 @@ export function ContainerManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, rowsPerPage]);
 
   useEffect(() => {
     void loadContainers();
@@ -142,11 +152,27 @@ export function ContainerManagement() {
     }, 5000);
 
     return () => window.clearInterval(id);
-  }, []);
+  }, [loadContainers]);
 
-  const runningCount = useMemo(() => containers.filter(c => c.status === 'running').length, [containers]);
-  const stoppedCount = useMemo(() => containers.filter(c => c.status === 'stopped').length, [containers]);
-  const errorCount = useMemo(() => containers.filter(c => c.status === 'error').length, [containers]);
+  const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Bucket the global per-status tallies into running/stopped/error using the
+  // same mapping as the table, so the cards reflect the whole fleet, not the page.
+  const { runningCount, stoppedCount, errorCount } = useMemo(() => {
+    const totals = { runningCount: 0, stoppedCount: 0, errorCount: 0 };
+    for (const [status, count] of Object.entries(statusCounts ?? {})) {
+      const bucket = normalizeStatus(status.toLowerCase());
+      if (bucket === 'running') totals.runningCount += count;
+      else if (bucket === 'stopped') totals.stoppedCount += count;
+      else totals.errorCount += count;
+    }
+    return totals;
+  }, [statusCounts]);
   const selectedContainerEntry = useMemo(
     () => containers.find((container) => container.id === selectedContainer) || null,
     [containers, selectedContainer],
@@ -340,6 +366,16 @@ export function ContainerManagement() {
               </TableBody>
             </Table>
           </TableContainer>
+
+          <TablePagination
+            component="div"
+            count={totalContainers}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 25, 50, 100]}
+          />
         </CardContent>
       </Card>
 

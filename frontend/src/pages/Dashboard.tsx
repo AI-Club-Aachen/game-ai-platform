@@ -24,7 +24,7 @@ export function Dashboard() {
         setLoading(true);
         const [fetchedSubmissions, fetchedAgents] = await Promise.all([
           submissionsApi.getSubmissions(0, 3),
-          agentsApi.getAgents()
+          agentsApi.getAllAgents()
         ]);
         setSubmissions(fetchedSubmissions);
         setAgents(fetchedAgents);

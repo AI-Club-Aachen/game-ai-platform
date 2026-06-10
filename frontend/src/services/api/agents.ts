@@ -19,10 +19,27 @@ export const agentsApi = {
     /**
      * Get all agents for the current user
      */
-    getAgents: async (skip = 0, limit = 500, all_users = false) => {
+    getAgents: async (skip = 0, limit = 100, all_users = false) => {
         return apiRequest<Agent[]>(`/agents?skip=${skip}&limit=${limit}&all_users=${all_users}`, {
             method: 'GET',
         });
+    },
+
+    /**
+     * Fetch every agent by paging through the API.
+     *
+     * The backend caps `limit` at 100 (SECURITY.md M-4), so a single large
+     * request is no longer allowed; this walks the pages until they run out.
+     */
+    getAllAgents: async (all_users = false) => {
+        const pageSize = 100;
+        const all: Agent[] = [];
+        for (let skip = 0; ; skip += pageSize) {
+            const page = await agentsApi.getAgents(skip, pageSize, all_users);
+            all.push(...page);
+            if (page.length < pageSize) break;
+        }
+        return all;
     },
 
     /**

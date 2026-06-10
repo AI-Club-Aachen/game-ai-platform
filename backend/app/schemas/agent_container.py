@@ -40,3 +40,18 @@ class AgentContainerRead(AgentContainerBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AgentContainerListResponse(BaseModel):
+    """Paginated container list with the filtered total and per-status tallies.
+
+    `status_counts` maps each raw container status to its count across the whole
+    filtered set (not just the page), so clients can render global summaries while
+    paginating. `total` is the number of rows matching the filters.
+    """
+
+    data: list[AgentContainerRead]
+    total: int
+    skip: int
+    limit: int
+    status_counts: dict[str, int]

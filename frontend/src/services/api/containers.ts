@@ -17,6 +17,19 @@ export interface AgentContainerRead {
     updated_at: string;
 }
 
+/**
+ * Paginated container list envelope. `total` and `status_counts` cover the whole
+ * filtered set (not just the page), so the UI can paginate accurately and show
+ * global summaries. The backend caps `limit` at 100 (SECURITY.md M-4).
+ */
+export interface AgentContainerListResponse {
+    data: AgentContainerRead[];
+    total: number;
+    skip: number;
+    limit: number;
+    status_counts: Record<string, number>;
+}
+
 export const containersApi = {
     getContainers: async (params?: { match_id?: string; status?: string; skip?: number; limit?: number }) => {
         const queryParams = new URLSearchParams();
@@ -28,13 +41,17 @@ export const containersApi = {
         const queryString = queryParams.toString();
         const endpoint = queryString ? `/agent_containers?${queryString}` : '/agent_containers';
 
-        return apiRequest<AgentContainerRead[]>(endpoint, { method: 'GET' });
+        return apiRequest<AgentContainerListResponse>(endpoint, { method: 'GET' });
     },
 
     getMatchContainers: async (matchId: string) => {
         const queryParams = new URLSearchParams();
         queryParams.append('match_id', matchId);
         queryParams.append('limit', '10');
-        return apiRequest<AgentContainerRead[]>(`/agent_containers?${queryParams.toString()}`, { method: 'GET' });
+        const response = await apiRequest<AgentContainerListResponse>(
+            `/agent_containers?${queryParams.toString()}`,
+            { method: 'GET' },
+        );
+        return response.data;
     },
 };

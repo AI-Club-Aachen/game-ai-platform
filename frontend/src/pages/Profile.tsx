@@ -136,10 +136,14 @@ export function Profile() {
         current_password: currentPassword,
         new_password: newPassword,
       });
-      showFeedback('Password changed successfully', 'success');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      // Changing the password revokes every existing token (SECURITY.md M-11),
+      // including this session's, so send the user back to log in with the new one.
+      showFeedback('Password changed. Please log in again.', 'success');
+      logout();
+      navigate('/login');
     } catch (error: any) {
       showFeedback(error.message || 'Failed to change password', 'error');
     }
