@@ -5,10 +5,15 @@ orchestration, container execution, config/deployment safety, and frontend guard
 below was confirmed against the current code on branch `fix/security` with concrete file/line
 references.
 
-**No code has been changed.** This document is the work list — items are ordered by severity so they
-can be worked through one by one.
+This document is the work list — items are ordered by severity so they can be worked through one
+by one.
 
 Status legend: `[ ]` open · `[x]` fixed · `[~]` partially addressed / accepted risk.
+
+**Update 2026-06-10:** the access-control cluster (C-1, C-2, H-1, H-2, H-5, M-1, L-1 frontend,
+L-2/L-3 worker-route corollaries) is **fixed** on `fix/security` with regression tests in
+`backend/tests/api/test_permissions.py`. Rate limiting, ZIP/build hardening, Redis, deployment,
+and config-validation findings remain open.
 
 ---
 
@@ -43,7 +48,12 @@ download/delete, production config gaps, frontend role guards).
 
 ## CRITICAL
 
-### [ ] C-1 — Worker callback / mutation endpoints are fully unauthenticated
+### [x] C-1 — Worker callback / mutation endpoints are fully unauthenticated
+
+> **FIXED:** all worker callbacks (`PATCH /jobs/build|match`, `POST /jobs`, `PATCH /matches/{id}`,
+> `POST /agent_containers/upsert`, `PATCH /agent_containers/{id}`) now require
+> `Depends(require_worker_api_key)`; JWT users/admins get 403. Payload-size/state-transition
+> validation remains open under M-3.
 
 **Files**
 - `backend/app/api/routes/jobs.py:43` `PATCH /jobs/build/{job_id}`
@@ -73,7 +83,13 @@ invalid status transition rejected.
 
 ---
 
-### [ ] C-2 — Worker API key is accepted as an ADMIN user on every JWT route
+### [x] C-2 — Worker API key is accepted as an ADMIN user on every JWT route
+
+> **FIXED:** the worker→admin fallback in `get_current_user` is removed; worker-key and JWT auth
+> are separate dependencies. A new `WorkerOrVerifiedUser` dep grants the worker key read access to
+> exactly the endpoints the workers call: `GET /submissions/{id}`, `GET /submissions/{id}/download`,
+> `GET /agents/{id}`, and `GET /matches/{id}` (a 4th worker read found in
+> `orchestration/lib/match_manager.py:212`, missed by the original three-endpoint list).
 
 **Files**
 - `backend/app/api/deps/auth.py:44` (`is_worker = Depends(verify_worker_api_key)`)
@@ -109,7 +125,13 @@ cannot call worker callbacks.
 
 ## HIGH
 
-### [ ] H-1 — "Guest" is not read-only: verified guests can mutate resources
+### [x] H-1 — "Guest" is not read-only: verified guests can mutate resources
+
+> **FIXED:** all agent/submission/match mutations now require `VerifiedUserOrHigher`
+> (email-verified + role ≥ USER); reads require `VerifiedGuestOrHigher` (email-verified JWT).
+> **Policy decision:** `PATCH /users/me` and `POST /users/change-password` are Guest+
+> account-lifecycle exceptions — a verified guest may manage its OWN profile/password
+> (locking guests out of rotating their own password would be an anti-pattern).
 
 **Files**
 - `backend/app/api/routes/agents.py:15` `POST /agents`, `:85` `PATCH`, `:107` `DELETE`
@@ -138,7 +160,13 @@ resources; admin unaffected.
 
 ---
 
-### [ ] H-2 — Anonymous access exists well beyond landing + auth-lifecycle
+### [x] H-2 — Anonymous access exists well beyond landing + auth-lifecycle
+
+> **FIXED:** leaderboard, match list/get/stream, job GETs, and container list now require at
+> least a verified login. **Policy decision:** there is NO public-spectating exception —
+> spectating and the leaderboard are Guest+. The frontend SSE hook (`useMatchStream`) was
+> rewritten from `EventSource` to fetch-based streaming so it can send the Authorization header.
+> SSE connection caps / aggressive rate limits remain open under H-3.
 
 **Files**
 - `backend/app/api/routes/agents.py:35` `GET /agents/leaderboard/{game_type}` (anonymous)
@@ -222,7 +250,12 @@ files, robust containment with `relative_to`); add build timeouts/builder resour
 
 ---
 
-### [ ] H-5 — Users can directly write their own agent stats (Elo/wins/losses)
+### [x] H-5 — Users can directly write their own agent stats (Elo/wins/losses)
+
+> **FIXED:** `AgentUpdate` now exposes only `name` + `active_submission_id` with
+> `extra="forbid"`, so any stat field in the body returns 422. The stat-write block was removed
+> from `AgentService.update_agent`; stats change only via `MatchService._update_agent_stats`
+> on match completion. Note: admins also lose API-level stat editing (accepted trade-off).
 
 **Files**
 - `backend/app/schemas/agent.py:19-26` (`AgentUpdate` exposes `wins, losses, draws, matches_played, elo`)
@@ -332,7 +365,12 @@ payload) must be rejected/neutralized, not executed.
 
 ## MEDIUM
 
-### [ ] M-1 — Match creation does not verify the caller owns the agents
+### [x] M-1 — Match creation does not verify the caller owns the agents
+
+> **FIXED / policy decision:** non-admin callers of `POST /matches` must own at least one
+> participating agent (`MatchService.create_match(owner_user_id=...)` →
+> `MatchPermissionError` → 403). Admins and the internal match scheduler (direct service
+> call, `owner_user_id=None`) may match arbitrary agents. Rate limiting remains under H-3.
 
 **Files**
 - `backend/app/api/routes/matches.py:82-96` (`_current_user` is unused)
@@ -534,12 +572,14 @@ the SA scope to match the IAM roles.
 
 ---
 
-### [ ] L-2 — Unauthenticated `PATCH /jobs/build` enables arbitrary-image execution on workers
+### [x] L-2 — Unauthenticated `PATCH /jobs/build` enables arbitrary-image execution on workers
 
 Consequence of **C-1**: an attacker can set a build job's `image_tag` to any value; the match runner
 resolves it (`orchestration/lib/match_manager.py:76-85`) and `docker run`s it as the "agent". Still
 constrained by the secure run kwargs, but lets an unauthenticated party run an arbitrary image on a
 worker. Closed by fixing C-1.
+
+> **FIXED:** closed by C-1 — `PATCH /jobs/build/{id}` requires the worker API key.
 
 ---
 
@@ -616,7 +656,7 @@ pending account on mere collision (e.g., require proof of ownership or rate-limi
 
 ---
 
-### [ ] L-1 — Frontend route guards are authentication-only, not role-aware
+### [x] L-1 — Frontend route guards are authentication-only, not role-aware
 
 **Files**
 - `frontend/src/components/auth/ProtectedRoute.tsx:9-34` (checks `isAuthenticated` only)
@@ -627,14 +667,21 @@ blocks the API, so this is UX/defense-in-depth, not a backend bypass. (Backend r
 
 **Fix.** Add role-aware guards; hide guest/admin controls appropriately after backend RBAC is corrected.
 
-### [ ] L-2 — Verbose worker comments advertise the missing auth
+> **FIXED:** `ProtectedRoute` accepts `requiredRole` (guest < user < admin); the `users`,
+> `containers`, and `matches-admin` routes require `admin` and redirect to `/dashboard` otherwise.
+
+### [x] L-2 — Verbose worker comments advertise the missing auth
 
 `matches.py:122-127` and the `jobs.py` "used by workers" comments document the unauthenticated design;
 remove once C-1 is fixed to avoid signposting.
 
-### [ ] L-3 — `POST /jobs` (`jobs.py:65`) allows anonymous build-job row creation
+> **FIXED:** comments replaced with "Worker API key required." docstrings as part of C-1.
+
+### [x] L-3 — `POST /jobs` (`jobs.py:65`) allows anonymous build-job row creation
 
 Even without enqueue, this pollutes the jobs table. Fold into C-1 (worker-key only) or remove if unused.
+
+> **FIXED:** folded into C-1 — `POST /jobs` now requires the worker API key.
 
 ### [ ] L-4 — `request_password_reset` email enumeration is correctly mitigated
 
@@ -645,54 +692,60 @@ unknown email (`auth.py:341-343`). Keep.
 
 # Route permission matrix
 
-Legend: **Anon** = no auth · **Guest+** = verified guest or higher · **User+** = approved user or admin ·
+Legend: **Anon** = no auth · **Guest+** = verified guest or higher · **User+** = verified user or admin ·
 **Admin** = JWT admin only · **WorkerKey** = `x-api-key` only (no JWT fallback).
+
+**Policy decisions (2026-06-10):** (1) `PATCH /users/me` + `POST /users/change-password` are
+**Guest+** account-lifecycle exceptions (a verified guest manages its OWN profile/password).
+(2) **No public-spectating exception** — leaderboard, match reads, and the SSE stream are Guest+;
+the frontend uses fetch-based SSE to send the Bearer token. (3) Match creation: non-admins must
+own ≥1 participating agent (M-1).
 
 | Method | Path | Current auth | Intended | Notes |
 |---|---|---|---|---|
 | POST | `/auth/register` | Anon | Anon | lifecycle |
 | POST | `/auth/login` | Anon | Anon | lifecycle |
-| POST | `/auth/request-password-reset` | Anon (query param) | Anon | **H-6** email in URL |
-| POST | `/auth/reset-password` | Anon (query param) | Anon | **H-6** token+password in URL |
+| POST | `/auth/request-password-reset` | Anon (query param) | Anon | **H-6** email in URL (open) |
+| POST | `/auth/reset-password` | Anon (query param) | Anon | **H-6** token+password in URL (open) |
 | POST | `/email/verify-email` | Anon | Anon | lifecycle (body, ok) |
-| POST | `/email/resend-verification` | CurrentUser | Guest+ (unverified allowed) | lifecycle |
-| GET | `/email/verification-status` | CurrentUser | Guest+ | ok |
-| POST | `/email/{user_id}/resend-verification` | CurrentAdmin | Admin | **C-2** key=admin |
+| POST | `/email/resend-verification` | CurrentUser | Guest+ (unverified allowed) | lifecycle, ok |
+| GET | `/email/verification-status` | CurrentUser | Guest+ | ok (unverified must see status) |
+| POST | `/email/{user_id}/resend-verification` | Admin (JWT only) | Admin | **C-2 fixed** |
 | GET | `/users/roles` | CurrentUser | Guest+/Admin | ok |
-| GET | `/users/me` | CurrentUser | Guest+ | ok |
-| PATCH | `/users/me` | CurrentUser | policy (Guest+ or User+) | **H-1** |
-| POST | `/users/change-password` | CurrentUser | Guest+ (lifecycle) | **H-1** |
-| GET | `/users` | CurrentAdmin | Admin | **C-2** |
-| GET | `/users/{id}` | CurrentAdmin | Admin | **C-2** |
-| PATCH | `/users/{id}/role` | CurrentAdmin | Admin | **C-2** |
-| DELETE | `/users/{id}` | CurrentAdmin | Admin | **C-2** |
-| PATCH | `/users/{id}/verify-email` | CurrentAdmin | Admin | **C-2** |
-| GET | `/agents/leaderboard/{game}` | Anon | Guest+ or public exception | **H-2**, **M-4** |
-| GET | `/agents` | CurrentUser | Guest+ own / Admin all | ok read |
-| GET | `/agents/{id}` | CurrentUser owner/admin | owner/admin or WorkerKey | **C-2** (worker needs read) |
-| POST | `/agents` | CurrentUser | User+ | **H-1** |
-| PATCH | `/agents/{id}` | CurrentUser owner/admin | User+ owner/admin | **H-1**, **H-5** stats |
-| DELETE | `/agents/{id}` | CurrentUser owner/admin | User+ owner/admin | **H-1** |
-| GET | `/submissions` | CurrentUser | User+ own | ok read |
-| GET | `/submissions/{id}` | CurrentUser owner/admin | owner/admin or WorkerKey | **C-2** |
-| GET | `/submissions/{id}/download` | CurrentUser owner/admin | owner/admin or WorkerKey | **C-2**, **M-2** |
-| POST | `/submissions` | CurrentUser | User+ | **H-1**, **H-4** |
-| DELETE | `/submissions/{id}` | CurrentUser owner/admin | User+ owner/admin | **H-1**, **M-2** |
-| GET | `/matches/scheduler/config` | CurrentUser + role check | Admin | **C-2** |
-| PUT | `/matches/scheduler/config` | CurrentUser + role check | Admin | **C-2** |
-| POST | `/matches` | CurrentUser | User+ | **H-1**, **M-1** ownership |
-| GET | `/matches/{id}` | Anon | Guest+ or public exception | **H-2** |
-| GET | `/matches` | Anon | Guest+ or public exception | **H-2**, **M-4** |
-| GET | `/matches/{id}/stream` | Anon | Guest+ (+ conn limit) | **H-2** SSE DoS |
-| PATCH | `/matches/{id}` | Anon | WorkerKey | **C-1** |
-| GET | `/jobs/build/{id}` | Anon | WorkerKey/owner | **H-2** |
-| PATCH | `/jobs/build/{id}` | Anon | WorkerKey | **C-1** |
-| POST | `/jobs` | Anon | WorkerKey/Admin or remove | **C-1/L-3** |
-| GET | `/jobs/match/{id}` | Anon | WorkerKey/owner | **H-2** |
-| PATCH | `/jobs/match/{id}` | Anon | WorkerKey | **C-1** |
-| GET | `/agent_containers` | CurrentUser (own/admin) | Guest+/Admin | ok; **M-4** limit |
-| POST | `/agent_containers/upsert` | Anon | WorkerKey | **C-1** |
-| PATCH | `/agent_containers/{id}` | Anon | WorkerKey | **C-1** |
+| GET | `/users/me` | CurrentUser | Guest+ | ok (pre-verification self-view) |
+| PATCH | `/users/me` | Guest+ | Guest+ (policy 1) | **H-1 fixed** |
+| POST | `/users/change-password` | Guest+ | Guest+ (policy 1) | **H-1 fixed** |
+| GET | `/users` | Admin (JWT only) | Admin | **C-2 fixed** |
+| GET | `/users/{id}` | Admin (JWT only) | Admin | **C-2 fixed** |
+| PATCH | `/users/{id}/role` | Admin (JWT only) | Admin | **C-2 fixed** |
+| DELETE | `/users/{id}` | Admin (JWT only) | Admin | **C-2 fixed** |
+| PATCH | `/users/{id}/verify-email` | Admin (JWT only) | Admin | **C-2 fixed** |
+| GET | `/agents/leaderboard/{game}` | Guest+ | Guest+ (policy 2) | **H-2 fixed**; **M-4** limit open |
+| GET | `/agents` | Guest+ own / Admin all | Guest+ own / Admin all | **H-2 fixed** |
+| GET | `/agents/{id}` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed** |
+| POST | `/agents` | User+ | User+ | **H-1 fixed** |
+| PATCH | `/agents/{id}` | User+ owner/admin | User+ owner/admin | **H-1/H-5 fixed** (stats 422) |
+| DELETE | `/agents/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed** |
+| GET | `/submissions` | Guest+ own | Guest+ own | **H-1 fixed** (read tier) |
+| GET | `/submissions/{id}` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed** |
+| GET | `/submissions/{id}/download` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed**; **M-2** open |
+| POST | `/submissions` | User+ | User+ | **H-1 fixed**; **H-4** open |
+| DELETE | `/submissions/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed**; **M-2** open |
+| GET | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
+| PUT | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
+| POST | `/matches` | User+ (own agent, M-1) | User+ (own agent) | **H-1/M-1 fixed** |
+| GET | `/matches/{id}` | Guest+ or WorkerKey | Guest+ or WorkerKey | **H-2/C-2 fixed** (worker reads at run time) |
+| GET | `/matches` | Guest+ | Guest+ (policy 2) | **H-2 fixed**; **M-4** limit open |
+| GET | `/matches/{id}/stream` | Guest+ | Guest+ (+ conn limit) | **H-2 fixed**; conn cap open (**H-3**) |
+| PATCH | `/matches/{id}` | WorkerKey | WorkerKey | **C-1 fixed** |
+| GET | `/jobs/build/{id}` | WorkerKey or sub-owner/admin | WorkerKey/owner | **H-2 fixed** |
+| PATCH | `/jobs/build/{id}` | WorkerKey | WorkerKey | **C-1 fixed** |
+| POST | `/jobs` | WorkerKey | WorkerKey | **C-1/L-3 fixed** |
+| GET | `/jobs/match/{id}` | WorkerKey or Guest+ | WorkerKey/Guest+ | **H-2 fixed** (status only) |
+| PATCH | `/jobs/match/{id}` | WorkerKey | WorkerKey | **C-1 fixed** |
+| GET | `/agent_containers` | Guest+ (own/admin) | Guest+/Admin | **H-2 fixed**; **M-4** limit open |
+| POST | `/agent_containers/upsert` | WorkerKey | WorkerKey | **C-1 fixed** |
+| PATCH | `/agent_containers/{id}` | WorkerKey | WorkerKey | **C-1 fixed** |
 
 ---
 
@@ -758,15 +811,17 @@ path-traversal guard (`agent_builder.py:25-34`).
 
 # Missing security regression tests
 
-1. Anonymous deny-by-default for every non-lifecycle route.
-2. Verified-guest read-only policy (403 on all mutations).
-3. Agent/submission ownership enforcement (cross-user 403).
-4. Match creation ownership / agent-id policy (M-1).
-5. Admin-only user/role management.
-6. Worker callbacks require only `x-api-key` (anon/guest/user/admin → 403; key → 200).
-7. Worker key cannot access JWT admin routes (C-2).
-8. Worker key can still read/download submissions + read agents (C-2 migration).
-9. User cannot change elo/wins/losses via `PATCH /agents` (H-5); match completion still updates them.
+Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests passing).
+
+1. ~~Anonymous deny-by-default for every non-lifecycle route.~~ ✅
+2. ~~Verified-guest read-only policy (403 on all mutations).~~ ✅
+3. ~~Agent/submission ownership enforcement (cross-user 403).~~ ✅
+4. ~~Match creation ownership / agent-id policy (M-1).~~ ✅
+5. ~~Admin-only user/role management.~~ ✅
+6. ~~Worker callbacks require only `x-api-key` (anon/guest/user/admin → 403; key → 200).~~ ✅
+7. ~~Worker key cannot access JWT admin routes (C-2).~~ ✅
+8. ~~Worker key can still read/download submissions + read agents (C-2 migration).~~ ✅
+9. ~~User cannot change elo/wins/losses via `PATCH /agents` (H-5); match completion still updates them.~~ ✅
 10. Reset password uses a body, not query params (H-6).
 11. Upload max-size + ZIP-bomb + traversal/symlink/file-count rejection (H-4).
 12. Submission path containment on download/delete (M-2).
