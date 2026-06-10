@@ -2,6 +2,7 @@
 
 import os
 from typing import ClassVar
+from urllib.parse import urlsplit
 
 from limits import parse_many
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -98,6 +99,13 @@ class Settings(BaseSettings):
             "How long a match may remain in running state without worker updates before the scheduler "
             "marks it as failed. This recovers matches abandoned by killed/restarted workers."
         ),
+    )
+    # Untrusted match-init bounds (M-10): user-supplied state_init_data reaches the
+    # game engine in the privileged worker, so per-game init input is whitelisted and
+    # bounded in the backend before queueing. board_size drives O(n^2) board allocation.
+    MAX_HEX_BOARD_SIZE: int = Field(
+        default=26,
+        description="Maximum allowed Hex board_size in match state_init_data (DoS guard).",
     )
 
     # Filesystem Paths
@@ -227,6 +235,14 @@ class Settings(BaseSettings):
         return [item.strip() for item in value.split(",") if item.strip()]
 
     @staticmethod
+    def _redis_has_auth(redis_url: str) -> bool:
+        """True if REDIS_URL carries a password or uses TLS (M-7)."""
+        parsed = urlsplit(redis_url)
+        if parsed.scheme == "rediss":
+            return True
+        return bool(parsed.password)
+
+    @staticmethod
     def _reject_json_style_list(value: str, field_name: str) -> None:
         stripped = value.strip()
         if stripped.startswith("[") or stripped.endswith("]") or '"' in stripped or "'" in stripped:
@@ -274,6 +290,14 @@ class Settings(BaseSettings):
     @classmethod
     def validate_origins_production(cls, v: str, info: ValidationInfo) -> str:
         cls._reject_json_style_list(v, "ALLOW_ORIGINS")
+        # The app always runs CORSMiddleware with allow_credentials=True, so a
+        # literal "*" origin combined with credentials is invalid and unsafe
+        # (M-6). Reject it at config load regardless of environment.
+        if "*" in cls._parse_csv(v):
+            raise ValueError(
+                "ALLOW_ORIGINS must not contain '*' because credentials are enabled. "
+                "List explicit origins, e.g. ALLOW_ORIGINS=https://example.com"
+            )
         # ValidationInfo.data is the already-validated field values. [web:33][web:34]
         if info.data.get("ENVIRONMENT", "").lower() == "production":
             invalid_origins = [o for o in cls._parse_csv(v) if not o.startswith("https://")]
@@ -334,6 +358,13 @@ class Settings(BaseSettings):
             raise ValueError("MATCH_STALE_TIMEOUT_SECONDS must be greater than 0")
         return v
 
+    @field_validator("MAX_HEX_BOARD_SIZE")
+    @classmethod
+    def validate_max_hex_board_size(cls, v: int) -> int:
+        if v < 2:  # noqa: PLR2004
+            raise ValueError("MAX_HEX_BOARD_SIZE must be at least 2")
+        return v
+
     @model_validator(mode="after")
     def validate_smtp_required_in_production(self) -> "Settings":
         """
@@ -387,6 +418,11 @@ class Settings(BaseSettings):
 
         if self.BYPASS_EMAIL_VERIFICATION:
             errors.append("BYPASS_EMAIL_VERIFICATION must be false in production")
+
+        if not self._redis_has_auth(self.REDIS_URL):
+            errors.append(
+                "REDIS_URL must use a password (redis://:<pw>@host:6379/0) or TLS (rediss://) in production (M-7)"
+            )
 
         if errors:
             raise ValueError("Invalid production configuration: " + "; ".join(errors))

@@ -235,6 +235,106 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
     assert "does not belong to game" in match_response.json()["detail"]
 
 
+async def _make_built_agent(api_client, db_session, bearer_token: str, user_id: str, game_type: GameType) -> str:
+    """Create a submission, mark its build completed, and return a built agent's id."""
+    headers = {"Authorization": bearer_token}
+    sub_resp = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers=headers,
+        data={"game_type": game_type.value},
+        files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
+    )
+    assert sub_resp.status_code == 201, sub_resp.text
+    submission_id = sub_resp.json()["id"]
+
+    build_job = db_session.exec(select(BuildJob).where(BuildJob.submission_id == UUID(submission_id))).first()
+    assert build_job is not None
+    build_job.status = JobStatus.COMPLETED
+    build_job.image_id = f"sha256:{submission_id}"
+    build_job.image_tag = f"agent:{submission_id}"
+    db_session.add(build_job)
+    db_session.commit()
+
+    agent_resp = await api_client.post(
+        f"{API_PREFIX}/agents",
+        headers=headers,
+        json={
+            "name": f"Agent {submission_id[:8]}",
+            "user_id": user_id,
+            "game_type": game_type.value,
+            "active_submission_id": submission_id,
+        },
+    )
+    assert agent_resp.status_code == 201, agent_resp.text
+    return agent_resp.json()["id"]
+
+
+@pytest.mark.anyio
+async def test_match_state_init_data_is_whitelisted(api_client, fake_email_client, db_session):
+    """M-10: untrusted state_init_data is whitelisted per game before queueing.
+
+    Unknown keys, out-of-range values, and wrong types are rejected (400); a normal
+    tic-tac-toe match still queues (201).
+    """
+    user_id, bearer_token = await _create_member_and_token(
+        api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
+    )
+    headers = {"Authorization": bearer_token}
+
+    ttt_agents = [
+        await _make_built_agent(api_client, db_session, bearer_token, user_id, GameType.TICTACTOE) for _ in range(2)
+    ]
+
+    async def _create(config: dict) -> int:
+        resp = await api_client.post(
+            f"{API_PREFIX}/matches",
+            headers=headers,
+            json={"game_type": GameType.TICTACTOE.value, "config": config, "agent_ids": ttt_agents},
+        )
+        return resp.status_code
+
+    # Unknown key -> rejected.
+    assert await _create({"state_init_data": {"board_size": 9999}}) == 400
+    assert await _create({"state_init_data": {"evil": 1}}) == 400
+    # Out-of-range turn/status -> rejected.
+    assert await _create({"state_init_data": {"turn": 5}}) == 400
+    assert await _create({"state_init_data": {"status": 99}}) == 400
+    # Wrong type (passes the dict schema, caught by the whitelist) -> rejected.
+    assert await _create({"state_init_data": {"turn": "x"}}) == 400
+
+    # A normal tic-tac-toe match (empty + valid init) still queues.
+    assert await _create({}) == 201
+    assert await _create({"state_init_data": {"turn": 1, "status": -1}}) == 201
+
+    # Hex: an out-of-range board_size is rejected while a sane one queues.
+    hex_agents = [
+        await _make_built_agent(api_client, db_session, bearer_token, user_id, GameType.HEX) for _ in range(2)
+    ]
+
+    over = await api_client.post(
+        f"{API_PREFIX}/matches",
+        headers=headers,
+        json={
+            "game_type": GameType.HEX.value,
+            "config": {"state_init_data": {"board_size": 100000}},
+            "agent_ids": hex_agents,
+        },
+    )
+    assert over.status_code == 400
+    assert "board_size" in over.json()["detail"]
+
+    ok = await api_client.post(
+        f"{API_PREFIX}/matches",
+        headers=headers,
+        json={
+            "game_type": GameType.HEX.value,
+            "config": {"state_init_data": {"board_size": 11}},
+            "agent_ids": hex_agents,
+        },
+    )
+    assert ok.status_code == 201, ok.text
+
+
 def _make_zip_of_size(min_bytes: int) -> bytes:
     """Build a valid ZIP whose total bytes exceed min_bytes (stored, uncompressed)."""
     buffer = io.BytesIO()

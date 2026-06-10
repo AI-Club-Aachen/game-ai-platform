@@ -38,6 +38,7 @@ PRODUCTION_SETTINGS = {
     "TRUSTED_HOSTS": "api.example.com",
     "WORKER_API_KEY": "w" * 48,
     "BYPASS_EMAIL_VERIFICATION": False,
+    "REDIS_URL": "redis://:redis-secret@redis:6379/0",
     "SMTP_HOST": "smtp.example.com",
     "SMTP_PORT": 465,
     "SMTP_USERNAME": "user",
@@ -145,6 +146,15 @@ class TestProductionHardening:
     def test_rejects_email_verification_bypass(self):
         with pytest.raises(ValidationError, match="BYPASS_EMAIL_VERIFICATION must be false"):
             Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "BYPASS_EMAIL_VERIFICATION": True})
+
+    def test_rejects_passwordless_redis_in_production(self):
+        # M-7: an auth-less Redis URL must be rejected at config load in production.
+        with pytest.raises(ValidationError, match="REDIS_URL must use a password"):
+            Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "REDIS_URL": "redis://redis:6379/0"})
+
+    def test_accepts_tls_redis_in_production(self):
+        s = Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "REDIS_URL": "rediss://redis:6380/0"})
+        assert s.is_production is True
 
     def test_reports_all_problems_together(self):
         cfg = {**PRODUCTION_SETTINGS, "TRUSTED_HOSTS": "", "BYPASS_EMAIL_VERIFICATION": True}

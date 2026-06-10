@@ -245,6 +245,76 @@ async def test_password_reset_uses_body_not_query_params(api_client):
 
 
 @pytest.mark.anyio
+async def test_login_unknown_user_and_wrong_password_are_indistinguishable(api_client, fake_email_client):
+    """L-6: an unknown user and a wrong password return an identical 401 response.
+
+    The 'email not verified' signal must NOT leak on either path.
+    """
+    username = random_username()
+    email = random_email()
+    password = strong_password()
+    await _create_verified_user(api_client, fake_email_client, username, email, password)
+
+    unknown = await api_client.post(
+        f"{API_PREFIX}/auth/login",
+        json={"email": random_email(), "password": strong_password()},
+    )
+    wrong_password = await api_client.post(
+        f"{API_PREFIX}/auth/login",
+        json={"email": email, "password": strong_password()},
+    )
+
+    assert unknown.status_code == 401
+    assert wrong_password.status_code == 401
+    assert unknown.json() == wrong_password.json()
+    assert unknown.json()["detail"] == "Invalid email or password"
+
+
+@pytest.mark.anyio
+async def test_reregistration_does_not_hijack_pending_account(api_client, fake_email_client):
+    """L-6: re-registering a victim's still-unverified username/email must not delete
+    their account or overwrite the password.
+
+    Instead, verification is re-issued to the existing account; the original password
+    survives and the attacker's password never works.
+    """
+    username = random_username()
+    email = random_email()
+    victim_password = strong_password()
+    attacker_password = strong_password()
+
+    fake_email_client.sent.clear()
+    await _register_user(api_client, username, email, victim_password)
+
+    # Attacker re-registers the same (still-unverified) username/email with a new
+    # password. This now re-issues verification rather than destroying the account.
+    fake_email_client.sent.clear()
+    reattempt = await api_client.post(
+        f"{API_PREFIX}/auth/register",
+        json={"username": username, "email": email, "password": attacker_password},
+    )
+    assert reattempt.status_code == 201
+    assert reattempt.json()["email"] == email
+
+    # The re-issued verification email verifies the ORIGINAL account.
+    await _verify_latest_email(api_client, fake_email_client)
+
+    # The original password still works (the account was neither deleted nor rebound).
+    victim_login = await api_client.post(
+        f"{API_PREFIX}/auth/login",
+        json={"email": email, "password": victim_password},
+    )
+    assert victim_login.status_code == 200
+
+    # The attacker's password never took effect.
+    attacker_login = await api_client.post(
+        f"{API_PREFIX}/auth/login",
+        json={"email": email, "password": attacker_password},
+    )
+    assert attacker_login.status_code == 401
+
+
+@pytest.mark.anyio
 async def test_password_reset_invalidates_existing_tokens(api_client, fake_email_client):
     """M-11: a JWT issued before a password reset is rejected afterwards; a fresh login works."""
     username = random_username()

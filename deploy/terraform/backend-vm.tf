@@ -58,11 +58,13 @@ resource "google_compute_instance" "backend" {
   # Metadata variables passed as custom attributes to the startup script
   metadata = {
     repo_url                              = var.repo_url
+    deploy_ref                            = var.deploy_ref
     postgres_user                         = var.postgres_user
     postgres_password                     = var.postgres_password
     postgres_db                           = var.postgres_db
     jwt_secret_key                        = var.jwt_secret_key
     worker_api_key                        = var.worker_api_key
+    redis_password                        = var.redis_password
     smtp_host                             = var.smtp_host
     smtp_port                             = var.smtp_port
     smtp_username                         = var.smtp_username

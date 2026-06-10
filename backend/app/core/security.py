@@ -41,6 +41,20 @@ def hash_password(password: str) -> str:
     return hashed.decode("utf-8")
 
 
+# Precomputed bcrypt hash used only to flatten login timing when the account does
+# not exist (L-6), so an unknown user costs the same as a wrong password.
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"timing-equalizer-not-a-real-password", bcrypt.gensalt(rounds=12)).decode("utf-8")
+
+
+def dummy_verify_password(plain_password: str) -> None:
+    """Run a bcrypt verification against a fixed dummy hash and discard the result.
+
+    Called on the missing-user login path so the response time is indistinguishable
+    from a wrong-password attempt against a real account (L-6 timing oracle).
+    """
+    verify_password(plain_password, _DUMMY_PASSWORD_HASH)
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify plain password against bcrypt hash using constant-time comparison.

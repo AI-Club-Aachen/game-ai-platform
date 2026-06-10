@@ -294,9 +294,14 @@ def build_from_zip(
         except Exception as e:
             raise BuildError(f"Failed to build local base image: {e}")
     else:
-        base_image = "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
+        # M-9: pin to an immutable digest in production (set AGENT_BASE_IMAGE to
+        # ghcr.io/.../agent-base@sha256:<digest>); ':latest' is mutable and lets a
+        # re-pushed base silently change what every agent image is built on.
+        base_image = os.environ.get(
+            "AGENT_BASE_IMAGE", "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
+        )
 
-        # Pull the latest base image to ensure we are up to date
+        # Pull the base image to ensure we are up to date
         try:
             logger.info(f"Pulling base image: {base_image}...")
             client.images.pull(base_image)

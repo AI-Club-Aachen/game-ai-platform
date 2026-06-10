@@ -43,7 +43,11 @@ def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONRespons
 
     allow_origins = settings.allow_origins_list
     if "*" in allow_origins:
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        # Never emit "Access-Control-Allow-Origin: *" alongside credentials (M-6):
+        # reflect the specific origin without advertising credentials. Config load
+        # already rejects "*" while credentials are enabled; this is defense in depth.
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
     elif origin in allow_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"

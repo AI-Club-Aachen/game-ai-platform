@@ -542,7 +542,16 @@ new settings in both `.env.example` files.
 
 ---
 
-### [ ] M-6 — CORS error-mirroring can echo `Access-Control-Allow-Origin: *` with credentials
+### [x] M-6 — CORS error-mirroring can echo `Access-Control-Allow-Origin: *` with credentials
+
+> **FIXED:** `ALLOW_ORIGINS` now rejects a literal `*` at config load
+> (`validate_origins_production` in `config.py`) because the app always runs
+> `CORSMiddleware(allow_credentials=True)`, so `*`+credentials can never be
+> configured. As defense in depth, `_apply_cors_headers` in `main.py` no longer
+> emits `Access-Control-Allow-Origin: *`: if `*` is somehow configured it reflects
+> the specific request origin **without** the credentials header, and credentials
+> are sent only for an explicitly-listed origin. Regression test:
+> `test_cors.py` (config rejection + error-path header never `*` with credentials).
 
 **Files**
 - `backend/app/main.py:52-66` (`_apply_cors_headers`)
@@ -560,7 +569,32 @@ and, more importantly, signals a misconfiguration path. Production validation fo
 
 ---
 
-### [ ] M-7 — Redis has no authentication/TLS; exposure depends on deployment
+### [x] M-7 — Redis has no authentication/TLS; exposure depends on deployment
+
+> **FIXED (code + infra; no cloud apply):**
+> - **Auth everywhere.** `docker-compose.yml` now runs Redis with
+>   `--requirepass ${REDIS_PASSWORD}` (+ an authed healthcheck) and derives
+>   `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0` for the backend and both
+>   workers, so the queue is protected even from VPC-internal access. Redis stays
+>   `expose`-only (internal bridge) in the prod compose.
+> - **Config guard.** `config.py` rejects a password-less / non-TLS `REDIS_URL` in
+>   production at load (`_redis_has_auth` in `validate_production_hardening`); accepts
+>   `redis://:pw@…` or `rediss://`. Regression test:
+>   `test_rate_limiting.py::TestProductionHardening::{test_rejects_passwordless_redis_in_production,
+>   test_accepts_tls_redis_in_production}`.
+> - **No 0.0.0.0 publish.** `docker-compose.dev.yml` binds Redis to
+>   `127.0.0.1`; the Terraform backend startup script publishes Redis **and** the
+>   backend API on the VM's **internal IP** (`${INTERNAL_IP}:6379:6379` /
+>   `:8000:8000`) instead of `0.0.0.0`, so Docker's DNAT no longer bypasses the host
+>   firewall. `worker-template.tf` connects with a passworded
+>   `redis://:${var.redis_password}@<internal_ip>:6379/0`; new sensitive
+>   `redis_password` variable + metadata wiring.
+> **DEPLOY TODO (out of code scope, documented):** for cross-VM Redis prefer a custom
+> VPC (drop `default-allow-internal`) and TLS or Memorystore (AUTH+TLS). `redis_password`
+> in `terraform.tfvars` is a placeholder — generate a strong value before applying.
+> **Severity recap:** Low for compose-only single VPS; **High** for the GCP
+> default-network / multi-worker topology (lateral RCE via crafted `RPUSH`), which the
+> requirepass + internal-IP binding now close at the code/infra level.
 
 **Files**
 - `docker-compose.yml:2-9` (prod: `expose` only — internal bridge, **safe**)
@@ -631,7 +665,28 @@ match wall-clock; bound concurrent matches per worker; set tmpfs `size=`.
 
 ---
 
-### [ ] M-9 — Deployment integrity: unpinned images, mutable branch boot, plaintext metadata secrets
+### [x] M-9 — Deployment integrity: unpinned images, mutable branch boot, plaintext metadata secrets
+
+> **FIXED (infra; no cloud apply) / partially documented:**
+> - **Image pinning.** `variables.tf` `worker_image` now carries a `validation` block
+>   that **rejects `:latest`** (must be `@sha256:<digest>` or `:vX.Y.Z`); `terraform.tfvars`
+>   updated to a pinned tag. `orchestration/Dockerfile.agent` takes an overridable
+>   `ARG BASE_IMAGE` (pass a digest in prod) and `agent_builder.py` reads the base from
+>   `AGENT_BASE_IMAGE` (default kept as `:latest` so the **local dev happy path is
+>   unchanged**) — both flagged to be pinned to a digest by CI before production.
+> - **No moving-branch boot.** `backend-startup.sh` no longer does
+>   `git reset --hard origin/feat/deploy-workers`; it fetches tags and `git checkout`s a
+>   pinned `deploy_ref` (new Terraform variable, release tag or commit SHA; passed via
+>   instance metadata).
+> - **SA scope narrowed.** `worker-template.tf` drops the broad `cloud-platform` scope for
+>   `logging.write` + `monitoring.write` + `cloud-platform.read-only` (matches the
+>   least-privilege IAM roles; still pulls from Artifact Registry).
+> **DEPLOY TODO (documented, not implemented — would need `terraform apply`):** move the
+> DB/JWT/worker/SMTP/Redis secrets out of **plaintext instance metadata** into Secret
+> Manager (grant the VM SA `secretmanager.secretAccessor`, fetch in the startup script),
+> or at minimum block container egress to `169.254.169.254`. Also rotate the secrets
+> currently committed in `terraform.tfvars`. Left as a documented rollout to avoid a
+> half-wired secrets change that can't be validated offline.
 
 **Files**
 - `deploy/terraform/variables.tf:19` (`worker_image = ...agent-worker:latest`)
@@ -655,7 +710,19 @@ the SA scope to match the IAM roles.
 
 ---
 
-### [ ] M-10 — User-controlled `state_init_data` reaches the game engine in the privileged worker
+### [x] M-10 — User-controlled `state_init_data` reaches the game engine in the privileged worker
+
+> **FIXED:** `state_init_data` is now whitelisted per game type in the backend
+> before queueing, via `validate_state_init_data` in `backend/app/core/state_init.py`
+> (mirrors the `payload_limits.py` pattern). tic-tac-toe allows only `turn`∈{0,1}
+> and `status`∈{-2,-1,0,1}; hex additionally allows `board_size` bounded to
+> `2..MAX_HEX_BOARD_SIZE` (new configurable setting in `config.py`, default 26,
+> with validator); chess/connect_four allow no init keys. Unknown keys, wrong
+> types (incl. `bool`), and out-of-range numbers raise `StateInitValidationError`
+> → `MatchServiceError` → 400. Enforced in `MatchService.create_match`, so both the
+> `POST /matches` route and the internal scheduler's queueing path are covered; the
+> existing `additional_data` merge (e.g. hex `board_size=10`) still passes. Regression
+> test: `test_submissions_and_agents.py::test_match_state_init_data_is_whitelisted`.
 
 **Files**
 - `backend/app/models/match.py:40` (`state_init_data: dict[str, Any] = {}`, no validation)
@@ -770,7 +837,26 @@ avatar; stored-content injection; an SSRF sink if any server-side code ever fetc
 
 ---
 
-### [ ] L-6 — Account enumeration and unverified-account pre-hijack
+### [x] L-6 — Account enumeration and unverified-account pre-hijack
+
+> **FIXED / policy decision (2026-06-10):**
+> - **Login** now returns a uniform `401 "Invalid email or password"` for both an
+>   unknown user and a wrong password; a missing user runs `dummy_verify_password`
+>   (a fixed bcrypt hash in `security.py`) so the timing matches a real wrong-password
+>   attempt. The `403 "Email not verified"` is surfaced **only after** the correct
+>   password is supplied, so it can no longer enumerate registered-but-unverified
+>   accounts.
+> - **Re-registration** no longer deletes a colliding **unverified** account. On a
+>   pending-account collision, `AuthService._reissue_pending_registration` re-issues a
+>   verification token to the existing account and returns the normal success response;
+>   the submitted password is discarded, so an attacker cannot hijack or destroy a
+>   pending registration. Verified collisions still return `409`. (`register` was split
+>   into `_create_user` + `_reissue_pending_registration`, dropping the `C901` waiver.)
+> Regression tests: `test_auth.py::{test_login_unknown_user_and_wrong_password_are_indistinguishable,
+> test_reregistration_does_not_hijack_pending_account}`.
+> **Residual (accepted, Low):** a username-collision with a *different* email returns the
+> existing account's email in the success body; registration already reveals taken
+> usernames via `409`, and the flow is rate-limited (`RATE_LIMIT_REGISTER`).
 
 **Files**
 - `backend/app/api/services/auth.py:185-193` (401 "Invalid email or password" vs 403 "Email not verified")
@@ -838,7 +924,7 @@ own ≥1 participating agent (M-1).
 | DELETE | `/submissions/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed**; **M-2 fixed** |
 | GET | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
 | PUT | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
-| POST | `/matches` | User+ (own agent, M-1) | User+ (own agent) | **H-1/M-1 fixed** |
+| POST | `/matches` | User+ (own agent, M-1) | User+ (own agent) | **H-1/M-1 fixed**; **M-10** state_init whitelisted |
 | GET | `/matches/{id}` | Guest+ or WorkerKey | Guest+ or WorkerKey | **H-2/C-2 fixed** (worker reads at run time) |
 | GET | `/matches` | Guest+ | Guest+ (policy 2) | **H-2 fixed**; **M-4** limit open |
 | GET | `/matches/{id}/stream` | Guest+ | Guest+ (+ conn limit) | **H-2 fixed**; attempt limit added (**H-3**); concurrent conn cap open |
@@ -895,6 +981,8 @@ path-traversal guard (`agent_builder.py:25-34`).
   and reads the filename from an env var instead of an interpolated command (**H-7/H-8 fixed**).
 - Worker runs as `root` with host Docker socket — topology hardening (rootless/remote builder) remains a
   **deploy TODO** (out of code scope, noted at the call site) (**H-7**).
+- ~~User-controlled `state_init_data` reaches `State.initial(...)` in the privileged match worker~~ →
+  the backend now whitelists `state_init_data` per game (keys/types/bounds) before queueing (**M-10 fixed**).
 - ~~Server-side log/result/game-state are unbounded~~ → `update_build_job`/`update_match` truncate
   logs and reject oversized result/game-state via configurable caps (**M-3 fixed**; orchestration-side
   `history`/wall-clock caps added under M-8).
@@ -907,13 +995,16 @@ path-traversal guard (`agent_builder.py:25-34`).
 - [x] Reject prod if rate limiting is disabled (`RATE_LIMITING_ENABLED=false`) (H-3/M-5).
 - [x] Add `TRUST_PROXY_HEADERS` (default false); only trust client IP behind a known proxy (H-3).
 - [x] Require `TRUSTED_HOSTS` in production (M-5).
-- [ ] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
+- [x] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
 - [x] Reject `BYPASS_EMAIL_VERIFICATION=true` at config load in production (M-5).
 - [x] Add upload size + per-user quota settings (H-4).
 - [x] Add max log / result / game-state size settings (M-3).
 - [x] Bound all pagination `limit`s (M-4).
 - [x] Add all rate-limit category defaults to both `.env.example` files (H-3).
 - [ ] Isolate Docker-socket workers from the public backend; consider rootless/remote builder (H-7).
+- [x] Require Redis auth (`requirepass` + passworded/TLS `REDIS_URL`); never publish Redis on `0.0.0.0` (M-7).
+- [x] Pin deployed images (no `:latest`) and deploy a pinned ref, not a moving branch (M-9).
+- [ ] Move plaintext-metadata secrets to Secret Manager; rotate committed `terraform.tfvars` secrets (M-9, deploy TODO).
 - [x] Move reset token/new password/email into request bodies (H-6).
 - [x] Fix `backend/.env.example` — removed; root `.env.example` is now the single source of truth (H-3 consolidation). The weak `BYPASS_EMAIL_VERIFICATION=True` / JWT example no longer ships in a second file.
 

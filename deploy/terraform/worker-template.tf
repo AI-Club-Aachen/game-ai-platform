@@ -30,16 +30,24 @@ resource "google_compute_instance_template" "worker" {
     access_config {}
   }
 
-  # Service Account and Scopes
+  # Service Account and Scopes.
+  # Narrowed from the broad "cloud-platform" scope to match the least-privilege IAM
+  # roles actually granted (logging.logWriter, monitoring.metricWriter,
+  # artifactregistry.reader). Read-only cloud-platform still lets the worker pull
+  # images from Artifact Registry without granting write to every API (M-9).
   service_account {
-    email  = google_service_account.worker.email
-    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    email = google_service_account.worker.email
+    scopes = [
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring.write",
+      "https://www.googleapis.com/auth/cloud-platform.read-only",
+    ]
   }
 
   # Metadata variables read by the startup script
   metadata = {
     backend_url    = "http://${google_compute_address.backend_internal_ip.address}:8000/api/v1"
-    redis_url      = "redis://${google_compute_address.backend_internal_ip.address}:6379"
+    redis_url      = "redis://:${var.redis_password}@${google_compute_address.backend_internal_ip.address}:6379/0"
     worker_api_key = var.worker_api_key
     worker_image   = var.worker_image
     worker_command = var.worker_command

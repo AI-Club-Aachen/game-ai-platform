@@ -1,4 +1,8 @@
-FROM ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest
+# M-9: the base image should be pinned to an immutable digest in production, e.g.
+#   --build-arg BASE_IMAGE=ghcr.io/ai-club-aachen/game-ai-platform/agent-base@sha256:<digest>
+# The ':latest' default is mutable and must not be relied on for a real deployment.
+ARG BASE_IMAGE=ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest
+FROM ${BASE_IMAGE}
 
 WORKDIR /home/runner/app
 COPY . .

@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.match_events import match_event_publisher
 from app.core.payload_limits import PayloadTooLargeError, cap_log_append, ensure_json_within
 from app.core.queue import job_queue
+from app.core.state_init import StateInitValidationError, validate_state_init_data
 from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
@@ -62,6 +63,13 @@ class MatchService:
         """
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
+
+        # state_init_data reaches the engine in the privileged worker (M-10); whitelist
+        # it per game before queueing, treating it as untrusted regardless of caller.
+        try:
+            validate_state_init_data(game_type, config.state_init_data)
+        except StateInitValidationError as e:
+            raise MatchServiceError(str(e)) from e
 
         self._validate_agents_for_match(game_type, agent_ids, owner_user_id=owner_user_id)
 
