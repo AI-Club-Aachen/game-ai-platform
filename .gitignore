@@ -60,3 +60,9 @@ ci_run_log
 .terraform/
 .terraform.lock.hcl
 *.tfstate*
+
+# vibe coding
+.cursor/
+.codex/
+.claude/
+graphify-out/
