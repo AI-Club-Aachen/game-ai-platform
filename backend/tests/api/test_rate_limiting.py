@@ -3,7 +3,7 @@
 
 Covers:
 - per-category settings exist, parse, and reject malformed limit strings
-- production config rejects RATE_LIMIT_BYPASS=true
+- production config rejects RATE_LIMITING_ENABLED=false
 - the limiter key function picks user-id vs IP vs worker-API-key correctly,
   honoring TRUST_PROXY_HEADERS and DISABLE_IP_RATE_LIMITING
 - a tightened endpoint actually returns 429 once its limit is exceeded
@@ -90,7 +90,6 @@ class TestRateLimitSettings:
     def test_toggle_defaults(self):
         s = Settings(_env_file=None, **REQUIRED_SETTINGS)
         assert s.RATE_LIMITING_ENABLED is True
-        assert s.RATE_LIMIT_BYPASS is False
         assert s.DISABLE_IP_RATE_LIMITING is False
         assert s.TRUST_PROXY_HEADERS is False
         assert s.rate_limiting_active is True
@@ -99,23 +98,21 @@ class TestRateLimitSettings:
         with pytest.raises(ValidationError, match="RATE_LIMIT_LOGIN"):
             Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMIT_LOGIN="not-a-limit")
 
-    def test_rate_limiting_active_reflects_enabled_and_bypass(self):
+    def test_rate_limiting_active_reflects_enabled(self):
         disabled = Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMITING_ENABLED=False)
         assert disabled.rate_limiting_active is False
-        bypassed = Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMIT_BYPASS=True)
-        assert bypassed.rate_limiting_active is False
 
-    def test_production_rejects_rate_limit_bypass(self):
-        with pytest.raises(ValidationError, match="RATE_LIMIT_BYPASS"):
-            Settings(_env_file=None, **PRODUCTION_SETTINGS, RATE_LIMIT_BYPASS=True)
+    def test_production_rejects_disabled_rate_limiting(self):
+        with pytest.raises(ValidationError, match="RATE_LIMITING_ENABLED"):
+            Settings(_env_file=None, **PRODUCTION_SETTINGS, RATE_LIMITING_ENABLED=False)
 
-    def test_production_accepts_bypass_disabled(self):
-        s = Settings(_env_file=None, **PRODUCTION_SETTINGS, RATE_LIMIT_BYPASS=False)
+    def test_production_accepts_enabled_rate_limiting(self):
+        s = Settings(_env_file=None, **PRODUCTION_SETTINGS, RATE_LIMITING_ENABLED=True)
         assert s.rate_limiting_active is True
 
-    def test_development_allows_bypass(self):
-        s = Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMIT_BYPASS=True)
-        assert s.RATE_LIMIT_BYPASS is True
+    def test_development_allows_disabled_rate_limiting(self):
+        s = Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMITING_ENABLED=False)
+        assert s.RATE_LIMITING_ENABLED is False
 
 
 # ---------------------------------------------------------------------------

@@ -194,9 +194,10 @@ SSE connection caps and auth.
 ### [x] H-3 — Rate limiting is hard-coded, inconsistent, and not configurable
 
 > **FIXED:** central limiter in `backend/app/core/rate_limit.py` (keyed worker-exempt / user-id / IP),
-> per-category `RATE_LIMIT_*` settings + `RATE_LIMIT_BYPASS` (prod-rejected), `DISABLE_IP_RATE_LIMITING`,
-> `TRUST_PROXY_HEADERS=false` in `config.py`; explicit limits on upload/match-create/SSE-stream/admin;
-> regression-tested in `tests/api/test_rate_limiting.py`. Concurrent SSE connection cap remains open.
+> per-category `RATE_LIMIT_*` settings + `RATE_LIMITING_ENABLED` (prod-rejected when false),
+> `DISABLE_IP_RATE_LIMITING`, `TRUST_PROXY_HEADERS=false` in `config.py`; explicit limits on
+> upload/match-create/SSE-stream/admin; regression-tested in `tests/api/test_rate_limiting.py`.
+> Concurrent SSE connection cap remains open.
 
 **Files**
 - `backend/app/main.py:39-49` (global limiter; `default_limits=["500/hour","30/minute"]`, IP-keyed)
@@ -450,8 +451,9 @@ endpoints accept arbitrarily large `limit` (e.g. `?limit=1000000`).
 
 ### [~] M-5 — Production config validation is incomplete
 
-> **PARTIAL (rate-limit slice, with H-3):** `RATE_LIMIT_BYPASS=true` now rejected at config load in
-> production; `TRUST_PROXY_HEADERS` added (default false). Still open: default/short `WORKER_API_KEY`
+> **PARTIAL (rate-limit slice, with H-3):** `RATE_LIMITING_ENABLED=false` now rejected at config load in
+> production (the redundant `RATE_LIMIT_BYPASS` flag was dropped in favor of guarding the existing
+> switch); `TRUST_PROXY_HEADERS` added (default false). Still open: default/short `WORKER_API_KEY`
 > rejection, required `TRUSTED_HOSTS`, `BYPASS_EMAIL_VERIFICATION` rejection, `.env.example` weak secrets.
 
 **Files**
@@ -777,8 +779,7 @@ All limits are now settings-driven (`backend/app/core/config.py`) and enforced b
 | Match stream attempts | `60/min` | `RATE_LIMIT_STREAM=60/minute` | concurrent conn cap still open |
 | Worker callbacks | `1200/min` | valid `x-api-key` exempt via key function (policy decision) | ok |
 | Admin / API-key | `20000/min` or exempt | `RATE_LIMIT_ADMIN=20000/minute` (user-id keyed) | ok |
-| `RATE_LIMITING_ENABLED=false` | disables all | present; `rate_limiting_active` wired into shared limiter | ok |
-| `RATE_LIMIT_BYPASS` (dev/test only) | reject in prod | present; prod `model_validator` rejects `true` | ok |
+| `RATE_LIMITING_ENABLED=false` | disables all; reject in prod | present; wired into shared limiter, prod `model_validator` rejects `false` | ok |
 | `DISABLE_IP_RATE_LIMITING` | keep user-id limits | present; anonymous keys randomized, user keys kept | ok |
 | `TRUST_PROXY_HEADERS=false` default | trust only when set | present; right-most `X-Forwarded-For` hop only when true | ok |
 
@@ -807,7 +808,7 @@ path-traversal guard (`agent_builder.py:25-34`).
 # Production-hardening checklist
 
 - [ ] Reject prod if `WORKER_API_KEY` is default/short (M-5).
-- [x] Reject prod if `RATE_LIMIT_BYPASS=true` (H-3/M-5).
+- [x] Reject prod if rate limiting is disabled (`RATE_LIMITING_ENABLED=false`) (H-3/M-5).
 - [x] Add `TRUST_PROXY_HEADERS` (default false); only trust client IP behind a known proxy (H-3).
 - [ ] Require `TRUSTED_HOSTS` in production (M-5).
 - [ ] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
@@ -818,7 +819,7 @@ path-traversal guard (`agent_builder.py:25-34`).
 - [x] Add all rate-limit category defaults to both `.env.example` files (H-3).
 - [ ] Isolate Docker-socket workers from the public backend; consider rootless/remote builder (H-7).
 - [ ] Move reset token/new password/email into request bodies (H-6).
-- [ ] Fix `backend/.env.example` (no `BYPASS_EMAIL_VERIFICATION=True`, no weak JWT example for shared use).
+- [x] Fix `backend/.env.example` — removed; root `.env.example` is now the single source of truth (H-3 consolidation). The weak `BYPASS_EMAIL_VERIFICATION=True` / JWT example no longer ships in a second file.
 
 ---
 
@@ -840,7 +841,7 @@ Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests
 12. Submission path containment on download/delete (M-2).
 13. Oversized logs/game-state rejected or truncated (M-3).
 14. Pagination `limit` capping (M-4).
-15. ~~Rate-limit categories present in settings; prod rejects `RATE_LIMIT_BYPASS` (H-3/M-5).~~ ✅ (`test_rate_limiting.py`)
+15. ~~Rate-limit categories present in settings; prod rejects disabled rate limiting (H-3/M-5).~~ ✅ (`test_rate_limiting.py`)
 16. ~~SSE connection-attempt limiting (H-2/H-3).~~ ✅ (`RATE_LIMIT_STREAM`; concurrent conn cap still untested/open)
 
 ---

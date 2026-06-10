@@ -39,10 +39,9 @@ class Settings(BaseSettings):
 
     # Rate limiting (H-3). Limit strings use the slowapi/limits format,
     # multiple limits separated by ";" (e.g. "10/minute;60/hour").
-    RATE_LIMITING_ENABLED: bool = True
-    RATE_LIMIT_BYPASS: bool = Field(
-        default=False,
-        description="Disable rate limiting for dev/test convenience. MUST NOT BE TRUE IN PRODUCTION.",
+    RATE_LIMITING_ENABLED: bool = Field(
+        default=True,
+        description="Master rate-limiting switch. Disable only for dev/test; MUST be true in production.",
     )
     DISABLE_IP_RATE_LIMITING: bool = Field(
         default=False,
@@ -167,8 +166,8 @@ class Settings(BaseSettings):
 
     @property
     def rate_limiting_active(self) -> bool:
-        """Effective rate-limiting switch: enabled and not bypassed."""
-        return self.RATE_LIMITING_ENABLED and not self.RATE_LIMIT_BYPASS
+        """Effective rate-limiting switch."""
+        return self.RATE_LIMITING_ENABLED
 
     @property
     def smtp_required(self) -> bool:
@@ -326,10 +325,10 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def validate_rate_limit_bypass_not_in_production(self) -> "Settings":
-        """RATE_LIMIT_BYPASS is a dev/test convenience and must never reach production."""
-        if self.is_production and self.RATE_LIMIT_BYPASS:
-            raise ValueError("RATE_LIMIT_BYPASS must not be enabled in production")
+    def validate_rate_limiting_enabled_in_production(self) -> "Settings":
+        """Rate limiting must never be disabled in production."""
+        if self.is_production and not self.RATE_LIMITING_ENABLED:
+            raise ValueError("RATE_LIMITING_ENABLED must not be false in production")
         return self
 
 
