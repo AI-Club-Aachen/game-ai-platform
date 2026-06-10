@@ -12,6 +12,7 @@ from app.api.deps import get_email_client, get_email_notification_service
 from app.api.routes import auth, email, users
 from app.api.services.email import EmailNotificationService
 from app.core.config import settings
+from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
 from app.db.session import get_session
 from app.main import app
@@ -142,6 +143,16 @@ async def reset_job_queue():
     """
     yield
     await job_queue.close()
+
+
+@pytest.fixture(autouse=True)
+async def reset_match_event_publisher():
+    """
+    Same as reset_job_queue, but for the global match event publisher: its
+    cached redis connection must not leak across per-test event loops.
+    """
+    yield
+    await match_event_publisher.close()
 
 
 # Tell pytest-anyio to use only asyncio, so tests are not duplicated for trio.

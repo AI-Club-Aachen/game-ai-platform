@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
-from tests.api.test_users import _create_verified_user_and_token
+from tests.api.test_users import _create_member_and_token
 from tests.utils import random_email, random_lower_string, random_username, strong_password
 
 
@@ -26,9 +26,10 @@ def _make_zip_bytes(filename: str = "agent.py", content: str = "print('hello')\n
 
 @pytest.mark.anyio
 async def test_submission_upload_does_not_create_agent(api_client, fake_email_client, db_session):
-    _, bearer_token = await _create_verified_user_and_token(
+    user_id, bearer_token = await _create_member_and_token(
         api_client,
         fake_email_client,
+        db_session,
         random_username(),
         random_email(),
         strong_password(),
@@ -45,7 +46,8 @@ async def test_submission_upload_does_not_create_agent(api_client, fake_email_cl
     submission = response.json()
     assert "build_jobs" in submission
     assert submission["game_type"] == GameType.CHESS.value
-    assert db_session.exec(select(Agent)).all() == []
+    # Scoped to this user: other tests in the session may have created agents.
+    assert db_session.exec(select(Agent).where(Agent.user_id == UUID(user_id))).all() == []
 
 
 @pytest.mark.anyio
@@ -54,9 +56,10 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
     fake_email_client,
     db_session,
 ):
-    user_id, bearer_token = await _create_verified_user_and_token(
+    user_id, bearer_token = await _create_member_and_token(
         api_client,
         fake_email_client,
+        db_session,
         random_username(),
         random_email(),
         strong_password(),
@@ -146,9 +149,10 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
 
 @pytest.mark.anyio
 async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client, db_session):
-    user_id, bearer_token = await _create_verified_user_and_token(
+    user_id, bearer_token = await _create_member_and_token(
         api_client,
         fake_email_client,
+        db_session,
         random_username(),
         random_email(),
         strong_password(),

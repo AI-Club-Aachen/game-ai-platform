@@ -5,11 +5,16 @@ from sqlmodel import Session
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
+from app.core.config import settings
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus, MatchJob
 from app.models.match import Match, MatchStatus
 from app.models.submission import Submission
 from app.models.user import User
+
+
+# Worker endpoints require the worker API key (see C-1 in SECURITY.md).
+WORKER_HEADERS = {"x-api-key": settings.WORKER_API_KEY}
 
 
 @pytest.fixture
@@ -51,7 +56,7 @@ async def test_build_job_flow(
     job = job_repository.save_build_job(job)
 
     # 2. Test GET
-    response = await api_client.get(f"/api/v1/jobs/build/{job.id}")
+    response = await api_client.get(f"/api/v1/jobs/build/{job.id}", headers=WORKER_HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(job.id)
@@ -64,7 +69,7 @@ async def test_build_job_flow(
         "image_id": "sha256:12345",
         "image_tag": "latest",
     }
-    response = await api_client.patch(f"/api/v1/jobs/build/{job.id}", json=update_payload)
+    response = await api_client.patch(f"/api/v1/jobs/build/{job.id}", json=update_payload, headers=WORKER_HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
@@ -91,7 +96,7 @@ async def test_match_job_flow(
     job = job_repository.save_match_job(job)
 
     # 2. Test GET
-    response = await api_client.get(f"/api/v1/jobs/match/{job.id}")
+    response = await api_client.get(f"/api/v1/jobs/match/{job.id}", headers=WORKER_HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(job.id)
@@ -99,7 +104,7 @@ async def test_match_job_flow(
 
     # 3. Test UPDATE (Worker reports success)
     update_payload = {"status": "completed"}
-    response = await api_client.patch(f"/api/v1/jobs/match/{job.id}", json=update_payload)
+    response = await api_client.patch(f"/api/v1/jobs/match/{job.id}", json=update_payload, headers=WORKER_HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
