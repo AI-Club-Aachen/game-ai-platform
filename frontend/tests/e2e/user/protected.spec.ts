@@ -20,10 +20,10 @@ test.describe('Protected Routes', () => {
     });
 
     test('should NOT be able to access admin users page', async ({ page }) => {
-        // Standard user should not see admin page
+        // Standard user should be redirected away from the admin page
         await page.goto('/users');
-        // Standard user stays on /users but gets an error because API returns 403
-        await expect(page.getByText('Failed to load users')).toBeVisible();
+        await expect(page).toHaveURL('/dashboard');
+        await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     });
 
     test('should display password requirements on profile page', async ({ page }) => {

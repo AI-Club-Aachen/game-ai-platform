@@ -1,5 +1,5 @@
 import { test as setup, expect } from '@playwright/test';
-import { verifyUserEmail, deleteUserByEmail } from '../utils/db';
+import { promoteUserToUser, verifyUserEmail, deleteUserByEmail } from '../utils/db';
 import { TEST_USERS } from '../utils/constants';
 
 setup('authenticate as user', async ({ page }) => {
@@ -29,6 +29,8 @@ setup('authenticate as user', async ({ page }) => {
 
     try {
         await expect(page).toHaveURL('/dashboard', { timeout: 5000 });
+        verifyUserEmail(email);
+        promoteUserToUser(email);
     } catch (e) {
         // Login failed, likely user does not exist. Let's Register.
         console.log('Login failed, attempting registration...');
@@ -47,8 +49,8 @@ setup('authenticate as user', async ({ page }) => {
         await page.waitForURL('**/verify-email**');
 
         console.log('Registration complete. Verifying email and role...');
-        // Use DB helper to verify email
         verifyUserEmail(email);
+        promoteUserToUser(email);
 
         // Let's try to login again
         await page.goto('/login');
