@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -14,7 +15,12 @@ from app.api.deps import (
     get_match_service,
     require_worker_api_key,
 )
-from app.api.services.match import MatchPermissionError, MatchService, MatchServiceError
+from app.api.services.match import (
+    MatchPayloadTooLargeError,
+    MatchPermissionError,
+    MatchService,
+    MatchServiceError,
+)
 from app.core.config import settings
 from app.core.match_events import subscribe_match_events
 from app.core.rate_limit import limiter
@@ -139,13 +145,16 @@ async def update_match(
     """
     Update a match. Worker API key required.
     """
-    match = await service.update_match(
-        match_id,
-        status=update_data.status.value,
-        logs=update_data.logs,
-        result=update_data.result,
-        game_state=update_data.game_state,
-    )
+    try:
+        match = await service.update_match(
+            match_id,
+            status=update_data.status.value,
+            logs=update_data.logs,
+            result=update_data.result,
+            game_state=update_data.game_state,
+        )
+    except MatchPayloadTooLargeError as e:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(e)) from e
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     return match
@@ -156,8 +165,8 @@ async def update_match(
 def list_matches(
     _current_user: VerifiedGuestOrHigher,
     service: MatchService = Depends(get_match_service),
-    skip: int = 0,
-    limit: int = 20,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     game_type: GameType | None = None,
     status: MatchStatus | None = None,
 ) -> list[MatchRead]:

@@ -26,6 +26,34 @@ def _make_zip_bytes(filename: str = "agent.py", content: str = "print('hello')\n
 
 
 @pytest.mark.anyio
+async def test_pagination_limit_is_capped(api_client, fake_email_client, db_session):
+    """M-4: list endpoints reject an unbounded `limit` (and negative `skip`) with 422."""
+    _, bearer_token = await _create_member_and_token(
+        api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
+    )
+    headers = {"Authorization": bearer_token}
+
+    # An oversized limit is rejected across every paginated list endpoint.
+    for path in ("/submissions", "/agents", "/matches", "/agent_containers"):
+        resp = await api_client.get(f"{API_PREFIX}{path}?limit=1000000", headers=headers)
+        assert resp.status_code == 422, f"{path} should reject limit=1000000"
+
+    # The leaderboard limit is bounded too.
+    leaderboard = await api_client.get(
+        f"{API_PREFIX}/agents/leaderboard/{GameType.TICTACTOE.value}?limit=1000000", headers=headers
+    )
+    assert leaderboard.status_code == 422
+
+    # A negative skip is rejected.
+    negative_skip = await api_client.get(f"{API_PREFIX}/submissions?skip=-1", headers=headers)
+    assert negative_skip.status_code == 422
+
+    # A valid in-range limit still works.
+    ok = await api_client.get(f"{API_PREFIX}/submissions?limit=50&skip=0", headers=headers)
+    assert ok.status_code == 200
+
+
+@pytest.mark.anyio
 async def test_submission_upload_does_not_create_agent(api_client, fake_email_client, db_session):
     user_id, bearer_token = await _create_member_and_token(
         api_client,

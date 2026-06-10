@@ -87,7 +87,7 @@ async def test_auth_happy_path_register_verify_login_reset_password(api_client, 
     # 4) Request password reset -> reset email sent.
     reset_request_response = await api_client.post(
         f"{API_PREFIX}/auth/request-password-reset",
-        params={"email": email},
+        json={"email": email},
     )
     assert reset_request_response.status_code == 200
     reset_request_data = reset_request_response.json()
@@ -101,7 +101,7 @@ async def test_auth_happy_path_register_verify_login_reset_password(api_client, 
     reset_token = _extract_token_from_html(reset_email["html_content"])
     reset_response = await api_client.post(
         f"{API_PREFIX}/auth/reset-password",
-        params={"token": reset_token, "new_password": new_password},
+        json={"token": reset_token, "new_password": new_password},
     )
     assert reset_response.status_code == 200
     reset_user = reset_response.json()
@@ -213,10 +213,71 @@ async def test_password_reset_nonexistent_user_is_noop(api_client, fake_email_cl
 
     response = await api_client.post(
         f"{API_PREFIX}/auth/request-password-reset",
-        params={"email": email},
+        json={"email": email},
     )
     assert response.status_code == 200
     data = response.json()
     assert "If email exists" in data["message"]
 
     assert len(fake_email_client.sent) == initial_count
+
+
+@pytest.mark.anyio
+async def test_password_reset_uses_body_not_query_params(api_client):
+    """H-6: the secrets must be read from the JSON body, not the URL query string.
+
+    Passing them only as query params (the old, leaky behaviour) is now rejected
+    because the request body is required.
+    """
+    # reset-password with the secrets only in the query string -> 422 (missing body).
+    query_only = await api_client.post(
+        f"{API_PREFIX}/auth/reset-password",
+        params={"token": "x" * 32, "new_password": strong_password()},
+    )
+    assert query_only.status_code == 422
+
+    # request-password-reset with the email only in the query string -> 422.
+    query_only_request = await api_client.post(
+        f"{API_PREFIX}/auth/request-password-reset",
+        params={"email": random_email()},
+    )
+    assert query_only_request.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_password_reset_invalidates_existing_tokens(api_client, fake_email_client):
+    """M-11: a JWT issued before a password reset is rejected afterwards; a fresh login works."""
+    username = random_username()
+    email = random_email()
+    password = strong_password()
+    new_password = strong_password()
+
+    await _create_verified_user(api_client, fake_email_client, username, email, password)
+
+    login = await api_client.post(f"{API_PREFIX}/auth/login", json={"email": email, "password": password})
+    assert login.status_code == 200
+    old_token = login.json()["access_token"]
+    old_headers = {"Authorization": f"Bearer {old_token}"}
+
+    # The pre-reset token works.
+    assert (await api_client.get(f"{API_PREFIX}/users/me", headers=old_headers)).status_code == 200
+
+    # Reset the password via the body model.
+    fake_email_client.sent.clear()
+    await api_client.post(f"{API_PREFIX}/auth/request-password-reset", json={"email": email})
+    reset_token = _extract_token_from_html(fake_email_client.sent[-1]["html_content"])
+    reset = await api_client.post(
+        f"{API_PREFIX}/auth/reset-password",
+        json={"token": reset_token, "new_password": new_password},
+    )
+    assert reset.status_code == 200
+
+    # The old token is now revoked.
+    revoked = await api_client.get(f"{API_PREFIX}/users/me", headers=old_headers)
+    assert revoked.status_code == 401
+
+    # A fresh login with the new password yields a working token.
+    relogin = await api_client.post(f"{API_PREFIX}/auth/login", json={"email": email, "password": new_password})
+    assert relogin.status_code == 200
+    new_headers = {"Authorization": f"Bearer {relogin.json()['access_token']}"}
+    assert (await api_client.get(f"{API_PREFIX}/users/me", headers=new_headers)).status_code == 200

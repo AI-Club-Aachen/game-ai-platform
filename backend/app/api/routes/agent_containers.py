@@ -1,6 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import VerifiedGuestOrHigher, require_worker_api_key
 from app.api.deps.services import get_agent_container_service
@@ -16,8 +17,8 @@ router = APIRouter()
 def list_agent_containers(
     current_user: VerifiedGuestOrHigher,
     service: AgentContainerService = Depends(get_agent_container_service),
-    skip: int = 0,
-    limit: int = 100,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
     match_id: UUID | None = None,
     status: str | None = None,
 ) -> list[AgentContainerRead]:

@@ -296,7 +296,14 @@ still updates them.
 
 ---
 
-### [ ] H-6 — Password-reset token and new password are sent as URL query parameters
+### [x] H-6 — Password-reset token and new password are sent as URL query parameters
+
+> **FIXED:** `email` (`POST /auth/request-password-reset`) and `token`+`new_password`
+> (`POST /auth/reset-password`) now bind to Pydantic body models — `PasswordResetRequest`
+> and `PasswordResetConfirm` in `backend/app/schemas/auth.py` — exactly like
+> `EmailVerificationRequest`/`PasswordChangeRequest`. The secrets travel in the JSON body and no
+> longer land in URLs/proxy logs; a query-string call now 422s (the body is required). Regression
+> test: `test_auth.py::test_password_reset_uses_body_not_query_params`.
 
 **Files**
 - `backend/app/api/routes/auth.py:125-130` `request_password_reset(email: str, ...)`
@@ -452,7 +459,16 @@ could disclose, and delete could remove, arbitrary files readable/writable by th
 
 ---
 
-### [ ] M-3 — Worker log / result / game-state payloads are unbounded
+### [x] M-3 — Worker log / result / game-state payloads are unbounded
+
+> **FIXED:** the API/DB side is now bounded by configurable settings in `config.py`
+> (`MAX_LOG_APPEND_BYTES`, `MAX_TOTAL_LOG_BYTES`, `MAX_RESULT_BYTES`, `MAX_GAME_STATE_BYTES`).
+> A shared helper `backend/app/core/payload_limits.py` provides `cap_log_append` (clips a single
+> append and keeps only the most recent `MAX_TOTAL_LOG_BYTES` of log text) and `ensure_json_within`.
+> `SubmissionService.update_build_job` and `MatchService.update_match` truncate `logs` through it;
+> `update_match` rejects an oversized `result`/`game_state` via `MatchPayloadTooLargeError` → the
+> worker callback returns 413. (Orchestration-side `history`/wall-clock caps were already added under
+> M-8.) Regression test: `test_jobs.py::test_oversized_worker_logs_and_game_state_are_capped`.
 
 **Files**
 - `backend/app/api/services/submission.py:101-102` (`job.logs += logs + "\n"`)
@@ -469,7 +485,13 @@ app/proxy; validate `result`/`game_state` schemas per game type.
 
 ---
 
-### [ ] M-4 — Unbounded pagination / leaderboard limits enable cheap DoS and scraping
+### [x] M-4 — Unbounded pagination / leaderboard limits enable cheap DoS and scraping
+
+> **FIXED:** every list/leaderboard endpoint now bounds its query params like `/users` does —
+> `limit` is `Query(ge=1, le=100)` and `skip` is `Query(ge=0)` on `agents.py`
+> (`get_leaderboard`, `list_agents`), `matches.py` (`list_matches`), `agent_containers.py`
+> (`list_agent_containers`), and `submissions.py` (`list_submissions`). `?limit=1000000` now
+> returns 422. Regression test: `test_submissions_and_agents.py::test_pagination_limit_is_capped`.
 
 **Files**
 - `backend/app/api/routes/agents.py:39` (`limit: int = 100`, no bound), `:69-70`
@@ -653,7 +675,15 @@ backend before queueing; treat engine init input as untrusted.
 
 ---
 
-### [ ] M-11 — No session invalidation on password change or reset
+### [x] M-11 — No session invalidation on password change or reset
+
+> **FIXED:** `User` gained a `token_version` integer column (Alembic migration
+> `c7d2f9a4e1b3_add_token_version_to_users.py`, `server_default="0"`). `login` embeds the current
+> `token_version` as a JWT claim; `get_current_user`/`get_optional_current_user` reject a token whose
+> claim does not match the stored value (401 / None, tokens predating the claim default to 0).
+> `AuthService.reset_password` and `UserService.change_password` bump `token_version`, so every JWT
+> issued before a reset/change is invalidated while a fresh login still works. Regression test:
+> `test_auth.py::test_password_reset_invalidates_existing_tokens`.
 
 **Files**
 - `backend/app/core/security.py:107-145` (JWT has no `jti`/version claim)
@@ -718,7 +748,13 @@ Even without enqueue, this pollutes the jobs table. Fold into C-1 (worker-key on
 
 ---
 
-### [ ] L-5 — `profile_picture_url` is unvalidated user input
+### [x] L-5 — `profile_picture_url` is unvalidated user input
+
+> **FIXED:** `UserCreate` and `UserUpdate` now run `profile_picture_url` through a shared
+> `field_validator` (`_validate_profile_picture_url` in `backend/app/schemas/user.py`) that
+> enforces an `http(s)://` scheme and a 2048-char max, mirroring how `username` is constrained.
+> `javascript:`/`data:` URIs are rejected with 422. Regression test:
+> `test_users.py::test_register_rejects_javascript_profile_picture_url`.
 
 **Files**
 - `backend/app/schemas/user.py:15` (`UserCreate`), `:31` (`UserUpdate`) — arbitrary string, no validator
@@ -774,8 +810,8 @@ own ≥1 participating agent (M-1).
 |---|---|---|---|---|
 | POST | `/auth/register` | Anon | Anon | lifecycle |
 | POST | `/auth/login` | Anon | Anon | lifecycle |
-| POST | `/auth/request-password-reset` | Anon (query param) | Anon | **H-6** email in URL (open) |
-| POST | `/auth/reset-password` | Anon (query param) | Anon | **H-6** token+password in URL (open) |
+| POST | `/auth/request-password-reset` | Anon (body) | Anon | **H-6 fixed** email in body |
+| POST | `/auth/reset-password` | Anon (body) | Anon | **H-6 fixed** token+password in body |
 | POST | `/email/verify-email` | Anon | Anon | lifecycle (body, ok) |
 | POST | `/email/resend-verification` | CurrentUser | Guest+ (unverified allowed) | lifecycle, ok |
 | GET | `/email/verification-status` | CurrentUser | Guest+ | ok (unverified must see status) |
@@ -859,8 +895,9 @@ path-traversal guard (`agent_builder.py:25-34`).
   and reads the filename from an env var instead of an interpolated command (**H-7/H-8 fixed**).
 - Worker runs as `root` with host Docker socket — topology hardening (rootless/remote builder) remains a
   **deploy TODO** (out of code scope, noted at the call site) (**H-7**).
-- Server-side log/result/game-state are unbounded (**M-3**, still open; orchestration-side `history`/
-  wall-clock caps added under M-8).
+- ~~Server-side log/result/game-state are unbounded~~ → `update_build_job`/`update_match` truncate
+  logs and reject oversized result/game-state via configurable caps (**M-3 fixed**; orchestration-side
+  `history`/wall-clock caps added under M-8).
 
 ---
 
@@ -873,11 +910,11 @@ path-traversal guard (`agent_builder.py:25-34`).
 - [ ] Forbid `*` in `ALLOW_ORIGINS` with credentials / in production (M-6).
 - [x] Reject `BYPASS_EMAIL_VERIFICATION=true` at config load in production (M-5).
 - [x] Add upload size + per-user quota settings (H-4).
-- [ ] Add max log / result / game-state size settings (M-3).
-- [ ] Bound all pagination `limit`s (M-4).
+- [x] Add max log / result / game-state size settings (M-3).
+- [x] Bound all pagination `limit`s (M-4).
 - [x] Add all rate-limit category defaults to both `.env.example` files (H-3).
 - [ ] Isolate Docker-socket workers from the public backend; consider rootless/remote builder (H-7).
-- [ ] Move reset token/new password/email into request bodies (H-6).
+- [x] Move reset token/new password/email into request bodies (H-6).
 - [x] Fix `backend/.env.example` — removed; root `.env.example` is now the single source of truth (H-3 consolidation). The weak `BYPASS_EMAIL_VERIFICATION=True` / JWT example no longer ships in a second file.
 
 ---
@@ -895,12 +932,14 @@ Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests
 7. ~~Worker key cannot access JWT admin routes (C-2).~~ ✅
 8. ~~Worker key can still read/download submissions + read agents (C-2 migration).~~ ✅
 9. ~~User cannot change elo/wins/losses via `PATCH /agents` (H-5); match completion still updates them.~~ ✅
-10. Reset password uses a body, not query params (H-6).
+10. ~~Reset password uses a body, not query params (H-6).~~ ✅ (`test_auth.py`)
 11. ~~Upload max-size + ZIP-bomb + traversal/symlink/file-count rejection (H-4).~~ ✅
     (`test_submissions_and_agents.py` upload size; `test_agent_builder.py` ZIP-bomb/symlink/count/injection)
 12. ~~Submission path containment on download/delete (M-2).~~ ✅ (`test_submissions_and_agents.py`)
-13. Oversized logs/game-state rejected or truncated (M-3).
-14. Pagination `limit` capping (M-4).
+13. ~~Oversized logs/game-state rejected or truncated (M-3).~~ ✅ (`test_jobs.py`)
+14. ~~Pagination `limit` capping (M-4).~~ ✅ (`test_submissions_and_agents.py`)
+17. ~~`profile_picture_url` scheme validation — `javascript:` rejected (L-5).~~ ✅ (`test_users.py`)
+18. ~~Password change/reset invalidates pre-existing JWTs; fresh login works (M-11).~~ ✅ (`test_auth.py`)
 15. ~~Rate-limit categories present in settings; prod rejects disabled rate limiting (H-3/M-5).~~ ✅ (`test_rate_limiting.py`)
 16. ~~SSE connection-attempt limiting (H-2/H-3).~~ ✅ (`RATE_LIMIT_STREAM`; concurrent conn cap still untested/open)
 

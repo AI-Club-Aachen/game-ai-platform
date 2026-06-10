@@ -110,6 +110,16 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Reject tokens issued before the last password change/reset (M-11). Tokens
+    # predating this claim default to 0, matching a never-rotated user.
+    if payload.get("token_version", 0) != user.token_version:
+        logger.warning("Stale token (token_version mismatch) for user %s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user
 
 
@@ -151,8 +161,9 @@ def get_optional_current_user(
 
     user = user_repository.get_by_id(user_id)
 
-    if user is None:
-        logger.debug("User not found for optional auth: %s", user_id)
+    # Reject an unknown user or a token predating the last password change/reset (M-11).
+    if user is None or payload.get("token_version", 0) != user.token_version:
+        logger.debug("Optional auth rejected for user id: %s", user_id)
         return None
 
     return user

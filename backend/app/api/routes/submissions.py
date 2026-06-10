@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.deps import (
@@ -109,8 +109,8 @@ def download_submission(
 def list_submissions(
     current_user: VerifiedGuestOrHigher,
     service: SubmissionService = Depends(get_submission_service),
-    skip: int = 0,
-    limit: int = 20,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list[SubmissionRead]:
     """
     List submissions for the current user. Requires a verified login.

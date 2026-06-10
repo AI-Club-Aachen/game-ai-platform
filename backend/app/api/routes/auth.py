@@ -18,6 +18,8 @@ from app.core.rate_limit import limiter
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     PasswordResetRequestResponse,
     RegistrationResponse,
 )
@@ -123,18 +125,19 @@ async def login(
 @limiter.limit(lambda: settings.RATE_LIMIT_EMAIL_TOKEN)
 async def request_password_reset(
     request: Request,  # noqa: ARG001
-    email: str,
+    reset_request: PasswordResetRequest,
     background_tasks: BackgroundTasks,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> PasswordResetRequestResponse:
     """
     Request password reset via email.
 
-    Rate limited per RATE_LIMIT_EMAIL_TOKEN.
+    The email is read from the JSON body so it is never logged as a URL query
+    parameter (H-6). Rate limited per RATE_LIMIT_EMAIL_TOKEN.
     """
     # Always return same message to prevent email enumeration
     auth_service.request_password_reset(
-        email=email,
+        email=str(reset_request.email),
         background_tasks=background_tasks,
     )
     return PasswordResetRequestResponse(message="If email exists, password reset link will be sent")
@@ -145,13 +148,19 @@ async def request_password_reset(
 @limiter.limit(lambda: settings.RATE_LIMIT_EMAIL_TOKEN)
 async def reset_password(
     request: Request,  # noqa: ARG001
-    token: str,
-    new_password: str,
+    reset_confirm: PasswordResetConfirm,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> UserResponse:
-    """Reset password with token sent via email."""
+    """
+    Reset password with token sent via email.
+
+    The token and new password are read from the JSON body so the secrets never
+    appear in a URL query string or proxy access logs (H-6).
+    """
     try:
-        user = auth_service.reset_password(token=token, new_password=new_password)
+        user = auth_service.reset_password(
+            token=reset_confirm.token, new_password=reset_confirm.new_password
+        )
     except AuthValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

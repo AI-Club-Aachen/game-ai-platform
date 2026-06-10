@@ -118,6 +118,26 @@ class Settings(BaseSettings):
         description="Maximum number of submissions a user may store. 0 disables the quota.",
     )
 
+    # Worker payload limits (M-3): bound the log/result/game-state that worker
+    # callbacks store on build jobs and matches. Logs are truncated server-side;
+    # oversized result/game-state payloads are rejected.
+    MAX_LOG_APPEND_BYTES: int = Field(
+        default=64 * 1024,
+        description="Maximum size of a single worker log append (characters). 0 disables the cap.",
+    )
+    MAX_TOTAL_LOG_BYTES: int = Field(
+        default=1024 * 1024,
+        description="Maximum total stored log size; the oldest content is truncated. 0 disables the cap.",
+    )
+    MAX_RESULT_BYTES: int = Field(
+        default=256 * 1024,
+        description="Maximum serialized size of a match result payload in bytes. 0 disables the cap.",
+    )
+    MAX_GAME_STATE_BYTES: int = Field(
+        default=1024 * 1024,
+        description="Maximum serialized size of a match game-state payload in bytes. 0 disables the cap.",
+    )
+
     # CORS/Security
     ALLOW_ORIGINS: str = Field(
         default="http://localhost:3000",

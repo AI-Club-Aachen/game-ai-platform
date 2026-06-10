@@ -7,6 +7,7 @@ from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository, SubmissionRepositoryError
 from app.core.config import settings
+from app.core.payload_limits import cap_log_append
 from app.core.queue import job_queue
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
@@ -171,7 +172,14 @@ class SubmissionService:
 
         job.status = JobStatus(status)
         if logs is not None:
-            job.logs += logs + "\n"
+            # Truncate server-side so a worker cannot grow the stored logs without
+            # bound (M-3).
+            job.logs = cap_log_append(
+                job.logs,
+                logs,
+                append_cap=settings.MAX_LOG_APPEND_BYTES,
+                total_cap=settings.MAX_TOTAL_LOG_BYTES,
+            )
         if image_id is not None:
             job.image_id = image_id
         if image_tag is not None:

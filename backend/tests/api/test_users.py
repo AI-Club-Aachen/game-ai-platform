@@ -277,6 +277,35 @@ async def test_change_password_unauthenticated_fails(api_client):
     assert response.status_code == 401
 
 
+@pytest.mark.anyio
+async def test_register_rejects_javascript_profile_picture_url(api_client):
+    """L-5: a javascript: profile_picture_url is rejected (422); https is accepted."""
+    response = await api_client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "username": random_username(),
+            "email": random_email(),
+            "password": strong_password(),
+            "profile_picture_url": "javascript:alert(1)",
+        },
+    )
+    assert response.status_code == 422
+    messages = [error["msg"] for error in response.json()["detail"]]
+    assert any("http://" in m or "https://" in m for m in messages)
+
+    # A normal https URL is still accepted.
+    ok = await api_client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "username": random_username(),
+            "email": random_email(),
+            "password": strong_password(),
+            "profile_picture_url": "https://example.com/avatar.png",
+        },
+    )
+    assert ok.status_code == 201
+
+
 # ---------------------------------------------------------------------------
 # Fail: non-admin trying to use admin-only endpoints
 # ---------------------------------------------------------------------------

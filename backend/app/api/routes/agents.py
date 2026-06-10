@@ -1,6 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.deps import (
     VerifiedGuestOrHigher,
@@ -44,7 +45,7 @@ def get_leaderboard(
     game_type: str,
     _current_user: VerifiedGuestOrHigher,
     service: AgentService = Depends(get_agent_service),
-    limit: int = 100,
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
 ) -> list[dict]:
     """
     Get leaderboard for a specific game type. Requires a verified login.
@@ -79,8 +80,8 @@ def get_agent(
 def list_agents(
     current_user: VerifiedGuestOrHigher,
     service: AgentService = Depends(get_agent_service),
-    skip: int = 0,
-    limit: int = 20,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     all_users: bool = False,
 ) -> list[AgentRead]:
     """

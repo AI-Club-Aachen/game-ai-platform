@@ -10,6 +10,7 @@ from app.api.repositories.match import MatchRepository
 from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.core.match_events import match_event_publisher
+from app.core.payload_limits import PayloadTooLargeError, cap_log_append, ensure_json_within
 from app.core.queue import job_queue
 from app.models.agent import Agent
 from app.models.game import GameType
@@ -26,6 +27,10 @@ class MatchServiceError(Exception):
 
 class MatchPermissionError(MatchServiceError):
     """Raised when the caller is not allowed to use the requested agents."""
+
+
+class MatchPayloadTooLargeError(MatchServiceError):
+    """Raised when a worker-supplied result/game-state payload exceeds its cap (M-3)."""
 
 
 class MatchService:
@@ -78,6 +83,14 @@ class MatchService:
     def get_match(self, match_id: str) -> Match | None:
         return self._repository.get_by_id(match_id)
 
+    @staticmethod
+    def _reject_oversized(payload: dict[str, Any], *, max_bytes: int, field_name: str) -> None:
+        """Reject a worker-supplied JSON payload that exceeds its configured cap (M-3)."""
+        try:
+            ensure_json_within(payload, max_bytes=max_bytes, field_name=field_name)
+        except PayloadTooLargeError as e:
+            raise MatchPayloadTooLargeError(str(e)) from e
+
     async def update_match(
         self,
         match_id: str,
@@ -96,12 +109,21 @@ class MatchService:
         match.status = MatchStatus(status)
 
         if logs is not None:
-            match.logs += logs + "\n"
+            # Truncate stored logs server-side so a worker cannot grow them
+            # without bound (M-3).
+            match.logs = cap_log_append(
+                match.logs,
+                logs,
+                append_cap=settings.MAX_LOG_APPEND_BYTES,
+                total_cap=settings.MAX_TOTAL_LOG_BYTES,
+            )
 
         if result is not None:
+            self._reject_oversized(result, max_bytes=settings.MAX_RESULT_BYTES, field_name="result")
             match.result = result
 
         if game_state is not None:
+            self._reject_oversized(game_state, max_bytes=settings.MAX_GAME_STATE_BYTES, field_name="game_state")
             match.game_state = game_state
 
         match.updated_at = datetime.now(UTC)

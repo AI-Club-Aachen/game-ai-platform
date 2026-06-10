@@ -112,3 +112,38 @@ async def test_match_job_flow(
     # 4. Verify Sync with Match
     db_session.refresh(match)
     assert match.status == MatchStatus.COMPLETED
+
+
+@pytest.mark.anyio
+async def test_oversized_worker_logs_and_game_state_are_capped(
+    api_client: AsyncClient,
+    match_repository: MatchRepository,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """M-3: worker logs are truncated server-side and oversized game-state is rejected (413)."""
+    # Use small caps so the test payloads stay tiny.
+    monkeypatch.setattr(settings, "MAX_LOG_APPEND_BYTES", 100)
+    monkeypatch.setattr(settings, "MAX_TOTAL_LOG_BYTES", 200)
+    monkeypatch.setattr(settings, "MAX_GAME_STATE_BYTES", 500)
+
+    match = Match(game_type=GameType.TICTACTOE, config={"players": []}, status=MatchStatus.QUEUED)
+    match = match_repository.save(match)
+
+    # Oversized logs are truncated, not rejected.
+    resp = await api_client.patch(
+        f"/api/v1/matches/{match.id}",
+        json={"status": "running", "logs": "x" * 5000},
+        headers=WORKER_HEADERS,
+    )
+    assert resp.status_code == 200
+    stored_logs = resp.json()["logs"]
+    assert len(stored_logs) < 5000
+    assert "truncated" in stored_logs
+
+    # Oversized game-state is rejected with 413.
+    resp = await api_client.patch(
+        f"/api/v1/matches/{match.id}",
+        json={"status": "running", "game_state": {"board": ["y" * 1000]}},
+        headers=WORKER_HEADERS,
+    )
+    assert resp.status_code == 413

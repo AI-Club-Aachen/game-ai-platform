@@ -26,6 +26,19 @@ class RegistrationResponse(BaseModel):
     email: EmailStr
 
 
+class PasswordResetRequest(BaseModel):
+    """Request a password-reset email (H-6: email travels in the body, not the URL)."""
+
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """Confirm a password reset (H-6: token + new password in the body, not the URL)."""
+
+    token: str = Field(..., min_length=16, max_length=512)
+    new_password: str = Field(..., min_length=12, max_length=128)
+
+
 class PasswordResetRequestResponse(BaseModel):
     """Response for password reset request"""
 

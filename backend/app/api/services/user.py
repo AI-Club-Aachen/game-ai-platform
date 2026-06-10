@@ -115,6 +115,8 @@ class UserService:
 
         try:
             current_user.password_hash = hash_password(password_request.new_password)
+            # Invalidate every JWT issued before this change (M-11).
+            current_user.token_version += 1
             current_user.updated_at = datetime.now(UTC)
             self._repo.save(current_user)
             logger.info("Password changed successfully for user %s", current_user.id)

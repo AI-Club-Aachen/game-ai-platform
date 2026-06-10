@@ -196,6 +196,9 @@ class AuthService:
             data={
                 "sub": str(user.id),
                 "role": user.role.value,
+                # Session-invalidation claim (M-11): tokens become stale when the
+                # user's token_version is bumped on password change/reset.
+                "token_version": user.token_version,
             },
             expires_delta=timedelta(hours=settings.JWT_ACCESS_TOKEN_EXPIRE_HOURS),
         )
@@ -403,6 +406,9 @@ class AuthService:
         matched_user.password_hash = password_hash
         matched_user.password_reset_token_hash = None
         matched_user.password_reset_expires_at = None
+        # Invalidate every JWT issued before this reset (M-11) — critical when
+        # recovering a compromised account.
+        matched_user.token_version += 1
         matched_user.updated_at = datetime.now(UTC)
 
         try:
