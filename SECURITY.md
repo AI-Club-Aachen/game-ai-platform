@@ -11,7 +11,7 @@ by one.
 Status legend: `[ ]` open · `[x]` fixed · `[~]` partially addressed / accepted risk.
 
 **Update 2026-06-10:** the access-control cluster (C-1, C-2, H-1, H-2, H-5, M-1, L-1 frontend,
-L-2/L-3 worker-route corollaries) is **fixed** on `fix/security` with regression tests in
+L-2/L-3/L-4 worker-route corollaries) is **fixed** on `fix/security` with regression tests in
 `backend/tests/api/test_permissions.py`. Rate limiting, ZIP/build hardening, Redis, deployment,
 and config-validation findings remain open.
 
@@ -500,8 +500,6 @@ and, more importantly, signals a misconfiguration path. Production validation fo
 
 ---
 
-## LOW / INFORMATIONAL
-
 ### [ ] M-7 — Redis has no authentication/TLS; exposure depends on deployment
 
 **Files**
@@ -588,17 +586,6 @@ the SA scope to match the IAM roles.
 
 ---
 
-### [x] L-2 — Unauthenticated `PATCH /jobs/build` enables arbitrary-image execution on workers
-
-Consequence of **C-1**: an attacker can set a build job's `image_tag` to any value; the match runner
-resolves it (`orchestration/lib/match_manager.py:76-85`) and `docker run`s it as the "agent". Still
-constrained by the secure run kwargs, but lets an unauthenticated party run an arbitrary image on a
-worker. Closed by fixing C-1.
-
-> **FIXED:** closed by C-1 — `PATCH /jobs/build/{id}` requires the worker API key.
-
----
-
 ### [ ] M-10 — User-controlled `state_init_data` reaches the game engine in the privileged worker
 
 **Files**
@@ -638,7 +625,53 @@ than the user's current value; bump on password change/reset (and ideally role c
 
 ---
 
-### [ ] L-3 — `profile_picture_url` is unvalidated user input
+## LOW / INFORMATIONAL
+
+### [x] L-1 — Frontend route guards are authentication-only, not role-aware
+
+**Files**
+- `frontend/src/components/auth/ProtectedRoute.tsx:9-34` (checks `isAuthenticated` only)
+- `frontend/src/App.tsx:49-66` (admin pages `users`, `containers`, `matches-admin` under the same guard)
+
+**Evidence.** Any logged-in user can navigate to admin pages in the UI; backend `CurrentAdmin` still
+blocks the API, so this is UX/defense-in-depth, not a backend bypass. (Backend remains source of truth.)
+
+**Fix.** Add role-aware guards; hide guest/admin controls appropriately after backend RBAC is corrected.
+
+> **FIXED:** `ProtectedRoute` accepts `requiredRole` (guest < user < admin); the `users`,
+> `containers`, and `matches-admin` routes require `admin` and redirect to `/dashboard` otherwise.
+
+---
+
+### [x] L-2 — Unauthenticated `PATCH /jobs/build` enables arbitrary-image execution on workers
+
+Consequence of **C-1**: an attacker can set a build job's `image_tag` to any value; the match runner
+resolves it (`orchestration/lib/match_manager.py:76-85`) and `docker run`s it as the "agent". Still
+constrained by the secure run kwargs, but lets an unauthenticated party run an arbitrary image on a
+worker. Closed by fixing C-1.
+
+> **FIXED:** closed by C-1 — `PATCH /jobs/build/{id}` requires the worker API key.
+
+---
+
+### [x] L-3 — Verbose worker comments advertise the missing auth
+
+`matches.py:122-127` and the `jobs.py` "used by workers" comments document the unauthenticated design;
+remove once C-1 is fixed to avoid signposting.
+
+> **FIXED:** comments replaced with "Worker API key required." docstrings as part of C-1.
+
+---
+
+### [x] L-4 — `POST /jobs` (`jobs.py:65`) allows anonymous build-job row creation
+
+Even without enqueue, this pollutes the jobs table. Fold into C-1 (worker-key only) or remove if unused.
+
+> **FIXED:** folded into C-1 — `POST /jobs` now requires the worker API key.
+
+---
+
+### [ ] L-5 — `profile_picture_url` is unvalidated user input
 
 **Files**
 - `backend/app/schemas/user.py:15` (`UserCreate`), `:31` (`UserUpdate`) — arbitrary string, no validator
@@ -654,7 +687,7 @@ avatar; stored-content injection; an SSRF sink if any server-side code ever fetc
 
 ---
 
-### [ ] L-4 — Account enumeration and unverified-account pre-hijack
+### [ ] L-6 — Account enumeration and unverified-account pre-hijack
 
 **Files**
 - `backend/app/api/services/auth.py:185-193` (401 "Invalid email or password" vs 403 "Email not verified")
@@ -672,34 +705,7 @@ pending account on mere collision (e.g., require proof of ownership or rate-limi
 
 ---
 
-### [x] L-1 — Frontend route guards are authentication-only, not role-aware
-
-**Files**
-- `frontend/src/components/auth/ProtectedRoute.tsx:9-34` (checks `isAuthenticated` only)
-- `frontend/src/App.tsx:49-66` (admin pages `users`, `containers`, `matches-admin` under the same guard)
-
-**Evidence.** Any logged-in user can navigate to admin pages in the UI; backend `CurrentAdmin` still
-blocks the API, so this is UX/defense-in-depth, not a backend bypass. (Backend remains source of truth.)
-
-**Fix.** Add role-aware guards; hide guest/admin controls appropriately after backend RBAC is corrected.
-
-> **FIXED:** `ProtectedRoute` accepts `requiredRole` (guest < user < admin); the `users`,
-> `containers`, and `matches-admin` routes require `admin` and redirect to `/dashboard` otherwise.
-
-### [x] L-2 — Verbose worker comments advertise the missing auth
-
-`matches.py:122-127` and the `jobs.py` "used by workers" comments document the unauthenticated design;
-remove once C-1 is fixed to avoid signposting.
-
-> **FIXED:** comments replaced with "Worker API key required." docstrings as part of C-1.
-
-### [x] L-3 — `POST /jobs` (`jobs.py:65`) allows anonymous build-job row creation
-
-Even without enqueue, this pollutes the jobs table. Fold into C-1 (worker-key only) or remove if unused.
-
-> **FIXED:** folded into C-1 — `POST /jobs` now requires the worker API key.
-
-### [ ] L-4 — `request_password_reset` email enumeration is correctly mitigated
+### [ ] L-7 — `request_password_reset` email enumeration is correctly mitigated
 
 Informational/positive: always returns the same message (`auth.py:141`) and the service no-ops on
 unknown email (`auth.py:341-343`). Keep.
@@ -847,30 +853,6 @@ Items 1–9 are now covered by `backend/tests/api/test_permissions.py` (84 tests
 14. Pagination `limit` capping (M-4).
 15. ~~Rate-limit categories present in settings; prod rejects disabled rate limiting (H-3/M-5).~~ ✅ (`test_rate_limiting.py`)
 16. ~~SSE connection-attempt limiting (H-2/H-3).~~ ✅ (`RATE_LIMIT_STREAM`; concurrent conn cap still untested/open)
-
----
-
-# Quick wins vs larger refactors
-
-**Quick wins (contained, high-value):**
-1. Add `require_worker_api_key` to all worker callbacks (C-1).
-2. Remove the worker→admin fallback in `get_current_user`; add an owner-or-worker dep for the 3 worker
-   reads (C-2).
-3. Remove stat fields from `AgentUpdate` (H-5).
-4. Move reset token/password/email into request bodies (H-6).
-5. Require auth on anonymous match/job/leaderboard routes (H-2).
-6. Add `Query(ge=…, le=…)` bounds to pagination (M-4).
-7. ~~Prod config rejects default worker key + bypass flags (M-5).~~ ✅ (`test_rate_limiting.py::TestProductionHardening`)
-8. Apply secure run kwargs to the post-build syntax-check container (orchestration).
-
-**Larger refactors:**
-1. Centralized, configurable rate limiter (user-id / IP / API-key key funcs; bypass/IP/proxy toggles) (H-3).
-2. Named RBAC policy dependencies (`Guest+`, `User+`, `Admin`) applied uniformly (H-1).
-3. Dedicated `/worker/...` router namespace.
-4. Upload/build sandbox: size/quota/ZIP-bomb limits, no build network or mirror, build timeouts (H-4/H-7).
-5. Object-storage abstraction for submissions (relative keys, containment) (M-2).
-6. Per-game `result`/`game_state` schema validation (M-3).
-7. Isolate Docker-socket workers off the public host (H-7).
 
 ---
 
