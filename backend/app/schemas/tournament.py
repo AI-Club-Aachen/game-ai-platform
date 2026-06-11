@@ -9,6 +9,7 @@ from app.models.tournament import (
     BracketSide,
     GameResolution,
     MatchupStatus,
+    SlotSourceRole,
     TournamentConfig,
     TournamentStatus,
 )
@@ -71,6 +72,11 @@ class TournamentMatchupRead(BaseModel):
     stage: int
     agent1_id: UUID | None
     agent2_id: UUID | None
+    # Bracket wiring, so clients can draw connector lines between matchups
+    slot1_source_matchup_id: UUID | None
+    slot1_source_role: SlotSourceRole | None
+    slot2_source_matchup_id: UUID | None
+    slot2_source_role: SlotSourceRole | None
     status: MatchupStatus
     winner_agent_id: UUID | None
     games: list[TournamentGameRead] = []

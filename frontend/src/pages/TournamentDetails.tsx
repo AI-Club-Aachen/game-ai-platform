@@ -136,7 +136,7 @@ export function TournamentDetails() {
   const boardSize = tournament.config.state_init_data?.board_size as number | undefined;
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4 }}>
       <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
         Back
       </Button>

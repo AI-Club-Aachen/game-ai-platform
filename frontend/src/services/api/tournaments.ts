@@ -36,6 +36,8 @@ export interface TournamentGame {
     resolution: GameResolution | null;
 }
 
+export type SlotSourceRole = 'winner' | 'loser';
+
 export interface TournamentMatchup {
     id: string;
     bracket: BracketSide;
@@ -44,6 +46,10 @@ export interface TournamentMatchup {
     stage: number;
     agent1_id: string | null;
     agent2_id: string | null;
+    slot1_source_matchup_id: string | null;
+    slot1_source_role: SlotSourceRole | null;
+    slot2_source_matchup_id: string | null;
+    slot2_source_role: SlotSourceRole | null;
     status: MatchupStatus;
     winner_agent_id: string | null;
     games: TournamentGame[];
