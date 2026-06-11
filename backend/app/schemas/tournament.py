@@ -47,6 +47,7 @@ class TournamentRead(TournamentBase):
 class TournamentEntrantRead(BaseModel):
     agent_id: UUID
     seed: int | None
+    agent_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,6 +82,7 @@ class TournamentMatchupRead(BaseModel):
 
 class TournamentStandingRead(BaseModel):
     agent_id: UUID
+    agent_name: str | None = None
     seed: int | None
     placement: int | None
     matchup_wins: int

@@ -7,6 +7,7 @@ import {
   SportsEsportsOutlined,
   EmojiEvents,
   ManageAccounts,
+  MilitaryTech,
   People,
   Person,
   ChevronLeft,
@@ -94,6 +95,10 @@ export function Sidebar({ onToggle }: SidebarProps) {
             <Link to="/matches-admin" className="sidebar-link">
               <SportsEsports />
               {!isCollapsed && <span>Match Management</span>}
+            </Link>
+            <Link to="/tournaments-admin" className="sidebar-link">
+              <MilitaryTech />
+              {!isCollapsed && <span>Tournament Management</span>}
             </Link>
           </>
         )}

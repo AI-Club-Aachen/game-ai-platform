@@ -101,9 +101,20 @@ class TournamentService:
         for game in games:
             games_by_matchup.setdefault(game.matchup_id, []).append(game)
 
+        # Agent display names, so read-only clients need no extra agent queries.
+        agents = self._agent_repository.list_by_ids([entrant.agent_id for entrant in entrants])
+        agent_names = {agent.id: agent.name for agent in agents}
+
         return {
             "tournament": tournament,
-            "entrants": entrants,
+            "entrants": [
+                {
+                    "agent_id": entrant.agent_id,
+                    "seed": entrant.seed,
+                    "agent_name": agent_names.get(entrant.agent_id),
+                }
+                for entrant in entrants
+            ],
             "matchups": [
                 {
                     "matchup": matchup,
@@ -111,7 +122,7 @@ class TournamentService:
                 }
                 for matchup in matchups
             ],
-            "standings": self._compute_standings(tournament, entrants, matchups),
+            "standings": self._compute_standings(tournament, entrants, matchups, agent_names),
         }
 
     # --- Commands ---
@@ -692,6 +703,7 @@ class TournamentService:
         tournament: Tournament,
         entrants: Sequence[TournamentEntrant],
         matchups: Sequence[TournamentMatchup],
+        agent_names: dict[UUID, str] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Placement-ordered standings. An entrant is eliminated when they lose in
@@ -734,6 +746,7 @@ class TournamentService:
         standings = [
             {
                 "agent_id": entrant.agent_id,
+                "agent_name": (agent_names or {}).get(entrant.agent_id),
                 "seed": entrant.seed,
                 "placement": placements.get(entrant.agent_id),
                 "matchup_wins": wins.get(entrant.agent_id, 0),
