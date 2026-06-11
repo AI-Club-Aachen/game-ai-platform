@@ -1,7 +1,6 @@
 services:
   redis:
-    # Bind to loopback only; never expose the (now password-protected) Redis on
-    # all interfaces, even in dev (M-7).
+    # Bind to loopback only.
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 

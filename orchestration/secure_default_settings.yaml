@@ -26,9 +26,7 @@ network_mode: "none"
 time_limit_seconds: 30
 log_tail: 10000
 
-# build / extraction limits for untrusted submissions (H-4, H-7, M-8).
-# All values are overridable here; the builder applies the defaults below if a
-# key is omitted.
+# Build/extraction limits; overridable here (builder applies defaults if omitted).
 build_limits:
   max_archive_bytes: 52428800       # 50 MiB compressed ZIP upper bound
   max_uncompressed_bytes: 268435456 # 256 MiB total uncompressed (ZIP-bomb guard)

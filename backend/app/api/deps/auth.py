@@ -110,8 +110,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Reject tokens issued before the last password change/reset (M-11). Tokens
-    # predating this claim default to 0, matching a never-rotated user.
+    # Reject tokens issued before the last password change/reset
     if payload.get("token_version", 0) != user.token_version:
         logger.warning("Stale token (token_version mismatch) for user %s", user_id)
         raise HTTPException(

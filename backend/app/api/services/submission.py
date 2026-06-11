@@ -14,8 +14,7 @@ from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 
 
-# Content types accepted for ZIP uploads. Empty/None is tolerated because some
-# clients omit the header; the .zip extension is still required (H-4).
+# the .zip extension is still required
 _ALLOWED_UPLOAD_CONTENT_TYPES = {
     "application/zip",
     "application/x-zip-compressed",
@@ -136,8 +135,7 @@ class SubmissionService:
         to stay within the submissions directory and must not be a symlink.
         """
         base = self._upload_dir.resolve()
-        # Reduce to the filename key; tolerates legacy absolute paths and rejects
-        # any directory component a corrupted value might carry.
+        # Extract basename only.
         key = Path(object_path).name
         if not key:
             raise SubmissionServiceError("Invalid submission path")
@@ -172,8 +170,7 @@ class SubmissionService:
 
         job.status = JobStatus(status)
         if logs is not None:
-            # Truncate server-side so a worker cannot grow the stored logs without
-            # bound (M-3).
+            # Truncate server-side.
             job.logs = cap_log_append(
                 job.logs,
                 logs,
@@ -205,8 +202,7 @@ class SubmissionService:
         except SubmissionRepositoryError as e:
             raise SubmissionServiceError("Failed to delete submission") from e
 
-        # Resolve under SUBMISSIONS_DIR before unlinking so a corrupted/legacy
-        # absolute object_path can never delete an arbitrary file (M-2).
+        # Resolve before unlinking to ensure containment.
         try:
             file_path = self._resolve_submission_file(submission.object_path)
         except SubmissionServiceError:

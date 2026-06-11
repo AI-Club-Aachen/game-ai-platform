@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
 
-# Resource-exhaustion caps for untrusted matches (M-8). Configurable via env so a
-# worker host can tune them without code changes.
+# Resource-exhaustion caps; configurable via env.
 MAX_HISTORY_STATES: int = int(os.getenv("MATCH_MAX_HISTORY_STATES", "5000"))
 MATCH_WALL_CLOCK_SECONDS: float = float(os.getenv("MATCH_WALL_CLOCK_SECONDS", "600"))
 
@@ -339,9 +338,7 @@ async def run_match(
         # Send states and get moves from agents
         try:
             while not engine.is_game_over(state):
-                # Wall-clock guard: stop a match that runs too long regardless of
-                # per-turn limits (M-8). winner_id stays -1 so the engine status
-                # below decides the outcome (typically a draw).
+                # Stop match at wall-clock limit.
                 if time.monotonic() > match_deadline:
                     reason = "Match wall-clock limit exceeded"
                     logger.warning(f"[{match_id}] {reason} after {turn_count} turn(s)")
@@ -456,7 +453,7 @@ async def run_match(
                 try:
                     state_json_str = state.to_json()
                     state_dict = json.loads(state_json_str)
-                    # Cap stored history to bound worker memory / result payload (M-8).
+                    # Cap stored history.
                     if len(history) < MAX_HISTORY_STATES:
                         history.append(state_dict)
                     elif not history_truncated:

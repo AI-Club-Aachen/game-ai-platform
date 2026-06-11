@@ -139,8 +139,7 @@ export function Profile() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      // Changing the password revokes every existing token (SECURITY.md M-11),
-      // including this session's, so send the user back to log in with the new one.
+      // Password change revokes all tokens, so redirect to login.
       showFeedback('Password changed. Please log in again.', 'success');
       logout();
       navigate('/login');

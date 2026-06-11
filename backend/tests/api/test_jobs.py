@@ -13,7 +13,7 @@ from app.models.submission import Submission
 from app.models.user import User
 
 
-# Worker endpoints require the worker API key (see C-1 in SECURITY.md).
+# Worker endpoints require the worker API key.
 WORKER_HEADERS = {"x-api-key": settings.WORKER_API_KEY}
 
 
@@ -120,7 +120,7 @@ async def test_oversized_worker_logs_and_game_state_are_capped(
     match_repository: MatchRepository,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """M-3: worker logs are truncated server-side and oversized game-state is rejected (413)."""
+    """Worker logs truncated; oversized game-state rejected."""
     # Use small caps so the test payloads stay tiny.
     monkeypatch.setattr(settings, "MAX_LOG_APPEND_BYTES", 100)
     monkeypatch.setattr(settings, "MAX_TOTAL_LOG_BYTES", 200)

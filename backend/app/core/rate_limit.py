@@ -1,11 +1,11 @@
-"""Centralized, configurable rate limiting (H-3).
+"""Centralized, configurable rate limiting.
 
 One shared Limiter for the whole app, keyed per actor class:
-- valid worker API key  -> exempt (per-request unique key never accumulates hits)
-- authenticated user    -> JWT "sub" claim (no DB lookup)
-- anonymous             -> client IP, X-Forwarded-For only when TRUST_PROXY_HEADERS=true
+- valid worker API key  -> exempt
+- authenticated user    -> JWT "sub" claim
+- anonymous             -> client IP (when not disabled)
 
-Per-category limit strings live in Settings (RATE_LIMIT_*) and are read through
+Limit strings live in Settings (RATE_LIMIT_*) and are read through
 no-arg callables, so they stay configurable without code changes.
 """
 
@@ -24,8 +24,7 @@ def client_ip(request: Request) -> str:
     if settings.TRUST_PROXY_HEADERS:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            # Right-most entry is the hop appended by our own trusted proxy;
-            # left entries are client-controlled and spoofable.
+            # Right-most entry is the trusted proxy's hop.
             return forwarded.split(",")[-1].strip()
     return request.client.host if request.client is not None else "127.0.0.1"
 
@@ -34,8 +33,7 @@ def rate_limit_key(request: Request) -> str:
     """Rate-limit bucket key: worker (exempt) / user id / client IP."""
     api_key = request.headers.get("x-api-key")
     if api_key and secrets.compare_digest(api_key, settings.WORKER_API_KEY):
-        # Valid worker requests are exempt: a unique key per request never
-        # exceeds any limit. Invalid keys fall through to IP-keyed limits.
+        # Worker requests exempt (unique key per request).
         return f"worker:{uuid.uuid4()}"
 
     auth_header = request.headers.get("authorization", "")
@@ -46,8 +44,7 @@ def rate_limit_key(request: Request) -> str:
             return f"user:{payload['sub']}"
 
     if settings.DISABLE_IP_RATE_LIMITING:
-        # Shared-IP (hackathon) mode: anonymous requests are not IP-throttled,
-        # per-user-id limits above still apply.
+        # Shared-IP mode: no IP throttling; per-user limits apply.
         return f"anon:{uuid.uuid4()}"
 
     return f"ip:{client_ip(request)}"

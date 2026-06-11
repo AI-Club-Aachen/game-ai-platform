@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     )
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # Rate limiting (H-3). Limit strings use the slowapi/limits format,
+    # Rate limiting: Limit strings use the slowapi/limits format,
     # multiple limits separated by ";" (e.g. "10/minute;60/hour").
     RATE_LIMITING_ENABLED: bool = Field(
         default=True,
@@ -100,9 +100,7 @@ class Settings(BaseSettings):
             "marks it as failed. This recovers matches abandoned by killed/restarted workers."
         ),
     )
-    # Untrusted match-init bounds (M-10): user-supplied state_init_data reaches the
-    # game engine in the privileged worker, so per-game init input is whitelisted and
-    # bounded in the backend before queueing. board_size drives O(n^2) board allocation.
+    # Per-game state_init_data validated; board_size bounds O(n^2) allocation.
     MAX_HEX_BOARD_SIZE: int = Field(
         default=26,
         description="Maximum allowed Hex board_size in match state_init_data (DoS guard).",
@@ -126,9 +124,7 @@ class Settings(BaseSettings):
         description="Maximum number of submissions a user may store. 0 disables the quota.",
     )
 
-    # Worker payload limits (M-3): bound the log/result/game-state that worker
-    # callbacks store on build jobs and matches. Logs are truncated server-side;
-    # oversized result/game-state payloads are rejected.
+    # Logs truncated server-side; oversized result/game-state rejected.
     MAX_LOG_APPEND_BYTES: int = Field(
         default=64 * 1024,
         description="Maximum size of a single worker log append (characters). 0 disables the cap.",
@@ -253,10 +249,7 @@ class Settings(BaseSettings):
 
     @property
     def allow_origins_list(self) -> list[str]:
-        # Browsers send the Origin header without a trailing slash or path, and
-        # Starlette's CORSMiddleware matches origins by exact string. Normalize away
-        # any trailing slash so a config value like "https://example.com/" still
-        # matches the "https://example.com" the browser actually sends.
+        # Normalize trailing slashes for CORS matching.
         origins = [origin.rstrip("/") for origin in self._parse_csv(self.ALLOW_ORIGINS)]
         return origins or ["http://localhost:3000"]
 
@@ -295,9 +288,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_origins_production(cls, v: str, info: ValidationInfo) -> str:
         cls._reject_json_style_list(v, "ALLOW_ORIGINS")
-        # The app always runs CORSMiddleware with allow_credentials=True, so a
-        # literal "*" origin combined with credentials is invalid and unsafe
-        # (M-6). Reject it at config load regardless of environment.
+        # Reject "*" origin when credentials enabled.
         if "*" in cls._parse_csv(v):
             raise ValueError(
                 "ALLOW_ORIGINS must not contain '*' because credentials are enabled. "
@@ -401,11 +392,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_hardening(self) -> "Settings":
-        """
-        Production startup guards (M-5): reject deployments that ship a
-        default/short worker key, omit TRUSTED_HOSTS, or leave the email
-        verification bypass on. All problems are reported together.
-        """
+        """Validate production startup requirements."""
         if not self.is_production:
             return self
 

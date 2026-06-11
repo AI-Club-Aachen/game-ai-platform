@@ -1,14 +1,8 @@
 # tests/api/test_rate_limiting.py
-"""Regression tests for centralized, configurable rate limiting (H-3 / M-5).
+"""Regression tests for rate limiting.
 
-Covers:
-- per-category settings exist, parse, and reject malformed limit strings
-- production config rejects RATE_LIMITING_ENABLED=false
-- the limiter key function picks user-id vs IP vs worker-API-key correctly,
-  honoring TRUST_PROXY_HEADERS and DISABLE_IP_RATE_LIMITING
-- a tightened endpoint actually returns 429 once its limit is exceeded
-- valid worker-key requests are exempt from limits
-- RATE_LIMITING_ENABLED=false / disabled limiter turns everything off
+Covers: settings parsing, limiter key function, per-category limits, worker exemption,
+and disabled limiter behavior.
 """
 
 import uuid
@@ -120,7 +114,7 @@ class TestRateLimitSettings:
 
 
 # ---------------------------------------------------------------------------
-# Production config hardening (M-5)
+# Production config hardening
 # ---------------------------------------------------------------------------
 
 
@@ -148,7 +142,7 @@ class TestProductionHardening:
             Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "BYPASS_EMAIL_VERIFICATION": True})
 
     def test_rejects_passwordless_redis_in_production(self):
-        # M-7: an auth-less Redis URL must be rejected at config load in production.
+        # Auth-less Redis rejected in production.
         with pytest.raises(ValidationError, match="REDIS_URL must use a password"):
             Settings(_env_file=None, **{**PRODUCTION_SETTINGS, "REDIS_URL": "redis://redis:6379/0"})
 

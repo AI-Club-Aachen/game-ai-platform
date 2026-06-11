@@ -71,15 +71,11 @@ class AuthService:
         user_data: UserCreate,
         background_tasks: BackgroundTasks,
     ) -> tuple[User, str]:
-        """
-        Register a new user with email verification.
+        """Register a new user with email verification.
 
-        Returns the created user and the plain verification token.
+        Returns the created user and plain verification token.
 
-        On a collision with an existing **unverified** account, the pending account
-        is NOT deleted (L-6 pre-hijack guard): its verification email is re-issued
-        and the submitted password is discarded, so an attacker cannot take over a
-        pending registration by re-registering its username/email.
+        On collision with unverified account: email re-issued, password discarded.
         """
         # Validate and hash password (also flattens timing for collisions below).
         try:
@@ -158,11 +154,9 @@ class AuthService:
         user: User,
         background_tasks: BackgroundTasks,
     ) -> tuple[User, str]:
-        """Re-send verification to an existing UNVERIFIED account on a registration
-        collision instead of deleting/overwriting it (L-6 pre-hijack guard).
+        """Re-send verification to an existing unverified account on collision.
 
-        The account's credentials are left untouched; only a fresh verification token
-        is issued. The response is indistinguishable from a normal registration.
+        Credentials unchanged; only the verification token is refreshed.
         """
         plain_token, token_hash, expiry = create_email_verification_token()
         user.email_verification_token_hash = token_hash
@@ -195,10 +189,7 @@ class AuthService:
         email_lower = str(login_request.email).lower()
         user = self._users.get_by_email_ci(email_lower)
 
-        # Uniform failure for unknown user vs wrong password (L-6): a missing user
-        # runs a dummy hash so timing matches, and both raise the same 401. The
-        # "email not verified" signal is only surfaced AFTER a correct password,
-        # so it cannot be used to enumerate registered-but-unverified accounts.
+        # On unknown user, run dummy hash to match timing; both paths raise 401.
         if user is None:
             dummy_verify_password(login_request.password)
             logger.warning("Failed login attempt (unknown user): %s", login_request.email)
@@ -218,8 +209,7 @@ class AuthService:
             data={
                 "sub": str(user.id),
                 "role": user.role.value,
-                # Session-invalidation claim (M-11): tokens become stale when the
-                # user's token_version is bumped on password change/reset.
+                # tokens become stale when the user's token_version is bumped on password change/reset.
                 "token_version": user.token_version,
             },
             expires_delta=timedelta(hours=settings.JWT_ACCESS_TOKEN_EXPIRE_HOURS),

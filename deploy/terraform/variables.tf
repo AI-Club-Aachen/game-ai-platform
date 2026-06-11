@@ -14,18 +14,18 @@ variable "zone" {
 }
 
 variable "worker_image" {
-  description = "The worker container image, pinned to an immutable digest (preferred, @sha256:...) or release tag (:vX.Y.Z). Mutable ':latest' is rejected (M-9)."
+  description = "Worker container image, pinned to @sha256:... or :vX.Y.Z (not :latest)."
   type        = string
   default     = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:v0.1.0"
 
   validation {
     condition     = !can(regex(":latest$", var.worker_image))
-    error_message = "worker_image must be pinned to an immutable digest (@sha256:...) or release tag (:vX.Y.Z), not ':latest' (M-9)."
+    error_message = "worker_image must be pinned to @sha256:... or :vX.Y.Z, not :latest."
   }
 }
 
 variable "deploy_ref" {
-  description = "Immutable git ref the backend VM checks out on boot — a release tag or full commit SHA. Avoid moving branches so a branch push cannot silently change what production runs (M-9)."
+  description = "Git ref backend VM checks out on boot (release tag or commit SHA)."
   type        = string
   default     = "main"
 }
@@ -43,7 +43,7 @@ variable "worker_api_key" {
 }
 
 variable "redis_password" {
-  description = "Password for Redis (requirepass). Workers and the backend connect with redis://:<password>@host:6379/0. Required (M-7)."
+  description = "Redis password (requirepass). Used in redis://<password>@host:6379/0."
   type        = string
   sensitive   = true
 }

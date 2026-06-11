@@ -27,9 +27,7 @@ export const agentsApi = {
 
     /**
      * Fetch every agent by paging through the API.
-     *
-     * The backend caps `limit` at 100 (SECURITY.md M-4), so a single large
-     * request is no longer allowed; this walks the pages until they run out.
+     * Pages through all results since limit is capped at 100.
      */
     getAllAgents: async (all_users = false) => {
         const pageSize = 100;

@@ -1,16 +1,11 @@
-"""
-RBAC / access-control regression tests (SECURITY.md: C-1, C-2, H-1, H-2, H-5, M-1).
+"""RBAC / access-control regression tests.
 
-Policy under test:
-- Anonymous: only landing + auth lifecycle. Everything else 401/403.
-- Guest (logged in + verified): strictly read-only for app data; may manage
-  only its OWN profile/password (account-lifecycle exception).
-- User: may mutate own agents/submissions; match creation must include at
-  least one of the caller's own agents.
-- Admin: the only JWT role for user/role management.
-- Worker: x-api-key only; never a JWT identity. Worker key opens ONLY the
-  worker callbacks and the four worker reads (submission get/download,
-  agent get, match get).
+Roles:
+- Anonymous: auth lifecycle only. Else 401/403.
+- Guest: read-only; may manage own profile/password.
+- User: may mutate own agents/submissions; match requires owning at least one agent.
+- Admin: user/role management only.
+- Worker: x-api-key only (never JWT); limited to worker callbacks and reads.
 """
 
 import uuid
@@ -74,8 +69,7 @@ async def _admin(api_client, fake_email_client, db_session) -> tuple[str, dict]:
 def _make_submission(db_session: Session, user_id: str, tmp_path: Path | None = None) -> Submission:
     object_path = "path/to/zip"
     if tmp_path is not None:
-        # M-2: submissions are stored as a relative key under SUBMISSIONS_DIR and
-        # resolved with containment, so a downloadable fixture must live there.
+        # Submissions stored relative to SUBMISSIONS_DIR.
         key = f"{uuid.uuid4()}.zip"
         submissions_dir = Path(settings.SUBMISSIONS_DIR)
         submissions_dir.mkdir(parents=True, exist_ok=True)
@@ -124,7 +118,7 @@ def _make_match(db_session: Session, agent_ids: list[str] | None = None) -> Matc
 
 
 # ---------------------------------------------------------------------------
-# 1. Anonymous deny-by-default on every non-lifecycle route (H-2)
+# 1. Anonymous deny-by-default on non-lifecycle routes
 # ---------------------------------------------------------------------------
 
 SOME_ID = "00000000-0000-0000-0000-000000000001"
@@ -181,7 +175,7 @@ async def test_anonymous_is_denied_on_non_lifecycle_routes(api_client, method, p
 
 
 # ---------------------------------------------------------------------------
-# 2. Verified guest is read-only (H-1) but keeps account lifecycle
+# 2. Verified guest is read-only but keeps account lifecycle
 # ---------------------------------------------------------------------------
 
 
@@ -301,7 +295,7 @@ async def test_user_role_cannot_manage_users(api_client, fake_email_client, db_s
 
 
 # ---------------------------------------------------------------------------
-# 5. Worker callbacks: x-api-key only — no anon, no JWT role (C-1)
+# 5. Worker callbacks: x-api-key only
 # ---------------------------------------------------------------------------
 
 
@@ -394,7 +388,7 @@ async def test_worker_callbacks_succeed_with_valid_key(api_client, fake_email_cl
 
 
 # ---------------------------------------------------------------------------
-# 6. Worker key is NOT an admin/JWT identity (C-2)
+# 6. Worker key is not a JWT identity
 # ---------------------------------------------------------------------------
 
 
@@ -448,7 +442,7 @@ async def test_worker_key_can_read_submissions_and_agents(api_client, fake_email
 
 
 # ---------------------------------------------------------------------------
-# 7. H-5: agent stats are not writable through PATCH /agents
+# 7. Agent stats are not writable through PATCH /agents
 # ---------------------------------------------------------------------------
 
 
@@ -506,7 +500,7 @@ async def test_match_completion_still_updates_stats(api_client, fake_email_clien
 
 
 # ---------------------------------------------------------------------------
-# 8. M-1: match creation requires owning at least one participating agent
+# 8. Match creation requires owning at least one participating agent
 # ---------------------------------------------------------------------------
 
 

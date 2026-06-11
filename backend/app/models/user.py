@@ -25,8 +25,7 @@ class User(SQLModel, table=True):
     role: UserRole = Field(default=UserRole.GUEST, nullable=False)
     profile_picture_url: str | None = Field(default=None, nullable=True)
 
-    # Session invalidation (M-11): bumped on password change/reset so JWTs issued
-    # before the change (which carry the old value) are rejected.
+    # Bumped on password change/reset to invalidate prior tokens.
     token_version: int = Field(default=0, nullable=False)
 
     # Email verification fields

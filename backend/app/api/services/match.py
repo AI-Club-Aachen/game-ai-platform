@@ -64,8 +64,7 @@ class MatchService:
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
 
-        # state_init_data reaches the engine in the privileged worker (M-10); whitelist
-        # it per game before queueing, treating it as untrusted regardless of caller.
+        # Validate state_init_data per game (treat as untrusted).
         try:
             validate_state_init_data(game_type, config.state_init_data)
         except StateInitValidationError as e:
@@ -117,8 +116,7 @@ class MatchService:
         match.status = MatchStatus(status)
 
         if logs is not None:
-            # Truncate stored logs server-side so a worker cannot grow them
-            # without bound (M-3).
+            # Truncate stored logs server-side so a worker cannot grow them without bound 
             match.logs = cap_log_append(
                 match.logs,
                 logs,

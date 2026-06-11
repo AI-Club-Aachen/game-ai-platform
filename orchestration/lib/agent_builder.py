@@ -23,12 +23,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_DOCKERIGNORE_PATH = Path(__file__).parent / "default_dockerignore"
 SECURE_SETTINGS_PATH = Path(__file__).parent.parent / "secure_default_settings.yaml"
 
-# Each path component of a ZIP entry must match this charset. This neutralizes
-# command-injection via crafted filenames (H-8) and keeps extraction predictable.
+# ZIP entry path components must match this charset.
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
-# Syntax-check program. The agent filename is passed via the AGENT_FILE env var
-# and read with os.environ — never interpolated into the program text (H-8).
+# Syntax-check program. Agent filename passed via AGENT_FILE env var.
 _SYNTAX_CHECK_PROGRAM = (
     "import os; _f = os.environ['AGENT_FILE']; "
     "compile(open(_f, 'rb').read(), _f, 'exec')"
@@ -193,8 +191,7 @@ def _find_agent_entry(ctx: Path) -> str:
         raise BuildError(f"Multiple agent entry files found: {names}. Provide exactly one file.")
 
     entry_name = candidates[0].name
-    # Defense in depth (H-8): the entry filename is passed to a container; reject
-    # anything outside the safe charset even though extraction already validated it.
+    # Reject filenames outside safe charset.
     if not _SAFE_NAME_RE.match(entry_name):
         raise BuildError(f"Illegal characters in agent entry filename: {entry_name!r}")
 
@@ -294,9 +291,7 @@ def build_from_zip(
         except Exception as e:
             raise BuildError(f"Failed to build local base image: {e}")
     else:
-        # M-9: pin to an immutable digest in production (set AGENT_BASE_IMAGE to
-        # ghcr.io/.../agent-base@sha256:<digest>); ':latest' is mutable and lets a
-        # re-pushed base silently change what every agent image is built on.
+        # Pin to immutable digest in production (@sha256:...), not :latest.
         base_image = os.environ.get(
             "AGENT_BASE_IMAGE", "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
         )
@@ -359,9 +354,7 @@ def build_from_zip(
             f"{base_label_ns}.kind": "agent",
         }
 
-        # Build with no network (egress disabled) and a wall-clock timeout. Both
-        # Dockerfiles only `COPY . .`; the base image is pulled separately above,
-        # so the build itself needs no network (H-7, M-8).
+        # Build with no network (egress disabled) and wall-clock timeout.
         image = _build_image_with_timeout(
             client,
             path=str(ctx),
@@ -373,12 +366,7 @@ def build_from_zip(
             timeout=float(build_limits["build_timeout_seconds"]),
         )
 
-        # Post-build syntax check. Run the freshly built untrusted image with the
-        # SAME hardened kwargs as runtime agents (network none, cap_drop=ALL,
-        # read_only, mem/pids limits, tmpfs) instead of default Docker settings
-        # (H-7). The filename is passed via env var, not interpolated (H-8).
-        # DEPLOY TODO: also isolate the Docker-socket builder from internet-facing
-        # services and run it rootless/remote (topology hardening, out of code scope).
+        # Post-build syntax check with hardened container settings.
         run_kwargs = _build_docker_run_kwargs(secure_settings)
         syntax_timeout = float(build_limits["syntax_check_timeout_seconds"])
         try:
@@ -424,7 +412,7 @@ def build_from_zip(
             except Exception:
                 pass
 
-        # Reclaim dangling layers produced by nocache builds (M-8).
+        # Reclaim dangling layers from builds.
         try:
             client.images.prune(filters={"dangling": True})
         except Exception as e:

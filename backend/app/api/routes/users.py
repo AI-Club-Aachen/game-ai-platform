@@ -110,13 +110,10 @@ async def change_password(
     user: VerifiedGuestOrHigher,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> ChangePasswordResponse:
-    """
-    Change current user's password.
+    """Change current user's password.
 
-    Account-lifecycle exception: verified guests may rotate their OWN password
-    even though they are read-only for app data.
-
-    Rate limited per RATE_LIMIT_PROFILE (keyed by user id).
+    Guests may rotate their password despite being read-only for app data.
+    Rate limited per RATE_LIMIT_PROFILE.
     """
     try:
         user_service.change_password(current_user=user, password_request=password_request)
@@ -136,7 +133,6 @@ async def change_password(
         return ChangePasswordResponse(message="Password changed successfully")
 
 
-# Admin endpoints with higher rate limits (RATE_LIMIT_ADMIN)
 # GET /api/v1/users/
 @router.get("", response_model=UserListResponse, status_code=status.HTTP_200_OK)
 @limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)

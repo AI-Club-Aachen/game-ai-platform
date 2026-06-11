@@ -27,11 +27,7 @@ class AgentContainerService:
         status: str | None = None,
         owner_user_id: UUID | None = None,
     ) -> tuple[list[AgentContainer], int, dict[str, int]]:
-        """Return a page of containers plus the filtered total and per-status tallies.
-
-        The total and tallies are computed across the whole filtered set (not just
-        the page) so callers can paginate accurately and show global summaries.
-        """
+        """Return a page of containers plus the filtered total and per-status tallies."""
         try:
             items = self._repo.list_containers(
                 skip=skip, limit=limit, match_id=match_id, status=status, owner_user_id=owner_user_id

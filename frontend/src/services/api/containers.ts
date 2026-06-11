@@ -19,8 +19,7 @@ export interface AgentContainerRead {
 
 /**
  * Paginated container list envelope. `total` and `status_counts` cover the whole
- * filtered set (not just the page), so the UI can paginate accurately and show
- * global summaries. The backend caps `limit` at 100 (SECURITY.md M-4).
+ * filtered set, so the UI can paginate accurately and show global summaries.
  */
 export interface AgentContainerListResponse {
     data: AgentContainerRead[];

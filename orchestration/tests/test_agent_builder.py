@@ -108,8 +108,7 @@ def test_builder_fails_multiple_nested_agent_not_found(create_zip):
 
 
 # ---------------------------------------------------------------------------
-# Extraction-hardening regression tests (H-8 command injection, H-4 ZIP limits).
-# These exercise _safe_extract_zip directly and need no Docker daemon.
+# Extraction-hardening regression tests.
 # ---------------------------------------------------------------------------
 
 
@@ -122,8 +121,7 @@ def _zip_with(entries: dict[str, bytes | str]) -> bytes:
 
 
 def test_safe_extract_rejects_command_injection_filename(tmp_path):
-    """H-8: a ZIP entry whose name carries a shell/python injection payload must be
-    rejected at extraction, never extracted or interpolated into a command."""
+    """Injection payloads in ZIP entry names are rejected at extraction."""
     malicious = "evil'); __import__('os').system('echo pwned')#_agent.py"
     zip_bytes = _zip_with({malicious: "print('x')"})
 
@@ -135,7 +133,7 @@ def test_safe_extract_rejects_command_injection_filename(tmp_path):
 
 
 def test_safe_extract_rejects_too_many_files(tmp_path):
-    """H-4: archives exceeding the entry-count cap are rejected."""
+    """Archives exceeding entry count cap are rejected."""
     limits = {**_DEFAULT_BUILD_LIMITS, "max_file_count": 3}
     zip_bytes = _zip_with({f"file_{i}.txt": "x" for i in range(10)})
 
@@ -144,7 +142,7 @@ def test_safe_extract_rejects_too_many_files(tmp_path):
 
 
 def test_safe_extract_rejects_zip_bomb_uncompressed(tmp_path):
-    """H-4: archives whose total uncompressed size exceeds the cap are rejected."""
+    """Archives exceeding uncompressed size cap are rejected."""
     limits = {**_DEFAULT_BUILD_LIMITS, "max_uncompressed_bytes": 1024}
     # Highly compressible payload: small on disk, large uncompressed.
     zip_bytes = _zip_with({"agent.py": b"0" * (64 * 1024)})
@@ -154,7 +152,7 @@ def test_safe_extract_rejects_zip_bomb_uncompressed(tmp_path):
 
 
 def test_safe_extract_rejects_symlink_entry(tmp_path):
-    """H-4: symlink entries are rejected to prevent write/escape via links."""
+    """Symlink entries are rejected."""
     import stat as stat_mod
 
     bio = io.BytesIO()

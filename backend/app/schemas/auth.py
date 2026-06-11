@@ -27,13 +27,13 @@ class RegistrationResponse(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
-    """Request a password-reset email (H-6: email travels in the body, not the URL)."""
+    """Request a password-reset email."""
 
     email: EmailStr
 
 
 class PasswordResetConfirm(BaseModel):
-    """Confirm a password reset (H-6: token + new password in the body, not the URL)."""
+    """Confirm a password reset."""
 
     token: str = Field(..., min_length=16, max_length=512)
     new_password: str = Field(..., min_length=12, max_length=128)

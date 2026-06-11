@@ -28,9 +28,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser
 
-# Port the API listens on. Defaults to 8000; override via build arg or the
-# BACKEND_PORT runtime env (docker-compose passes it). The CMD is shell-form so
-# ${BACKEND_PORT} is expanded from the container environment at startup.
+# API port (defaults to 8000, overridable via BACKEND_PORT env).
 ARG BACKEND_PORT=8000
 ENV BACKEND_PORT=${BACKEND_PORT}
 

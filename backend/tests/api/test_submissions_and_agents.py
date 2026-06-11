@@ -27,7 +27,7 @@ def _make_zip_bytes(filename: str = "agent.py", content: str = "print('hello')\n
 
 @pytest.mark.anyio
 async def test_pagination_limit_is_capped(api_client, fake_email_client, db_session):
-    """M-4: list endpoints reject an unbounded `limit` (and negative `skip`) with 422."""
+    """List endpoints reject unbounded limit and negative skip."""
     _, bearer_token = await _create_member_and_token(
         api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
     )
@@ -271,11 +271,7 @@ async def _make_built_agent(api_client, db_session, bearer_token: str, user_id: 
 
 @pytest.mark.anyio
 async def test_match_state_init_data_is_whitelisted(api_client, fake_email_client, db_session):
-    """M-10: untrusted state_init_data is whitelisted per game before queueing.
-
-    Unknown keys, out-of-range values, and wrong types are rejected (400); a normal
-    tic-tac-toe match still queues (201).
-    """
+    """State_init_data is whitelisted per game before queueing."""
     user_id, bearer_token = await _create_member_and_token(
         api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
     )
@@ -345,7 +341,7 @@ def _make_zip_of_size(min_bytes: int) -> bytes:
 
 @pytest.mark.anyio
 async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_session, monkeypatch):
-    """H-4: an upload larger than MAX_UPLOAD_BYTES is rejected, not written."""
+    """Oversized uploads are rejected."""
     _user_id, bearer_token = await _create_member_and_token(
         api_client,
         fake_email_client,
@@ -371,8 +367,7 @@ async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_s
 
 @pytest.mark.anyio
 async def test_download_path_is_contained_to_submissions_dir(api_client, fake_email_client, db_session):
-    """M-2: a corrupted absolute/traversal object_path cannot serve files outside
-    SUBMISSIONS_DIR; the stored value is reduced to its basename and contained."""
+    """Corrupted/traversal object_path is contained within SUBMISSIONS_DIR."""
     _owner_id, bearer_token = await _create_member_and_token(
         api_client,
         fake_email_client,

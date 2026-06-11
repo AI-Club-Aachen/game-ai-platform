@@ -224,11 +224,7 @@ async def test_password_reset_nonexistent_user_is_noop(api_client, fake_email_cl
 
 @pytest.mark.anyio
 async def test_password_reset_uses_body_not_query_params(api_client):
-    """H-6: the secrets must be read from the JSON body, not the URL query string.
-
-    Passing them only as query params (the old, leaky behaviour) is now rejected
-    because the request body is required.
-    """
+    """Secrets read from JSON body, not URL query string."""
     # reset-password with the secrets only in the query string -> 422 (missing body).
     query_only = await api_client.post(
         f"{API_PREFIX}/auth/reset-password",
@@ -246,10 +242,7 @@ async def test_password_reset_uses_body_not_query_params(api_client):
 
 @pytest.mark.anyio
 async def test_login_unknown_user_and_wrong_password_are_indistinguishable(api_client, fake_email_client):
-    """L-6: an unknown user and a wrong password return an identical 401 response.
-
-    The 'email not verified' signal must NOT leak on either path.
-    """
+    """Unknown user and wrong password return identical 401 response."""
     username = random_username()
     email = random_email()
     password = strong_password()
@@ -272,12 +265,7 @@ async def test_login_unknown_user_and_wrong_password_are_indistinguishable(api_c
 
 @pytest.mark.anyio
 async def test_reregistration_does_not_hijack_pending_account(api_client, fake_email_client):
-    """L-6: re-registering a victim's still-unverified username/email must not delete
-    their account or overwrite the password.
-
-    Instead, verification is re-issued to the existing account; the original password
-    survives and the attacker's password never works.
-    """
+    """Re-registering with unverified email re-issues verification, preserves password."""
     username = random_username()
     email = random_email()
     victim_password = strong_password()
@@ -286,8 +274,7 @@ async def test_reregistration_does_not_hijack_pending_account(api_client, fake_e
     fake_email_client.sent.clear()
     await _register_user(api_client, username, email, victim_password)
 
-    # Attacker re-registers the same (still-unverified) username/email with a new
-    # password. This now re-issues verification rather than destroying the account.
+    # Re-registration with unverified email re-issues verification.
     fake_email_client.sent.clear()
     reattempt = await api_client.post(
         f"{API_PREFIX}/auth/register",

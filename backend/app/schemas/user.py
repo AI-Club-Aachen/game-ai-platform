@@ -6,9 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.user import UserRole
 
 
-# L-5: profile_picture_url is user-controlled and rendered by the frontend, so it
-# is constrained the same way username is — only http(s) URLs within a sane length,
-# never javascript:/data: URIs that could become stored XSS or an SSRF sink.
+# URL constrained like username: http(s) only, safe length.
 MAX_PROFILE_PICTURE_URL_LENGTH = 2048
 
 

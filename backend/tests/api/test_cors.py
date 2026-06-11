@@ -1,11 +1,4 @@
-"""Regression tests for CORS hardening (M-6).
-
-- A config with a literal ``*`` in ALLOW_ORIGINS is rejected at load, because the
-  app always runs CORSMiddleware with ``allow_credentials=True`` and ``*`` +
-  credentials is invalid/unsafe.
-- The error-path CORS helper never emits ``Access-Control-Allow-Origin: *``
-  together with credentials, even if ``*`` somehow ends up configured.
-"""
+"""Regression tests for CORS configuration and response headers."""
 
 import pytest
 from pydantic import ValidationError

@@ -1,12 +1,4 @@
-"""Per-game whitelist validation for match ``state_init_data`` (M-10).
-
-User-controlled ``state_init_data`` from ``POST /matches`` is passed straight to
-``State.initial(...)`` inside the privileged match worker (it holds the Docker
-socket and worker API key, and is not itself sandboxed). The agent *code* runs in
-a hardened container, but engine/state initialization does not — so this input is
-treated as untrusted and validated against an explicit per-game-type whitelist of
-allowed keys, types, and numeric bounds before a match is queued.
-"""
+"""Per-game whitelist validation for match state_init_data."""
 
 from typing import Any
 
@@ -29,7 +21,7 @@ _ALLOWED_KEYS: dict[GameType, frozenset[str]] = {
 
 
 class StateInitValidationError(ValueError):
-    """Raised when ``state_init_data`` fails per-game whitelist validation (M-10)."""
+    """Raised when state_init_data fails per-game whitelist validation."""
 
 
 def _require_int(key: str, value: Any) -> int:

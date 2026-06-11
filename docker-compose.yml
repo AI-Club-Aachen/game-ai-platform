@@ -1,8 +1,7 @@
 services:
   redis:
     image: redis:7-alpine
-    # Require a password (M-7). Redis stays on the internal bridge (expose only, never
-    # published) so this protects the job queues/pub-sub even from VPC-internal access.
+    # Require password; Redis on internal bridge only.
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
     expose:
       - "6379"

@@ -103,9 +103,7 @@ export function ContainerManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Server-side pagination. The backend caps `limit` at 100 (SECURITY.md M-4)
-  // and returns a paginated envelope; `total` and `statusCounts` cover the whole
-  // fleet so the summary cards stay global while the table pages.
+  // Server-side pagination; `total` and `statusCounts` cover the whole fleet.
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalContainers, setTotalContainers] = useState(0);

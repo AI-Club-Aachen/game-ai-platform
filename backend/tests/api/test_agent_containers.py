@@ -31,8 +31,7 @@ async def test_container_list_returns_paginated_envelope_with_status_tallies(
 ):
     admin_id, headers = await _admin(api_client, fake_email_client, db_session)
     agent = _make_agent(db_session, admin_id)
-    # Scope to a fresh match so the shared session DB's other containers don't
-    # pollute total/status_counts.
+    # Use fresh match to isolate counts.
     match = _make_match(db_session, [str(agent.id)])
     qs = f"match_id={match.id}"
 

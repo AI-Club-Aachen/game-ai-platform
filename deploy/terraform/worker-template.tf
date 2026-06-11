@@ -30,11 +30,7 @@ resource "google_compute_instance_template" "worker" {
     access_config {}
   }
 
-  # Service Account and Scopes.
-  # Narrowed from the broad "cloud-platform" scope to match the least-privilege IAM
-  # roles actually granted (logging.logWriter, monitoring.metricWriter,
-  # artifactregistry.reader). Read-only cloud-platform still lets the worker pull
-  # images from Artifact Registry without granting write to every API (M-9).
+  # Service account with minimal required scopes.
   service_account {
     email = google_service_account.worker.email
     scopes = [

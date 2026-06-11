@@ -47,7 +47,7 @@ fetch_metadata() {
 
 echo "Fetching configuration from metadata server..."
 REPO_URL=$(fetch_metadata "repo_url")
-# Deploy a pinned, immutable ref (release tag or commit SHA), not a moving branch (M-9).
+# Deploy pinned, immutable ref (tag or SHA).
 DEPLOY_REF=$(fetch_metadata "deploy_ref")
 
 # The VM's internal IP is used to publish Redis to the worker VMs only (never 0.0.0.0).
@@ -67,8 +67,7 @@ else
   git clone "${REPO_URL}" "${INSTALL_DIR}"
   cd "${INSTALL_DIR}"
 fi
-# Check out the pinned immutable ref (tag/commit). A moving branch would let a push
-# silently change what production runs on the next boot (M-9).
+# Check out pinned ref (tag/SHA).
 echo "Checking out pinned deploy ref '${DEPLOY_REF}'..."
 git checkout --force "${DEPLOY_REF}"
 
@@ -246,13 +245,9 @@ EOF
 echo ".env file generated successfully."
 
 # 7. Generate docker-compose.override.yml to publish ports
-# This ensures that frontend and backend are proxied via Nginx on ports 80 and 443,
-# while the workers continue to have private access to backend (8000) and redis (6379) directly.
+# Frontend/backend proxied via Nginx (80/443); workers have private backend/Redis access.
+# Redis/backend on internal IP only; Nginx on public ports.
 echo "Generating docker-compose.override.yml..."
-# Redis and the backend API are published ONLY on the VM's internal IP so the worker
-# VMs can reach them over the VPC; they are never bound to 0.0.0.0 (Docker's DNAT would
-# otherwise bypass host UFW and expose them publicly). Redis additionally requires a
-# password (M-7). nginx is the only service bound to public ports 80/443.
 cat <<EOF > "${INSTALL_DIR}/docker-compose.override.yml"
 version: '3.8'
 

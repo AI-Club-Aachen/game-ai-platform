@@ -279,7 +279,7 @@ async def test_change_password_unauthenticated_fails(api_client):
 
 @pytest.mark.anyio
 async def test_register_rejects_javascript_profile_picture_url(api_client):
-    """L-5: a javascript: profile_picture_url is rejected (422); https is accepted."""
+    """Javascript profile picture URLs are rejected; https accepted."""
     response = await api_client.post(
         f"{API_PREFIX}/auth/register",
         json={
