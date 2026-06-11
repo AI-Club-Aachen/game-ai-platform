@@ -1,4 +1,8 @@
-"""Per-game whitelist validation for match state_init_data."""
+"""Per-game whitelist validation for match state_init_data.
+
+This input is passed to the engine in the (non-sandboxed) match worker, so keep
+the per-game whitelist of keys/types/bounds strict.
+"""
 
 from typing import Any
 

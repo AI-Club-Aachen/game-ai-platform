@@ -338,7 +338,8 @@ async def run_match(
         # Send states and get moves from agents
         try:
             while not engine.is_game_over(state):
-                # Stop match at wall-clock limit.
+                # Stop match at wall-clock limit; winner_id stays -1 so the engine
+                # status below decides the outcome.
                 if time.monotonic() > match_deadline:
                     reason = "Match wall-clock limit exceeded"
                     logger.warning(f"[{match_id}] {reason} after {turn_count} turn(s)")

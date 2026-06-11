@@ -116,7 +116,7 @@ class MatchService:
         match.status = MatchStatus(status)
 
         if logs is not None:
-            # Truncate stored logs server-side so a worker cannot grow them without bound 
+            # Truncate stored logs server-side so a worker cannot grow them without bound.
             match.logs = cap_log_append(
                 match.logs,
                 logs,

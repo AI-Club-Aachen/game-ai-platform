@@ -38,6 +38,7 @@ def list_agent_containers(
             owner_user_id=owner_user_id,
         )
     except AgentContainerServiceError as e:
+        # The `status` query param shadows fastapi.status here, so use the literal code.
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     return AgentContainerListResponse(

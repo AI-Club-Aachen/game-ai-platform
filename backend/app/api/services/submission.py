@@ -14,7 +14,8 @@ from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 
 
-# the .zip extension is still required
+# Accepted ZIP upload content types. A missing/empty header is tolerated
+# (see _validate_upload) since some clients omit it.
 _ALLOWED_UPLOAD_CONTENT_TYPES = {
     "application/zip",
     "application/x-zip-compressed",

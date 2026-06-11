@@ -249,7 +249,8 @@ class Settings(BaseSettings):
 
     @property
     def allow_origins_list(self) -> list[str]:
-        # Normalize trailing slashes for CORS matching.
+        # Strip trailing slashes: the browser Origin never has one, and CORS
+        # matches by exact string, so "https://x.com/" would otherwise never match.
         origins = [origin.rstrip("/") for origin in self._parse_csv(self.ALLOW_ORIGINS)]
         return origins or ["http://localhost:3000"]
 
