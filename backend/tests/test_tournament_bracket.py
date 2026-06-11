@@ -124,8 +124,26 @@ def test_deterministic_coin_flip_is_reproducible_and_balanced():
     assert outcomes == {a, b}
 
 
-def test_game_agent_order_alternates_starting_player():
+def test_game_agent_order_alternates_then_randomizes_the_decider():
+    matchup_id = uuid.uuid4()
     a, b = uuid.uuid4(), uuid.uuid4()
-    assert game_agent_order(a, b, 0) == [a, b]
-    assert game_agent_order(a, b, 1) == [b, a]
-    assert game_agent_order(a, b, 2) == [a, b]
+    assert game_agent_order(matchup_id, a, b, 0) == [a, b]
+    assert game_agent_order(matchup_id, a, b, 1) == [b, a]
+
+    # The decider's starting player is pseudo-random but reproducible.
+    decider = game_agent_order(matchup_id, a, b, 2)
+    assert sorted(decider, key=str) == sorted([a, b], key=str)
+    assert all(game_agent_order(matchup_id, a, b, 2) == decider for _ in range(10))
+
+    # Across matchups both agents get to start the decider.
+    starters = {game_agent_order(uuid.uuid4(), a, b, 2)[0] for _ in range(50)}
+    assert starters == {a, b}
+
+    # The decider's starter must not be correlated with the decider's draw
+    # coin flip (distinct seeds); both outcome combinations must occur.
+    combos = set()
+    for _ in range(50):
+        m = uuid.uuid4()
+        first, second = game_agent_order(m, a, b, 2)
+        combos.add((first, deterministic_coin_flip(m, 2, first, second)))
+    assert len(combos) > 2

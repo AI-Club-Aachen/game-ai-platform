@@ -10,9 +10,9 @@ import {
   Container,
   Typography,
 } from '@mui/material';
-import { EmojiEvents } from '@mui/icons-material';
 import { tournamentsApi, Tournament, TournamentStatus } from '../services/api/tournaments';
 import { StatusIndicator } from '../components/common/StatusIndicator';
+import { PlacementBadge } from '../components/tournaments/PlacementBadge';
 import { getGameById, fromApiGameType } from '../config/games';
 
 type StatusFilter = 'all' | TournamentStatus;
@@ -62,8 +62,8 @@ export function Tournaments() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <EmojiEvents sx={{ fontSize: 32 }} /> Tournaments
+        <Typography variant="h4" gutterBottom>
+          Tournaments
         </Typography>
         <Typography color="text.secondary">
           Double-elimination tournaments between the platform's AI agents
@@ -97,7 +97,6 @@ export function Tournaments() {
         </Box>
       ) : tournaments.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <EmojiEvents sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
           <Typography color="text.secondary">No tournaments found</Typography>
         </Box>
       ) : (
@@ -133,10 +132,10 @@ export function Tournaments() {
                   Created {formatDate(tournament.created_at)}
                 </Typography>
                 {tournament.status === 'completed' && tournament.winner_agent_id && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
-                    <EmojiEvents fontSize="small" color="warning" />
-                    <Typography variant="body2" fontWeight={600}>
-                      Champion decided
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
+                    <PlacementBadge placement={1} size={20} />
+                    <Typography variant="body2" color="text.secondary">
+                      Champion crowned — view the podium
                     </Typography>
                   </Box>
                 )}

@@ -423,7 +423,7 @@ class TournamentService:
     ) -> int:
         winner = self._parse_result_winner(match, matchup)
         if winner == "draw":
-            order = game_agent_order(*self._participants(matchup), game.game_index)
+            order = game_agent_order(matchup.id, *self._participants(matchup), game.game_index)
             game.winner_agent_id = deterministic_coin_flip(matchup.id, game.game_index, order[0], order[1])
             game.resolution = GameResolution.DRAW_COIN_FLIP
             self._save_game(game)
@@ -608,7 +608,7 @@ class TournamentService:
         game: TournamentGame,
     ) -> bool:
         """Create and enqueue the Match backing a game; returns True if one was queued."""
-        agent_ids = game_agent_order(*self._participants(matchup), game.game_index)
+        agent_ids = game_agent_order(matchup.id, *self._participants(matchup), game.game_index)
         match_config = MatchConfig(
             turn_time_limit=config.turn_time_limit,
             state_init_data=dict(config.state_init_data),

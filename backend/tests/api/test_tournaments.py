@@ -14,7 +14,7 @@ from app.api.repositories.tournament import TournamentRepository
 from app.api.services.match import MatchService
 from app.api.services.match_scheduler import MatchSchedulerService
 from app.api.services.tournament import TournamentService
-from app.api.services.tournament_bracket import deterministic_coin_flip
+from app.api.services.tournament_bracket import deterministic_coin_flip, game_agent_order
 from app.core.config import settings
 from app.models.agent import Agent
 from app.models.game import GameType
@@ -219,7 +219,7 @@ async def test_admin_tournament_lifecycle(api_client, fake_email_client, db_sess
     assert body["status"] == "pending"
     assert body["game_type"] == "hex"
     # Per-game defaults are merged into the stored config (mirrors match creation).
-    assert body["config"]["state_init_data"]["board_size"] == 10
+    assert body["config"]["state_init_data"]["board_size"] == 11  # standard Hex size
     tournament_id = body["id"]
 
     response = await api_client.post(f"{API_PREFIX}/tournaments/{tournament_id}/start", headers=headers)
@@ -410,9 +410,10 @@ async def test_best_of_three_alternates_starting_player(db_session):
     await _complete(match_service, game2, a2)
     await service.advance_tournament(tournament)
 
-    # 1-1 forces a decider with the original order again.
+    # 1-1 forces a decider whose starting player is a reproducible coin flip.
     [game3] = _tournament_matches(m_repo, tournament.id, status="queued")
-    assert game3.agent_ids == [str(a1), str(a2)]
+    assert game3.agent_ids == [str(aid) for aid in game_agent_order(matchup.id, a1, a2, 2)]
+    assert sorted(game3.agent_ids) == sorted([str(a1), str(a2)])
     await _complete(match_service, game3, a2)
     await service.advance_tournament(tournament)
 

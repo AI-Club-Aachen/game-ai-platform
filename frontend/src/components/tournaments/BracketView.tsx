@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Chip, Paper, Tooltip, Typography } from '@mui/material';
-import { EmojiEvents, ReportProblemOutlined } from '@mui/icons-material';
+import { ReportProblemOutlined } from '@mui/icons-material';
 import { TournamentMatchup, TournamentGame, MatchupStatus } from '../../services/api/tournaments';
 
 interface BracketViewProps {
@@ -100,10 +100,12 @@ function SlotRow({
           </Typography>
         )}
         {name}
-        {isWinner && <EmojiEvents sx={{ fontSize: 14, ml: 0.5, verticalAlign: 'text-top', color: 'warning.main' }} />}
       </Typography>
       {agentId && matchup.games.length > 0 && (
-        <Typography variant="body2" sx={{ fontWeight: isWinner ? 700 : 400 }}>
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: isWinner ? 700 : 400, color: isWinner ? 'success.main' : 'text.secondary' }}
+        >
           {winsFor(matchup, agentId)}
         </Typography>
       )}

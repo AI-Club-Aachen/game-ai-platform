@@ -49,6 +49,8 @@ import { fromApiGameType, getGameById } from '../config/games';
 
 const DEFAULT_TURN_TIME_LIMIT = 10;
 const DEFAULT_MAX_CONCURRENT = 4;
+// Standard Hex size; the backend caps board_size at MAX_HEX_BOARD_SIZE (26).
+const DEFAULT_HEX_BOARD_SIZE = 11;
 
 const shortId = (id?: string | null, length = 8) => {
   if (!id) return '—';
@@ -84,6 +86,7 @@ export function TournamentManagement() {
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
   const [turnTimeLimit, setTurnTimeLimit] = useState(DEFAULT_TURN_TIME_LIMIT);
   const [maxConcurrent, setMaxConcurrent] = useState(DEFAULT_MAX_CONCURRENT);
+  const [boardSize, setBoardSize] = useState(DEFAULT_HEX_BOARD_SIZE);
   const [isCreating, setIsCreating] = useState(false);
 
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
@@ -145,6 +148,7 @@ export function TournamentManagement() {
     setSelectedAgents([]);
     setTurnTimeLimit(DEFAULT_TURN_TIME_LIMIT);
     setMaxConcurrent(DEFAULT_MAX_CONCURRENT);
+    setBoardSize(DEFAULT_HEX_BOARD_SIZE);
     setCreateDialogOpen(true);
   };
 
@@ -158,6 +162,7 @@ export function TournamentManagement() {
         config: {
           turn_time_limit: turnTimeLimit,
           max_concurrent_matches: maxConcurrent,
+          ...(newGameType === 'hex' && { state_init_data: { board_size: boardSize } }),
         },
       });
       setSnackbarMessage('Tournament created');
@@ -488,6 +493,21 @@ export function TournamentManagement() {
                 helperText="Parallel matches within a round"
                 sx={{ width: 200 }}
               />
+              {newGameType === 'hex' && (
+                <TextField
+                  label="Board Size"
+                  type="number"
+                  size="small"
+                  value={boardSize}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setBoardSize(Number.isNaN(val) ? DEFAULT_HEX_BOARD_SIZE : Math.min(26, Math.max(2, val)));
+                  }}
+                  inputProps={{ min: 2, max: 26, step: 1 }}
+                  helperText={`${boardSize}×${boardSize} Hex board`}
+                  sx={{ width: 140 }}
+                />
+              )}
             </Box>
           </Box>
         </DialogContent>

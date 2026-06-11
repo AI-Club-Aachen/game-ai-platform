@@ -193,6 +193,12 @@ def _losers_bracket_specs(
     return lb
 
 
+def _hash_pick(seed: str, first: UUID, second: UUID) -> UUID:
+    """Reproducible pseudo-random choice between two agents, seeded by ``seed``."""
+    digest = hashlib.sha256(seed.encode()).digest()
+    return first if digest[0] % 2 == 0 else second
+
+
 def deterministic_coin_flip(
     matchup_id: UUID,
     game_index: int,
@@ -203,13 +209,19 @@ def deterministic_coin_flip(
     Resolve a drawn game to one side via a reproducible pseudo-random choice
     seeded by the matchup id and game index.
     """
-    digest = hashlib.sha256(f"{matchup_id}:{game_index}".encode()).digest()
-    return first_agent_id if digest[0] % 2 == 0 else second_agent_id
+    return _hash_pick(f"{matchup_id}:{game_index}", first_agent_id, second_agent_id)
 
 
-def game_agent_order(agent1_id: UUID, agent2_id: UUID, game_index: int) -> list[UUID]:
+def game_agent_order(matchup_id: UUID, agent1_id: UUID, agent2_id: UUID, game_index: int) -> list[UUID]:
     """
     Ordered agent ids for one best-of-3 game; index 0 is the starting player.
-    The starting player alternates between games of a matchup.
+
+    The starting player alternates between games 1 and 2; the decider's starter
+    is chosen pseudo-randomly (seeded with a salt distinct from the draw coin
+    flip) so neither agent is guaranteed two first moves, while staying
+    reproducible across scheduler restarts.
     """
+    if game_index >= 2:  # noqa: PLR2004 - decider of the best-of-3
+        first = _hash_pick(f"{matchup_id}:{game_index}:starter", agent1_id, agent2_id)
+        return [first, agent2_id if first == agent1_id else agent1_id]
     return [agent1_id, agent2_id] if game_index % 2 == 0 else [agent2_id, agent1_id]

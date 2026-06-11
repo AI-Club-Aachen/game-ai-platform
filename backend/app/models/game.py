@@ -65,6 +65,7 @@ class GameType(str, Enum):
     def additional_data(self) -> dict[str, Any]:
         """Additional data specific to the game."""
         data = {
-            GameType.HEX: {"board_size": 10},
+            # 11 is the standard Hex size and matches the gamelib engine default.
+            GameType.HEX: {"board_size": 11},
         }
         return data.get(self, {})
