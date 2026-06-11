@@ -7,11 +7,12 @@ import { TournamentMatchup, TournamentGame, MatchupStatus } from '../../services
 interface BracketViewProps {
   matchups: TournamentMatchup[];
   agentNames: Record<string, string>;
-  seeds: Record<string, number>;
+  section: 'winners' | 'losers';
 }
 
 interface ColumnSpec {
   label: string;
+  caption?: string;
   matchups: TournamentMatchup[];
 }
 
@@ -69,17 +70,14 @@ function SlotRow({
   agentId,
   matchup,
   agentNames,
-  seeds,
 }: {
   agentId: string | null;
   matchup: TournamentMatchup;
   agentNames: Record<string, string>;
-  seeds: Record<string, number>;
 }) {
   const decided = matchup.status === 'completed';
   const isWinner = decided && agentId !== null && matchup.winner_agent_id === agentId;
   const name = agentId ? agentNames[agentId] ?? `${agentId.slice(0, 8)}…` : isBye(matchup) ? 'Bye' : 'TBD';
-  const seed = agentId ? seeds[agentId] : undefined;
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
@@ -94,11 +92,6 @@ function SlotRow({
           minWidth: 0,
         }}
       >
-        {seed !== undefined && (
-          <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-            {seed}
-          </Typography>
-        )}
         {name}
       </Typography>
       {agentId && matchup.games.length > 0 && (
@@ -128,11 +121,9 @@ const COLUMN_MAX_WIDTH = 240;
 function MatchupCard({
   matchup,
   agentNames,
-  seeds,
 }: {
   matchup: TournamentMatchup;
   agentNames: Record<string, string>;
-  seeds: Record<string, number>;
 }) {
   return (
     <Paper
@@ -150,8 +141,8 @@ function MatchupCard({
         opacity: matchup.status === 'cancelled' || (isBye(matchup) && matchup.winner_agent_id === null) ? 0.5 : 1,
       }}
     >
-      <SlotRow agentId={matchup.agent1_id} matchup={matchup} agentNames={agentNames} seeds={seeds} />
-      <SlotRow agentId={matchup.agent2_id} matchup={matchup} agentNames={agentNames} seeds={seeds} />
+      <SlotRow agentId={matchup.agent1_id} matchup={matchup} agentNames={agentNames} />
+      <SlotRow agentId={matchup.agent2_id} matchup={matchup} agentNames={agentNames} />
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, minHeight: 18 }}>
         <GameChips matchup={matchup} agentNames={agentNames} />
         {matchup.status === 'needs_attention' && (
@@ -175,11 +166,9 @@ interface ConnectorLine {
 function BracketColumns({
   columns,
   agentNames,
-  seeds,
 }: {
   columns: ColumnSpec[];
   agentNames: Record<string, string>;
-  seeds: Record<string, number>;
 }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
@@ -248,7 +237,7 @@ function BracketColumns({
   useLayoutEffect(() => {
     measureCallbackRef.current = measure;
     measure();
-  }, [measure, agentNames, seeds]);
+  }, [measure, agentNames]);
 
   // One observer for the container AND every card: cards change height when
   // game chips appear (byes never get them), which shifts centers without
@@ -307,9 +296,16 @@ function BracketColumns({
             key={column.label}
             sx={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 120, maxWidth: COLUMN_MAX_WIDTH }}
           >
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-              {column.label}
-            </Typography>
+            <Box sx={{ mb: 1, minHeight: 32, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
+                {column.label}
+              </Typography>
+              {column.caption && (
+                <Typography variant="caption" color="text.disabled" sx={{ display: 'block', lineHeight: 1.2 }}>
+                  {column.caption}
+                </Typography>
+              )}
+            </Box>
             <Box
               sx={{
                 flex: 1,
@@ -321,7 +317,7 @@ function BracketColumns({
             >
               {column.matchups.map((matchup) => (
                 <Box key={matchup.id} ref={registerCard(matchup.id)} sx={{ display: 'flex' }}>
-                  <MatchupCard matchup={matchup} agentNames={agentNames} seeds={seeds} />
+                  <MatchupCard matchup={matchup} agentNames={agentNames} />
                 </Box>
               ))}
             </Box>
@@ -332,53 +328,61 @@ function BracketColumns({
   );
 }
 
-const roundColumns = (matchups: TournamentMatchup[]): ColumnSpec[] => {
-  const rounds = new Map<number, TournamentMatchup[]>();
-  for (const matchup of matchups) {
-    const list = rounds.get(matchup.round) ?? [];
-    list.push(matchup);
-    rounds.set(matchup.round, list);
-  }
-  return [...rounds.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([round, roundMatchups]) => ({
-      label: `Round ${round}`,
-      matchups: roundMatchups.sort((a, b) => a.position - b.position),
-    }));
+type RoundLabeler = (roundIndex: number, totalRounds: number) => { label: string; caption?: string };
+
+// The tab already names the bracket, so labels stay unprefixed.
+const labelWinnersRound: RoundLabeler = (roundIndex, totalRounds) => {
+  const fromEnd = totalRounds - roundIndex; // 0 = the last (deciding) round
+  if (fromEnd === 0) return { label: 'Final', caption: 'Winner goes to the Grand Final' };
+  if (fromEnd === 1) return { label: 'Semifinals' };
+  if (fromEnd === 2) return { label: 'Quarterfinals' };
+  return { label: `Round ${roundIndex}` };
 };
 
-export function BracketView({ matchups, agentNames, seeds }: BracketViewProps) {
-  const winners = matchups.filter((m) => m.bracket === 'winners');
-  const losers = matchups.filter((m) => m.bracket === 'losers');
+// Losers-bracket rounds; the last two decide 3rd/4th place.
+const labelLosersRound: RoundLabeler = (roundIndex, totalRounds) => {
+  const fromEnd = totalRounds - roundIndex;
+  if (fromEnd === 0) return { label: 'Final', caption: 'Winner to Grand Final · loser places 3rd' };
+  if (fromEnd === 1) return { label: 'Semifinal', caption: 'Loser places 4th' };
+  return { label: `Round ${roundIndex}` };
+};
+
+const buildRoundColumns = (matchups: TournamentMatchup[], labeler: RoundLabeler): ColumnSpec[] => {
+  const byRound = new Map<number, TournamentMatchup[]>();
+  for (const matchup of matchups) {
+    const list = byRound.get(matchup.round) ?? [];
+    list.push(matchup);
+    byRound.set(matchup.round, list);
+  }
+  const rounds = [...byRound.keys()].sort((a, b) => a - b);
+  return rounds.map((round, index) => {
+    const { label, caption } = labeler(index + 1, rounds.length);
+    return { label, caption, matchups: byRound.get(round)!.sort((a, b) => a.position - b.position) };
+  });
+};
+
+export function BracketView({ matchups, agentNames, section }: BracketViewProps) {
+  if (section === 'losers') {
+    const columns = buildRoundColumns(
+      matchups.filter((m) => m.bracket === 'losers'),
+      labelLosersRound,
+    );
+    return <BracketColumns columns={columns} agentNames={agentNames} />;
+  }
+
+  const columns = buildRoundColumns(
+    matchups.filter((m) => m.bracket === 'winners'),
+    labelWinnersRound,
+  );
   const grandFinal = matchups.find((m) => m.bracket === 'grand_final');
   const reset = matchups.find((m) => m.bracket === 'grand_final_reset');
-
-  const winnersColumns = roundColumns(winners);
   if (grandFinal) {
-    winnersColumns.push({ label: 'Grand Final', matchups: [grandFinal] });
+    columns.push({ label: 'Grand Final', caption: 'Championship match', matchups: [grandFinal] });
   }
-  // The reset matchup only exists visually when the losers-bracket champion
-  // forced it by winning the grand final.
+  // The reset matchup only matters once the losers-bracket champion forced it
+  // by winning the grand final.
   if (reset && reset.status !== 'cancelled') {
-    winnersColumns.push({ label: 'Bracket Reset', matchups: [reset] });
+    columns.push({ label: 'Grand Final — Reset', caption: 'Decider for the title', matchups: [reset] });
   }
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box>
-        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-          Winners Bracket
-        </Typography>
-        <BracketColumns columns={winnersColumns} agentNames={agentNames} seeds={seeds} />
-      </Box>
-      {losers.length > 0 && (
-        <Box>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Losers Bracket
-          </Typography>
-          <BracketColumns columns={roundColumns(losers)} agentNames={agentNames} seeds={seeds} />
-        </Box>
-      )}
-    </Box>
-  );
+  return <BracketColumns columns={columns} agentNames={agentNames} />;
 }

@@ -7,12 +7,14 @@ import {
   CircularProgress,
   Container,
   Paper,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tabs,
   Typography,
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
@@ -42,6 +44,7 @@ export function TournamentDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [podiumOpen, setPodiumOpen] = useState(false);
+  const [tab, setTab] = useState<'winners' | 'losers' | 'standings'>('winners');
 
   const fetchBracket = useCallback(async () => {
     if (!id) return;
@@ -88,13 +91,10 @@ export function TournamentDetails() {
     return names;
   }, [bracket]);
 
-  const seeds = useMemo(() => {
-    const result: Record<string, number> = {};
-    for (const entrant of bracket?.entrants ?? []) {
-      if (entrant.seed !== null) result[entrant.agent_id] = entrant.seed;
-    }
-    return result;
-  }, [bracket]);
+  const hasLosersBracket = useMemo(
+    () => (bracket?.matchups ?? []).some((m) => m.bracket === 'losers'),
+    [bracket],
+  );
 
   const podiumEntries: PodiumEntry[] = useMemo(
     () =>
@@ -134,6 +134,13 @@ export function TournamentDetails() {
     ? agentNames[tournament.winner_agent_id] ?? tournament.winner_agent_id
     : null;
   const boardSize = tournament.config.state_init_data?.board_size as number | undefined;
+
+  const availableTabs: { key: 'winners' | 'losers' | 'standings'; label: string }[] = [
+    ...(matchups.length > 0 ? [{ key: 'winners' as const, label: 'Winners Bracket' }] : []),
+    ...(hasLosersBracket ? [{ key: 'losers' as const, label: 'Losers Bracket' }] : []),
+    { key: 'standings' as const, label: 'Standings' },
+  ];
+  const activeTab = availableTabs.some((t) => t.key === tab) ? tab : availableTabs[0].key;
 
   return (
     <Container maxWidth={false} sx={{ py: 4 }}>
@@ -211,61 +218,76 @@ export function TournamentDetails() {
         </Alert>
       )}
 
-      {matchups.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <BracketView matchups={matchups} agentNames={agentNames} seeds={seeds} />
+      <Tabs
+        value={activeTab}
+        onChange={(_event, value) => setTab(value)}
+        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+      >
+        {availableTabs.map((t) => (
+          <Tab key={t.key} value={t.key} label={t.label} />
+        ))}
+      </Tabs>
+
+      {activeTab === 'winners' && (
+        <Paper sx={{ p: 3 }}>
+          <BracketView matchups={matchups} agentNames={agentNames} section="winners" />
         </Paper>
       )}
 
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Standings
-        </Typography>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>#</TableCell>
-                <TableCell>Agent</TableCell>
-                <TableCell align="right">Seed</TableCell>
-                <TableCell align="right">Matchups W–L</TableCell>
-                <TableCell>Eliminated In</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {standings.map((standing) => (
-                <TableRow key={standing.agent_id}>
-                  <TableCell>
-                    <PlacementBadge placement={standing.placement} />
-                  </TableCell>
-                  <TableCell>
-                    <Link to={`/agents/${standing.agent_id}`} style={{ color: 'inherit' }}>
-                      {standing.agent_name ?? `${standing.agent_id.slice(0, 8)}…`}
-                    </Link>
-                  </TableCell>
-                  <TableCell align="right">{standing.seed ?? '—'}</TableCell>
-                  <TableCell align="right">
-                    {standing.matchup_wins}–{standing.matchup_losses}
-                  </TableCell>
-                  <TableCell>
-                    {standing.eliminated_in_bracket
-                      ? `${bracketLabel[standing.eliminated_in_bracket] ?? standing.eliminated_in_bracket}${
-                          standing.eliminated_in_bracket === 'winners' || standing.eliminated_in_bracket === 'losers'
-                            ? ` · Round ${standing.eliminated_in_round}`
-                            : ''
-                        }`
-                      : standing.placement === 1
-                        ? 'Champion'
-                        : tournament.status === 'completed' || tournament.status === 'cancelled'
-                          ? '—'
-                          : 'Still playing'}
-                  </TableCell>
+      {activeTab === 'losers' && (
+        <Paper sx={{ p: 3 }}>
+          <BracketView matchups={matchups} agentNames={agentNames} section="losers" />
+        </Paper>
+      )}
+
+      {activeTab === 'standings' && (
+        <Paper sx={{ p: 3 }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Agent</TableCell>
+                  <TableCell align="right">Seed</TableCell>
+                  <TableCell align="right">Matchups W–L</TableCell>
+                  <TableCell>Eliminated In</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+              </TableHead>
+              <TableBody>
+                {standings.map((standing) => (
+                  <TableRow key={standing.agent_id}>
+                    <TableCell>
+                      <PlacementBadge placement={standing.placement} />
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/agents/${standing.agent_id}`} style={{ color: 'inherit' }}>
+                        {standing.agent_name ?? `${standing.agent_id.slice(0, 8)}…`}
+                      </Link>
+                    </TableCell>
+                    <TableCell align="right">{standing.seed ?? '—'}</TableCell>
+                    <TableCell align="right">
+                      {standing.matchup_wins}–{standing.matchup_losses}
+                    </TableCell>
+                    <TableCell>
+                      {standing.eliminated_in_bracket
+                        ? `${bracketLabel[standing.eliminated_in_bracket] ?? standing.eliminated_in_bracket}${
+                            standing.eliminated_in_bracket === 'winners' || standing.eliminated_in_bracket === 'losers'
+                              ? ` · Round ${standing.eliminated_in_round}`
+                              : ''
+                          }`
+                        : standing.placement === 1
+                          ? 'Champion'
+                          : tournament.status === 'completed' || tournament.status === 'cancelled'
+                            ? '—'
+                            : 'Still playing'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
       <PodiumDialog
         open={podiumOpen}
