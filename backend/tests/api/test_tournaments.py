@@ -99,6 +99,17 @@ def _matchup_for_match(db_session: Session, tournament_repo: TournamentRepositor
     return tournament_repo.get_matchup(game.matchup_id)
 
 
+def _queued_match_for_game(
+    db_session: Session, m_repo: MatchRepository, tournament_id: uuid.UUID, game_index: int
+) -> Match:
+    """The queued Match backing a specific game index (games 0 and 1 are queued in parallel)."""
+    for match in _tournament_matches(m_repo, tournament_id, status="queued"):
+        game = db_session.exec(select(TournamentGame).where(TournamentGame.match_id == match.id)).one()
+        if game.game_index == game_index:
+            return match
+    raise AssertionError(f"No queued match for game index {game_index}")
+
+
 async def _start_tournament(
     db_session: Session,
     n_agents: int,
@@ -326,9 +337,9 @@ async def test_bye_matchup_auto_advances(db_session):
     games = [g for g in t_repo.list_games(tournament.id) if g.matchup_id == byes[0].id]
     assert games == []
 
-    # The real matchup queued exactly one match (game 1 of the BO3).
+    # The real matchup queued both parallel games (G1 and G2) of the BO3.
     assert played[0].status == MatchupStatus.IN_PROGRESS
-    assert len(_tournament_matches(m_repo, tournament.id, status="queued")) == 1
+    assert len(_tournament_matches(m_repo, tournament.id, status="queued")) == 2
 
 
 @pytest.mark.anyio
@@ -398,15 +409,18 @@ async def test_best_of_three_alternates_starting_player(db_session):
     matchup = next(m for m in t_repo.list_matchups(tournament.id) if m.status == MatchupStatus.IN_PROGRESS)
     a1, a2 = matchup.agent1_id, matchup.agent2_id
 
-    # Game 1: agent1 starts.
-    [game1] = _tournament_matches(m_repo, tournament.id, status="queued")
+    # Games 1 and 2 are queued together (parallelizable) with swapped starters:
+    # G1 has agent1 starting, G2 has agent2 starting.
+    queued = _tournament_matches(m_repo, tournament.id, status="queued")
+    assert len(queued) == 2
+    game1 = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
+    game2 = _queued_match_for_game(db_session, m_repo, tournament.id, 1)
     assert game1.agent_ids == [str(a1), str(a2)]
-    await _complete(match_service, game1, a1)
-    await service.advance_tournament(tournament)
-
-    # Game 2: order swapped, agent2 starts.
-    [game2] = _tournament_matches(m_repo, tournament.id, status="queued")
     assert game2.agent_ids == [str(a2), str(a1)]
+    assert len([g for g in t_repo.list_games(tournament.id) if g.matchup_id == matchup.id]) == 2
+
+    # Split the first two games 1-1 to force a decider.
+    await _complete(match_service, game1, a1)
     await _complete(match_service, game2, a2)
     await service.advance_tournament(tournament)
 
@@ -424,11 +438,31 @@ async def test_best_of_three_alternates_starting_player(db_session):
 
 
 @pytest.mark.anyio
+async def test_two_nil_sweep_completes_without_a_decider(db_session):
+    """When the parallel games are both won by one agent, no decider is created."""
+    service, match_service, t_repo, m_repo, tournament, _ = await _start_tournament(db_session, 2)
+    matchup = next(m for m in t_repo.list_matchups(tournament.id) if m.status == MatchupStatus.IN_PROGRESS)
+    a1 = matchup.agent1_id
+
+    game1 = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
+    game2 = _queued_match_for_game(db_session, m_repo, tournament.id, 1)
+    await _complete(match_service, game1, a1)
+    await _complete(match_service, game2, a1)
+    await service.advance_tournament(tournament)
+
+    refreshed = t_repo.get_matchup(matchup.id)
+    assert refreshed.status == MatchupStatus.COMPLETED
+    assert refreshed.winner_agent_id == a1
+    # No game 3: the matchup was decided 2-0.
+    assert len([g for g in t_repo.list_games(tournament.id) if g.matchup_id == matchup.id]) == 2
+
+
+@pytest.mark.anyio
 async def test_draw_is_resolved_by_deterministic_coin_flip(db_session):
     service, match_service, t_repo, m_repo, tournament, _ = await _start_tournament(db_session, 2)
     matchup = next(m for m in t_repo.list_matchups(tournament.id) if m.status == MatchupStatus.IN_PROGRESS)
 
-    [match] = _tournament_matches(m_repo, tournament.id, status="queued")
+    match = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
     await _complete(match_service, match, "draw")
     await service.advance_tournament(tournament)
 
@@ -449,7 +483,7 @@ async def test_client_error_forfeits_the_game(db_session):
     matchup = next(m for m in t_repo.list_matchups(tournament.id) if m.status == MatchupStatus.IN_PROGRESS)
 
     # The worker attributes the win to the non-erring agent on client errors.
-    [match] = _tournament_matches(m_repo, tournament.id, status="queued")
+    match = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
     await match_service.update_match(
         str(match.id), status="client_error", result={"winner": str(matchup.agent2_id), "reason": "Invalid move"}
     )
@@ -466,7 +500,7 @@ async def test_unattributable_client_error_needs_attention(db_session):
     service, match_service, t_repo, m_repo, tournament, _ = await _start_tournament(db_session, 2)
     matchup = next(m for m in t_repo.list_matchups(tournament.id) if m.status == MatchupStatus.IN_PROGRESS)
 
-    [match] = _tournament_matches(m_repo, tournament.id, status="queued")
+    match = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
     await match_service.update_match(str(match.id), status="client_error", result={"reason": "both crashed"})
     await service.advance_tournament(tournament)
 
@@ -480,12 +514,14 @@ async def test_infra_failure_retries_then_needs_attention_then_admin_resolves(db
     service, match_service, t_repo, m_repo, tournament, _ = await _start_tournament(db_session, 2)
     matchup = next(m for m in t_repo.list_matchups(tournament.id) if m.status == MatchupStatus.IN_PROGRESS)
 
-    # First infrastructure failure: the game is re-queued with a fresh match.
-    [match] = _tournament_matches(m_repo, tournament.id, status="queued")
+    # First infrastructure failure on game 1: it is re-queued with a fresh match.
+    match = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
     await match_service.update_match(str(match.id), status="failed")
     await service.advance_tournament(tournament)
 
-    game = db_session.exec(select(TournamentGame).where(TournamentGame.matchup_id == matchup.id)).one()
+    game = db_session.exec(
+        select(TournamentGame).where(TournamentGame.matchup_id == matchup.id, TournamentGame.game_index == 0)
+    ).one()
     assert game.retry_count == 1
     assert game.match_id is not None
     assert game.match_id != match.id
@@ -515,7 +551,8 @@ async def test_infra_failure_retries_then_needs_attention_then_admin_resolves(db
 async def test_advancement_is_idempotent(db_session):
     service, match_service, t_repo, m_repo, tournament, _ = await _start_tournament(db_session, 2)
 
-    [match] = _tournament_matches(m_repo, tournament.id, status="queued")
+    # Both parallel games are queued at open; resolve only game 1.
+    match = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
     matchup = _matchup_for_match(db_session, t_repo, match)
     await _complete(match_service, match, matchup.agent1_id)
 
@@ -523,7 +560,9 @@ async def test_advancement_is_idempotent(db_session):
         await service.advance_tournament(tournament)
 
     games = [g for g in t_repo.list_games(tournament.id) if g.matchup_id == matchup.id]
-    assert len(games) == 2  # game 1 resolved once, game 2 created exactly once
+    # G1 and G2 created once each at open; repeated advances add no duplicates and
+    # no decider (G2 is still unresolved, so the matchup is not yet 1-1).
+    assert len(games) == 2
     assert sum(1 for g in games if g.winner_agent_id is not None) == 1
     assert len(_tournament_matches(m_repo, tournament.id)) == 2
 
@@ -608,7 +647,7 @@ async def test_tournament_matches_do_not_touch_agent_stats(db_session):
     _, match_service, t_repo, m_repo, tournament, agents = await _start_tournament(db_session, 2)
     before = {a.id: (a.wins, a.losses, a.draws, a.matches_played, a.elo) for a in agents}
 
-    [match] = _tournament_matches(m_repo, tournament.id, status="queued")
+    match = _queued_match_for_game(db_session, m_repo, tournament.id, 0)
     matchup = _matchup_for_match(db_session, t_repo, match)
     await _complete(match_service, match, matchup.agent1_id)
 

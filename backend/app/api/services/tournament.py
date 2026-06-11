@@ -36,8 +36,10 @@ from app.models.tournament import (
 
 logger = logging.getLogger(__name__)
 
-BEST_OF_THREE_GAMES = 3
 GAMES_TO_WIN_MATCHUP = 2
+# The first two games run in parallel; the decider is created only on a 1-1 split.
+PARALLEL_GAME_INDICES = (0, 1)
+DECIDER_GAME_INDEX = 2
 
 _TERMINAL_MATCHUP_STATUSES = {MatchupStatus.COMPLETED, MatchupStatus.CANCELLED}
 _TERMINAL_MATCH_STATUSES = {MatchStatus.COMPLETED, MatchStatus.FAILED, MatchStatus.CLIENT_ERROR}
@@ -378,6 +380,9 @@ class TournamentService:
         if matchup.status != MatchupStatus.IN_PROGRESS:
             return capacity
 
+        # Catch up the second parallel game if the cap was full when the matchup
+        # opened, then decide the matchup / queue the decider.
+        capacity = await self._ensure_first_two_games(tournament, config, matchup, games, capacity)
         return await self._decide_matchup(tournament, config, matchup, games, capacity)
 
     async def _process_unresolved_game(
@@ -499,9 +504,23 @@ class TournamentService:
                 logger.info("Matchup %s completed; winner %s", matchup.id, agent_id)
                 return capacity
 
-        all_resolved = all(game.winner_agent_id is not None for game in games)
-        needs_next_game = all_resolved and len(games) < BEST_OF_THREE_GAMES
-        if needs_next_game and capacity > 0 and await self._create_game(tournament, config, matchup, len(games)):
+        # No 2-0 yet: a decider is only needed once both parallel games are
+        # resolved and split 1-1 (each side won one).
+        by_index = {game.game_index: game for game in games}
+        first, second = by_index.get(0), by_index.get(1)
+        tied_one_one = (
+            first is not None
+            and second is not None
+            and first.winner_agent_id is not None
+            and second.winner_agent_id is not None
+            and first.winner_agent_id != second.winner_agent_id
+        )
+        if (
+            tied_one_one
+            and DECIDER_GAME_INDEX not in by_index
+            and capacity > 0
+            and await self._create_game(tournament, config, matchup, DECIDER_GAME_INDEX)
+        ):
             capacity -= 1
         return capacity
 
@@ -513,7 +532,7 @@ class TournamentService:
         matchups_by_id: dict[UUID, TournamentMatchup],
         capacity: int,
     ) -> int:
-        """Fill a pending matchup's slots; auto-complete byes; queue game 1."""
+        """Fill a pending matchup's slots; auto-complete byes; queue games 1 and 2."""
         now = datetime.now(UTC)
 
         if matchup.bracket == BracketSide.GRAND_FINAL_RESET:
@@ -553,8 +572,34 @@ class TournamentService:
         matchup.updated_at = now
         self._repository.save_matchup(matchup)
 
-        if capacity > 0 and await self._create_game(tournament, config, matchup, game_index=0):
-            capacity -= 1
+        # Queue both games of the best-of-3 so they can run in parallel; the
+        # decider (game 3) is created later, only if the matchup ends up 1-1.
+        return await self._ensure_first_two_games(tournament, config, matchup, [], capacity)
+
+    async def _ensure_first_two_games(
+        self,
+        tournament: Tournament,
+        config: TournamentConfig,
+        matchup: TournamentMatchup,
+        games: list[TournamentGame],
+        capacity: int,
+    ) -> int:
+        """
+        Create the matchup's first two games (up to the concurrency cap).
+
+        Games 1 and 2 have fixed, result-independent agent orders, so they may
+        run simultaneously. When the cap can only fit one right now, the other is
+        created on a later poll; creation is idempotent since each index is only
+        created once.
+        """
+        existing = {game.game_index for game in games}
+        for game_index in PARALLEL_GAME_INDICES:
+            if capacity <= 0:
+                break
+            if game_index in existing:
+                continue
+            if await self._create_game(tournament, config, matchup, game_index):
+                capacity -= 1
         return capacity
 
     @staticmethod
