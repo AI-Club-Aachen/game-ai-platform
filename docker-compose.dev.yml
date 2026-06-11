@@ -19,5 +19,7 @@ services:
       - /app/node_modules
 
   backend:
+    # The container now listens on BACKEND_PORT (see backend/Dockerfile), so map
+    # host->container on the same port. Change BACKEND_PORT alone to move it.
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"

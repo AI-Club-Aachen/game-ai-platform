@@ -16,8 +16,11 @@ class JobQueue:
     Manages enqueuing jobs to Redis for worker processes.
     """
 
-    def __init__(self, redis_url: str = "redis://redis:6379") -> None:
-        self.redis_url = redis_url
+    def __init__(self, redis_url: str | None = None) -> None:
+        # Default to the configured REDIS_URL (which carries the M-7 password and
+        # the /0 db index) instead of a hardcoded passwordless URL, so a bare
+        # JobQueue() can never silently connect to the wrong/unauthenticated Redis.
+        self.redis_url = redis_url if redis_url is not None else settings.REDIS_URL
         self._redis: aioredis.Redis | None = None
 
     async def connect(self) -> None:

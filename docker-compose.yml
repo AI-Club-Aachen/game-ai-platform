@@ -61,10 +61,14 @@ services:
     restart: unless-stopped
 
   backend:
-    build: backend/.
+    build:
+      context: backend/.
+      args:
+        BACKEND_PORT: ${BACKEND_PORT:-8000}
     expose:
-      - "8000"
+      - "${BACKEND_PORT:-8000}"
     environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
       ENVIRONMENT: ${ENVIRONMENT:?ENVIRONMENT is required}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@gameai-postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}}
       DB_ECHO: ${DB_ECHO:?DB_ECHO is required}
@@ -95,7 +99,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:${BACKEND_PORT:-8000}/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -115,7 +119,7 @@ services:
     working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
-      - BACKEND_URL=${WORKER_BACKEND_URL:?WORKER_BACKEND_URL is required}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
@@ -143,7 +147,7 @@ services:
     working_dir: /orchestration
     command: python match_runner_worker.py
     environment:
-      - BACKEND_URL=${WORKER_BACKEND_URL:?WORKER_BACKEND_URL is required}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}

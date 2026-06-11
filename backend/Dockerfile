@@ -28,7 +28,13 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser
 
-EXPOSE 8000
+# Port the API listens on. Defaults to 8000; override via build arg or the
+# BACKEND_PORT runtime env (docker-compose passes it). The CMD is shell-form so
+# ${BACKEND_PORT} is expanded from the container environment at startup.
+ARG BACKEND_PORT=8000
+ENV BACKEND_PORT=${BACKEND_PORT}
 
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+EXPOSE ${BACKEND_PORT}
+
+CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT}
 
