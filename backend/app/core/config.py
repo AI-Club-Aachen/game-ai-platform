@@ -2,7 +2,9 @@
 
 import os
 from typing import ClassVar
+from urllib.parse import urlsplit
 
+from limits import parse_many
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,6 +22,8 @@ class Settings(BaseSettings):
 
     # Validation constants
     MIN_JWT_SECRET_LENGTH: ClassVar[int] = 32
+    MIN_WORKER_API_KEY_LENGTH: ClassVar[int] = 32
+    DEFAULT_WORKER_API_KEY: ClassVar[str] = "dev-worker-key-12345"
     MIN_EMAIL_TOKEN_HOURS: ClassVar[int] = 1
     MAX_EMAIL_TOKEN_HOURS: ClassVar[int] = 168
     MIN_PASSWORD_RESET_MINUTES: ClassVar[int] = 5
@@ -35,7 +39,46 @@ class Settings(BaseSettings):
         description="Override default DB SQL echoing behavior. Defaults to True in dev environment, False otherwise.",
     )
     REDIS_URL: str = "redis://redis:6379/0"
-    RATE_LIMITING_ENABLED: bool = True
+
+    # Rate limiting: Limit strings use the slowapi/limits format,
+    # multiple limits separated by ";" (e.g. "10/minute;60/hour").
+    RATE_LIMITING_ENABLED: bool = Field(
+        default=True,
+        description="Master rate-limiting switch. Disable only for dev/test; MUST be true in production.",
+    )
+    DISABLE_IP_RATE_LIMITING: bool = Field(
+        default=False,
+        description=(
+            "Shared-IP (hackathon) mode: drop IP-keyed limits for anonymous requests "
+            "while keeping per-user-id limits for authenticated requests."
+        ),
+    )
+    TRUST_PROXY_HEADERS: bool = Field(
+        default=False,
+        description=(
+            "Trust X-Forwarded-For for the client IP. Enable only behind a reverse proxy "
+            "that overwrites/appends the header; the proxy-adjacent (right-most) hop is used."
+        ),
+    )
+    RATE_LIMIT_LOGIN: str = "10/minute;60/hour"
+    RATE_LIMIT_REGISTER: str = "6/minute;40/hour"
+    RATE_LIMIT_EMAIL_TOKEN: str = Field(
+        default="6/minute;20/hour",
+        description="Email verification and password-reset token endpoints.",
+    )
+    RATE_LIMIT_READS: str = Field(
+        default="600/minute;10000/hour",
+        description="Global default applied to all routes without an explicit category.",
+    )
+    RATE_LIMIT_PROFILE: str = "120/minute"
+    RATE_LIMIT_MUTATIONS: str = "120/minute;2000/hour"
+    RATE_LIMIT_UPLOAD: str = "10/minute;60/hour"
+    RATE_LIMIT_MATCH_CREATE: str = "20/minute;200/hour"
+    RATE_LIMIT_STREAM: str = Field(
+        default="60/minute",
+        description="SSE match-stream connection attempts.",
+    )
+    RATE_LIMIT_ADMIN: str = "20000/minute"
 
     # JWT Configuration
     JWT_SECRET_KEY: str
@@ -45,7 +88,7 @@ class Settings(BaseSettings):
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Game Competition Platform"
-    WORKER_API_KEY: str = "dev-worker-key-12345"
+    WORKER_API_KEY: str = DEFAULT_WORKER_API_KEY
     MAX_TURN_TIME_LIMIT_SECONDS: float = Field(
         default=120.0,
         description="Maximum allowed per-turn time limit in seconds for match config.",
@@ -57,6 +100,11 @@ class Settings(BaseSettings):
             "marks it as failed. This recovers matches abandoned by killed/restarted workers."
         ),
     )
+    # Per-game state_init_data validated; board_size bounds O(n^2) allocation.
+    MAX_HEX_BOARD_SIZE: int = Field(
+        default=26,
+        description="Maximum allowed Hex board_size in match state_init_data (DoS guard).",
+    )
 
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
@@ -64,6 +112,34 @@ class Settings(BaseSettings):
     MAX_AGENTS_PER_GAME: int = Field(
         default=0,
         description="Maximum number of agents a user can create per game. 0 disables the limit.",
+    )
+
+    # Upload limits (H-4)
+    MAX_UPLOAD_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum accepted submission upload size in bytes. 0 disables the limit.",
+    )
+    MAX_SUBMISSIONS_PER_USER: int = Field(
+        default=0,
+        description="Maximum number of submissions a user may store. 0 disables the quota.",
+    )
+
+    # Logs truncated server-side; oversized result/game-state rejected.
+    MAX_LOG_APPEND_BYTES: int = Field(
+        default=64 * 1024,
+        description="Maximum size of a single worker log append (characters). 0 disables the cap.",
+    )
+    MAX_TOTAL_LOG_BYTES: int = Field(
+        default=1024 * 1024,
+        description="Maximum total stored log size; the oldest content is truncated. 0 disables the cap.",
+    )
+    MAX_RESULT_BYTES: int = Field(
+        default=256 * 1024,
+        description="Maximum serialized size of a match result payload in bytes. 0 disables the cap.",
+    )
+    MAX_GAME_STATE_BYTES: int = Field(
+        default=1024 * 1024,
+        description="Maximum serialized size of a match game-state payload in bytes. 0 disables the cap.",
     )
 
     # CORS/Security
@@ -125,6 +201,11 @@ class Settings(BaseSettings):
         return self.is_development or self.is_staging
 
     @property
+    def rate_limiting_active(self) -> bool:
+        """Effective rate-limiting switch."""
+        return self.RATE_LIMITING_ENABLED
+
+    @property
     def smtp_required(self) -> bool:
         # Only require SMTP in staging and production
         return self.is_staging or self.is_production
@@ -150,6 +231,14 @@ class Settings(BaseSettings):
         return [item.strip() for item in value.split(",") if item.strip()]
 
     @staticmethod
+    def _redis_has_auth(redis_url: str) -> bool:
+        """True if REDIS_URL carries a password or uses TLS (M-7)."""
+        parsed = urlsplit(redis_url)
+        if parsed.scheme == "rediss":
+            return True
+        return bool(parsed.password)
+
+    @staticmethod
     def _reject_json_style_list(value: str, field_name: str) -> None:
         stripped = value.strip()
         if stripped.startswith("[") or stripped.endswith("]") or '"' in stripped or "'" in stripped:
@@ -160,7 +249,10 @@ class Settings(BaseSettings):
 
     @property
     def allow_origins_list(self) -> list[str]:
-        return self._parse_csv(self.ALLOW_ORIGINS) or ["http://localhost:3000"]
+        # Strip trailing slashes: the browser Origin never has one, and CORS
+        # matches by exact string, so "https://x.com/" would otherwise never match.
+        origins = [origin.rstrip("/") for origin in self._parse_csv(self.ALLOW_ORIGINS)]
+        return origins or ["http://localhost:3000"]
 
     @property
     def trusted_hosts_list(self) -> list[str]:
@@ -197,6 +289,12 @@ class Settings(BaseSettings):
     @classmethod
     def validate_origins_production(cls, v: str, info: ValidationInfo) -> str:
         cls._reject_json_style_list(v, "ALLOW_ORIGINS")
+        # Reject "*" origin when credentials enabled.
+        if "*" in cls._parse_csv(v):
+            raise ValueError(
+                "ALLOW_ORIGINS must not contain '*' because credentials are enabled. "
+                "List explicit origins, e.g. ALLOW_ORIGINS=https://example.com"
+            )
         # ValidationInfo.data is the already-validated field values. [web:33][web:34]
         if info.data.get("ENVIRONMENT", "").lower() == "production":
             invalid_origins = [o for o in cls._parse_csv(v) if not o.startswith("https://")]
@@ -208,6 +306,29 @@ class Settings(BaseSettings):
     @classmethod
     def validate_trusted_hosts_format(cls, v: str) -> str:
         cls._reject_json_style_list(v, "TRUSTED_HOSTS")
+        return v
+
+    @field_validator(
+        "RATE_LIMIT_LOGIN",
+        "RATE_LIMIT_REGISTER",
+        "RATE_LIMIT_EMAIL_TOKEN",
+        "RATE_LIMIT_READS",
+        "RATE_LIMIT_PROFILE",
+        "RATE_LIMIT_MUTATIONS",
+        "RATE_LIMIT_UPLOAD",
+        "RATE_LIMIT_MATCH_CREATE",
+        "RATE_LIMIT_STREAM",
+        "RATE_LIMIT_ADMIN",
+    )
+    @classmethod
+    def validate_rate_limit_format(cls, v: str, info: ValidationInfo) -> str:
+        try:
+            parse_many(v)
+        except ValueError as e:
+            raise ValueError(
+                f"{info.field_name} is not a valid rate limit string. "
+                f'Use the limits format, e.g. "10/minute;60/hour". Got: {v!r}'
+            ) from e
         return v
 
     @field_validator("SMTP_PORT")
@@ -234,6 +355,13 @@ class Settings(BaseSettings):
             raise ValueError("MATCH_STALE_TIMEOUT_SECONDS must be greater than 0")
         return v
 
+    @field_validator("MAX_HEX_BOARD_SIZE")
+    @classmethod
+    def validate_max_hex_board_size(cls, v: int) -> int:
+        if v < 2:  # noqa: PLR2004
+            raise ValueError("MAX_HEX_BOARD_SIZE must be at least 2")
+        return v
+
     @model_validator(mode="after")
     def validate_smtp_required_in_production(self) -> "Settings":
         """
@@ -254,6 +382,43 @@ class Settings(BaseSettings):
                 missing.append("SMTP_FROM_ADDRESS")
             if missing:
                 raise ValueError(f"Missing SMTP configuration in {self.ENVIRONMENT}: {', '.join(missing)}")
+        return self
+
+    @model_validator(mode="after")
+    def validate_rate_limiting_enabled_in_production(self) -> "Settings":
+        """Rate limiting must never be disabled in production."""
+        if self.is_production and not self.RATE_LIMITING_ENABLED:
+            raise ValueError("RATE_LIMITING_ENABLED must not be false in production")
+        return self
+
+    @model_validator(mode="after")
+    def validate_production_hardening(self) -> "Settings":
+        """Validate production startup requirements."""
+        if not self.is_production:
+            return self
+
+        errors: list[str] = []
+
+        if self.WORKER_API_KEY == self.DEFAULT_WORKER_API_KEY:
+            errors.append("WORKER_API_KEY must not use the default development value in production")
+        elif len(self.WORKER_API_KEY) < self.MIN_WORKER_API_KEY_LENGTH:
+            errors.append(
+                f"WORKER_API_KEY must be at least {self.MIN_WORKER_API_KEY_LENGTH} characters in production"
+            )
+
+        if not self.trusted_hosts_list:
+            errors.append("TRUSTED_HOSTS must be set in production")
+
+        if self.BYPASS_EMAIL_VERIFICATION:
+            errors.append("BYPASS_EMAIL_VERIFICATION must be false in production")
+
+        if not self._redis_has_auth(self.REDIS_URL):
+            errors.append(
+                "REDIS_URL must use a password (redis://:<pw>@host:6379/0) or TLS (rediss://) in production (M-7)"
+            )
+
+        if errors:
+            raise ValueError("Invalid production configuration: " + "; ".join(errors))
         return self
 
 

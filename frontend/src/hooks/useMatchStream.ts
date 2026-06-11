@@ -20,9 +20,15 @@ export interface MatchStreamState {
   error: string | null;
 }
 
+const TERMINAL_STATUSES = ['completed', 'failed', 'client_error'];
+
 /**
  * Custom hook that connects to the match SSE stream and provides
  * real-time game state updates.
+ *
+ * Uses fetch-based streaming instead of EventSource because the stream
+ * endpoint requires a Bearer token (spectating is login-only) and
+ * EventSource cannot send an Authorization header.
  *
  * @param matchId - The UUID of the match to spectate
  * @returns Live match state, connection status, and any errors
@@ -37,75 +43,124 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStatusRef = useRef<string | null>(null);
 
   const connect = useCallback(() => {
     if (!matchId) return;
 
     // Clean up previous connection
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
-    const url = `${API_BASE_URL}/matches/${matchId}/stream`;
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setGameState(data.game_state ?? null);
-        setMatchStatus(data.status ?? null);
-        setGameType(data.game_type ?? null);
-        setAgentIds(data.agent_ids ?? []);
-        setResult(data.result ?? null);
-        if (data.logs !== undefined) {
-          setLogs(data.logs ?? '');
-        }
-
-        // If match is in a terminal state, close the connection
-        const terminalStatuses = ['completed', 'failed', 'client_error'];
-        if (data.status && terminalStatuses.includes(data.status)) {
-          eventSource.close();
-          setIsConnected(false);
-        }
-      } catch {
-        // Ignore parse errors (e.g. keepalive comments)
+    const handleEvent = (data: any) => {
+      setGameState(data.game_state ?? null);
+      setMatchStatus(data.status ?? null);
+      setGameType(data.game_type ?? null);
+      setAgentIds(data.agent_ids ?? []);
+      setResult(data.result ?? null);
+      if (data.logs !== undefined) {
+        setLogs(data.logs ?? '');
+      }
+      if (data.status) {
+        lastStatusRef.current = data.status;
       }
     };
 
-    eventSource.onerror = () => {
+    const scheduleReconnect = () => {
       setIsConnected(false);
-      eventSource.close();
-
-      // Don't reconnect if we already have a terminal status
-      const terminalStatuses = ['completed', 'failed', 'client_error'];
-      setMatchStatus((prev) => {
-        if (prev && terminalStatuses.includes(prev)) {
-          return prev; // Don't reconnect
-        }
-        // Schedule reconnect
-        setError('Connection lost. Reconnecting...');
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
-        return prev;
-      });
+      if (lastStatusRef.current && TERMINAL_STATUSES.includes(lastStatusRef.current)) {
+        return; // Match is over; nothing to reconnect to
+      }
+      setError('Connection lost. Reconnecting...');
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connect();
+      }, 3000);
     };
+
+    const run = async () => {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE_URL}/matches/${matchId}/stream`, {
+        headers: {
+          Accept: 'text/event-stream',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal: abortController.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Stream request failed with status ${response.status}`);
+      }
+
+      setIsConnected(true);
+      setError(null);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by a blank line
+        let separatorIndex;
+        while ((separatorIndex = buffer.indexOf('\n\n')) !== -1) {
+          const rawEvent = buffer.slice(0, separatorIndex);
+          buffer = buffer.slice(separatorIndex + 2);
+
+          // Collect the data lines; ignore comment lines (": keepalive")
+          const dataPayload = rawEvent
+            .split('\n')
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart())
+            .join('\n');
+          if (!dataPayload) continue;
+
+          try {
+            const data = JSON.parse(dataPayload);
+            handleEvent(data);
+            if (data.status && TERMINAL_STATUSES.includes(data.status)) {
+              abortController.abort();
+              setIsConnected(false);
+              return;
+            }
+          } catch {
+            // Ignore malformed payloads
+          }
+        }
+      }
+
+      // Server closed the stream (match ended server-side or connection dropped)
+      setIsConnected(false);
+      if (!(lastStatusRef.current && TERMINAL_STATUSES.includes(lastStatusRef.current))) {
+        scheduleReconnect();
+      }
+    };
+
+    run().catch((err: unknown) => {
+      if (abortController.signal.aborted) {
+        // Intentional close (cleanup or terminal state) — not an error
+        setIsConnected(false);
+        return;
+      }
+      console.error('Match stream error:', err);
+      scheduleReconnect();
+    });
   }, [matchId]);
 
   useEffect(() => {
     connect();
 
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);

@@ -61,6 +61,15 @@ export const promoteUserToAdmin = (email: string) => {
     );
 };
 
+export const promoteUserToUser = (email: string) => {
+    const safeEmail = escapeSqlLiteral(email);
+
+    executeDbCommand(
+        `UPDATE users SET role = 'USER' WHERE email = '${safeEmail}';`,
+        `Promoting user ${email} to user`
+    );
+};
+
 export const verifyUserEmail = (email: string) => {
     const safeEmail = escapeSqlLiteral(email);
 

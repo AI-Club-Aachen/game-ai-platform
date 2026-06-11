@@ -1,7 +1,8 @@
 services:
   redis:
+    # Bind to loopback only.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
   db:
     ports:
@@ -17,5 +18,7 @@ services:
       - /app/node_modules
 
   backend:
+    # The container now listens on BACKEND_PORT (see backend/Dockerfile), so map
+    # host->container on the same port. Change BACKEND_PORT alone to move it.
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"

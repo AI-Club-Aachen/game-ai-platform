@@ -72,6 +72,33 @@ async def _create_verified_user_and_token(
     return user_id, bearer_token
 
 
+def _set_user_role(db_session, user_id: str, role: UserRole) -> None:
+    """Directly set a user's role in the DB for test bootstrap."""
+    user_uuid = uuid.UUID(user_id)
+    user = db_session.exec(select(User).where(User.id == user_uuid)).first()
+    assert user is not None
+    user.role = role
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    assert user.role == role
+
+
+async def _create_member_and_token(
+    api_client, fake_email_client, db_session, username: str, email: str, password: str
+) -> tuple[str, str]:
+    """
+    Create a verified user, promote to the USER role in the DB,
+    and return (user_id, bearer_token). New registrations default to GUEST,
+    which is read-only; mutating tests need a promoted USER.
+    """
+    user_id, bearer_token = await _create_verified_user_and_token(
+        api_client, fake_email_client, username, email, password
+    )
+    _set_user_role(db_session, user_id, UserRole.USER)
+    return user_id, bearer_token
+
+
 async def _create_admin_and_token(
     api_client, fake_email_client, db_session, username: str, email: str, password: str
 ) -> tuple[str, str]:
@@ -81,18 +108,8 @@ async def _create_admin_and_token(
     user_id, bearer_token = await _create_verified_user_and_token(
         api_client, fake_email_client, username, email, password
     )
-
-    # Promote to admin via direct DB update for test bootstrap.
-    user_uuid = uuid.UUID(user_id)
-    user = db_session.exec(select(User).where(User.id == user_uuid)).first()
-    assert user is not None
-    user.role = UserRole.ADMIN
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    assert user.role == UserRole.ADMIN
-    return str(user.id), bearer_token
+    _set_user_role(db_session, user_id, UserRole.ADMIN)
+    return user_id, bearer_token
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +275,35 @@ async def test_change_password_unauthenticated_fails(api_client):
         json={"current_password": "irrelevant", "new_password": strong_password()},
     )
     assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_register_rejects_javascript_profile_picture_url(api_client):
+    """Javascript profile picture URLs are rejected; https accepted."""
+    response = await api_client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "username": random_username(),
+            "email": random_email(),
+            "password": strong_password(),
+            "profile_picture_url": "javascript:alert(1)",
+        },
+    )
+    assert response.status_code == 422
+    messages = [error["msg"] for error in response.json()["detail"]]
+    assert any("http://" in m or "https://" in m for m in messages)
+
+    # A normal https URL is still accepted.
+    ok = await api_client.post(
+        f"{API_PREFIX}/auth/register",
+        json={
+            "username": random_username(),
+            "email": random_email(),
+            "password": strong_password(),
+            "profile_picture_url": "https://example.com/avatar.png",
+        },
+    )
+    assert ok.status_code == 201
 
 
 # ---------------------------------------------------------------------------

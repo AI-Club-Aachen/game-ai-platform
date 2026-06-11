@@ -47,21 +47,29 @@ fetch_metadata() {
 
 echo "Fetching configuration from metadata server..."
 REPO_URL=$(fetch_metadata "repo_url")
+# Deploy pinned, immutable ref (tag or SHA).
+DEPLOY_REF=$(fetch_metadata "deploy_ref")
+
+# The VM's internal IP is used to publish Redis to the worker VMs only (never 0.0.0.0).
+INTERNAL_IP=$(curl -s -f -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip")
 
 # 3. Clone repository
 INSTALL_DIR="/opt/gameai"
 echo "Cloning repository ${REPO_URL} into ${INSTALL_DIR}..."
 mkdir -p "${INSTALL_DIR}"
 if [ -d "${INSTALL_DIR}/.git" ]; then
-  echo "Directory ${INSTALL_DIR} already contains a git repository. Pulling latest..."
+  echo "Directory ${INSTALL_DIR} already contains a git repository. Fetching..."
   cd "${INSTALL_DIR}"
-  git fetch --all
-  git reset --hard origin/feat/deploy-workers || git reset --hard HEAD
+  git fetch --all --tags --prune
 else
   rm -rf "${INSTALL_DIR}"
   git clone "${REPO_URL}" "${INSTALL_DIR}"
   cd "${INSTALL_DIR}"
 fi
+# Check out pinned ref (tag/SHA).
+echo "Checking out pinned deploy ref '${DEPLOY_REF}'..."
+git checkout --force "${DEPLOY_REF}"
 
 # 4. Generate SSL Certificates
 echo "Setting up SSL certificates..."
@@ -91,6 +99,7 @@ if [ -n "${DOMAIN_NAME}" ]; then
   # Attempt certbot standalone validation (requires port 80 to be free - Nginx is not running yet)
   if certbot certonly --standalone \
     -d "${DOMAIN_NAME}" \
+    -d "api.${DOMAIN_NAME}" \
     --non-interactive \
     --agree-tos \
     --email "${CERTBOT_EMAIL}" \
@@ -228,15 +237,16 @@ WORKER_BACKEND_URL=http://backend:8000/api/v1
 WORKER_LOG_LEVEL=$(fetch_metadata "log_level" | tr '[:lower:]' '[:upper:]')
 BUILD_LOCAL_BASE_IMAGE=false
 USE_LOCAL_GAMELIB=false
-REDIS_URL=redis://redis:6379/0
+REDIS_PASSWORD=$(fetch_metadata "redis_password")
+REDIS_URL=redis://:$(fetch_metadata "redis_password")@redis:6379/0
 MAX_TURN_TIME_LIMIT_SECONDS=$(fetch_metadata "max_turn_time_limit_seconds")
 EOF
 
 echo ".env file generated successfully."
 
 # 7. Generate docker-compose.override.yml to publish ports
-# This ensures that frontend and backend are proxied via Nginx on ports 80 and 443,
-# while the workers continue to have private access to backend (8000) and redis (6379) directly.
+# Frontend/backend proxied via Nginx (80/443); workers have private backend/Redis access.
+# Redis/backend on internal IP only; Nginx on public ports.
 echo "Generating docker-compose.override.yml..."
 cat <<EOF > "${INSTALL_DIR}/docker-compose.override.yml"
 version: '3.8'
@@ -259,11 +269,11 @@ services:
 
   backend:
     ports:
-      - "8000:8000"
+      - "${INTERNAL_IP}:8000:8000"
 
   redis:
     ports:
-      - "6379:6379"
+      - "${INTERNAL_IP}:6379:6379"
 EOF
 
 # 8. Run docker compose up

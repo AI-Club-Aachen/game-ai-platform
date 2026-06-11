@@ -1,8 +1,15 @@
 services:
   redis:
     image: redis:7-alpine
+    # Require password; Redis on internal bridge only.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
     expose:
       - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       app-network:
         aliases:
@@ -53,10 +60,14 @@ services:
     restart: unless-stopped
 
   backend:
-    build: backend/.
+    build:
+      context: backend/.
+      args:
+        BACKEND_PORT: ${BACKEND_PORT:-8000}
     expose:
-      - "8000"
+      - "${BACKEND_PORT:-8000}"
     environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
       ENVIRONMENT: ${ENVIRONMENT:?ENVIRONMENT is required}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@gameai-postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}}
       DB_ECHO: ${DB_ECHO:?DB_ECHO is required}
@@ -79,7 +90,7 @@ services:
       ALLOW_ORIGINS: ${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
-      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
       WORKER_API_KEY: ${WORKER_API_KEY:?WORKER_API_KEY is required}
       MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
@@ -87,7 +98,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:${BACKEND_PORT:-8000}/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -107,8 +118,8 @@ services:
     working_dir: /orchestration
     command: python agent_builder_worker.py
     environment:
-      - BACKEND_URL=${WORKER_BACKEND_URL:?WORKER_BACKEND_URL is required}
-      - REDIS_URL=${REDIS_URL:?REDIS_URL is required}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
       - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:?BUILD_LOCAL_BASE_IMAGE is required}
@@ -135,8 +146,8 @@ services:
     working_dir: /orchestration
     command: python match_runner_worker.py
     environment:
-      - BACKEND_URL=${WORKER_BACKEND_URL:?WORKER_BACKEND_URL is required}
-      - REDIS_URL=${REDIS_URL:?REDIS_URL is required}
+      - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
       - MAX_TURN_TIME_LIMIT_SECONDS=${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}

@@ -1,4 +1,6 @@
-FROM ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest
+# Pin base image to digest in production (@sha256:...), not :latest.
+ARG BASE_IMAGE=ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest
+FROM ${BASE_IMAGE}
 
 WORKDIR /home/runner/app
 COPY . .

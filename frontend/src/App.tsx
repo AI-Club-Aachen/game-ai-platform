@@ -57,9 +57,10 @@ function App() {
               <Route path="tournaments" element={<Tournaments />} />
               <Route path="tournaments/:id" element={<TournamentDetails />} />
               <Route path="profile" element={<Profile />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="containers" element={<ContainerManagement />} />
-              <Route path="matches-admin" element={<MatchManagement />} />
+              {/* Admin-only pages (UX guard; backend RBAC is the source of truth) */}
+              <Route path="users" element={<ProtectedRoute requiredRole="admin"><UserManagement /></ProtectedRoute>} />
+              <Route path="containers" element={<ProtectedRoute requiredRole="admin"><ContainerManagement /></ProtectedRoute>} />
+              <Route path="matches-admin" element={<ProtectedRoute requiredRole="admin"><MatchManagement /></ProtectedRoute>} />
               <Route path="agents/new" element={<NewAgent />} />
               <Route path="submissions/new" element={<NewSubmission />} />
               <Route path="submissions/:id" element={<SubmissionDetails />} />

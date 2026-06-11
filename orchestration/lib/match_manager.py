@@ -1,6 +1,8 @@
 import importlib
 import json
 import logging
+import os
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -17,6 +19,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
+
+# Resource-exhaustion caps; configurable via env.
+MAX_HISTORY_STATES: int = int(os.getenv("MATCH_MAX_HISTORY_STATES", "5000"))
+MATCH_WALL_CLOCK_SECONDS: float = float(os.getenv("MATCH_WALL_CLOCK_SECONDS", "600"))
 
 
 @dataclass(frozen=True)
@@ -316,6 +322,8 @@ async def run_match(
         winner_id = -1
         reason = ""
         turn_count = 0
+        match_deadline = time.monotonic() + MATCH_WALL_CLOCK_SECONDS
+        history_truncated = False
 
         # Initialize history with initial state and push it to the backend
         state_dict = json.loads(state.to_json())
@@ -330,6 +338,14 @@ async def run_match(
         # Send states and get moves from agents
         try:
             while not engine.is_game_over(state):
+                # Stop match at wall-clock limit; winner_id stays -1 so the engine
+                # status below decides the outcome.
+                if time.monotonic() > match_deadline:
+                    reason = "Match wall-clock limit exceeded"
+                    logger.warning(f"[{match_id}] {reason} after {turn_count} turn(s)")
+                    await _log(api, match_id, "running", f"[ABORT] {reason}")
+                    break
+
                 current_player = state.turn
                 if current_player < 0 or current_player >= len(agents):
                     return {
@@ -438,7 +454,15 @@ async def run_match(
                 try:
                     state_json_str = state.to_json()
                     state_dict = json.loads(state_json_str)
-                    history.append(state_dict)
+                    # Cap stored history.
+                    if len(history) < MAX_HISTORY_STATES:
+                        history.append(state_dict)
+                    elif not history_truncated:
+                        history_truncated = True
+                        logger.warning(
+                            f"[{match_id}] history reached cap of {MAX_HISTORY_STATES} states; "
+                            "no longer storing per-turn snapshots"
+                        )
                     move_log = f"[TURN {turn_count}] Player {current_player} move: {move_repr} (cpu={cpu_time:.3f}s)"
                     await api.update_match(match_id, status="running", game_state=state_dict, logs=move_log)
                     await _report_all_container_snapshots(

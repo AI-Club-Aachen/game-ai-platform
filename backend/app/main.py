@@ -14,15 +14,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from redis import asyncio as aioredis
-from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 from starlette.responses import Response
 
 from app.api.routes import agent_containers, agents, auth, email, jobs, matches, submissions, users
 from app.api.services.match_scheduler import MatchSchedulerService
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.core.tasks import BackgroundTaskRunner
 from scripts.seed_db import seed
 
@@ -35,19 +34,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Rate limiter with Redis backend
-limiter = Limiter(
-    key_func=get_remote_address,
-    storage_uri=settings.REDIS_URL,
-    default_limits=["500/hour", "30/minute"],
-)
-
-if not settings.RATE_LIMITING_ENABLED:
-    limiter.enabled = False
-    auth.limiter.enabled = False
-    email.limiter.enabled = False
-    users.limiter.enabled = False
-
 
 def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONResponse:
     """Mirror CORS headers on error responses so browsers can read backend failures."""
@@ -57,7 +43,9 @@ def _apply_cors_headers(request: Request, response: JSONResponse) -> JSONRespons
 
     allow_origins = settings.allow_origins_list
     if "*" in allow_origins:
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        # Reflect origin without advertising credentials.
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
     elif origin in allow_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
@@ -81,8 +69,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events for startup and shutdown"""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} in {settings.ENVIRONMENT} mode")
-    if not settings.RATE_LIMITING_ENABLED:
+    if not settings.rate_limiting_active:
         logger.info("Rate limiting disabled for this environment")
+    if settings.DISABLE_IP_RATE_LIMITING:
+        logger.warning("IP rate limiting disabled (shared-IP mode); user-id limits remain active")
 
     if os.getenv("SEED_DB") == "true":
         logger.info("SEED_DB is set to true. Running database seed script...")

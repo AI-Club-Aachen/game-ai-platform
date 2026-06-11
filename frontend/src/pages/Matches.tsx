@@ -28,7 +28,7 @@ export function Matches() {
     
     Promise.all([
       matchesApi.getMatches({ game_type: apiGameType }),
-      agentsApi.getAgents(0, 1000, true)
+      agentsApi.getAllAgents(true)
     ])
       .then(([matchesData, agentsData]: any) => {
         if (!mounted) return;

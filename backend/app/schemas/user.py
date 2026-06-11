@@ -6,6 +6,20 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.user import UserRole
 
 
+# URL constrained like username: http(s) only, safe length.
+MAX_PROFILE_PICTURE_URL_LENGTH = 2048
+
+
+def _validate_profile_picture_url(v: str | None) -> str | None:
+    if v is None:
+        return v
+    if len(v) > MAX_PROFILE_PICTURE_URL_LENGTH:
+        raise ValueError(f"profile_picture_url must not exceed {MAX_PROFILE_PICTURE_URL_LENGTH} characters")
+    if not v.startswith(("https://", "http://")):
+        raise ValueError("profile_picture_url must be an http:// or https:// URL")
+    return v
+
+
 class UserCreate(BaseModel):
     """Schema for user registration"""
 
@@ -22,6 +36,11 @@ class UserCreate(BaseModel):
             raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         return v
 
+    @field_validator("profile_picture_url")
+    @classmethod
+    def validate_profile_picture_url(cls, v: str | None) -> str | None:
+        return _validate_profile_picture_url(v)
+
 
 class UserUpdate(BaseModel):
     """Schema for updating user profile"""
@@ -36,6 +55,11 @@ class UserUpdate(BaseModel):
         if v is not None and not all(c.isalnum() or c in "_-" for c in v):
             raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         return v
+
+    @field_validator("profile_picture_url")
+    @classmethod
+    def validate_profile_picture_url(cls, v: str | None) -> str | None:
+        return _validate_profile_picture_url(v)
 
 
 class PasswordChangeRequest(BaseModel):

@@ -5,12 +5,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.api.deps import (
     CurrentAdmin,
     CurrentUser,
+    VerifiedGuestOrHigher,
     get_user_service,
 )
 from app.api.services.user import (
@@ -21,6 +20,8 @@ from app.api.services.user import (
     UserServiceError,
     UserValidationError,
 )
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.models.user import UserRole
 from app.schemas.user import (
     AdminUserListItem,
@@ -35,14 +36,13 @@ from app.schemas.user import (
 
 
 logger = logging.getLogger(__name__)
-limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
 
 # GET /api/v1/users/roles
 @router.get("/roles", response_model=UserRoleList, status_code=status.HTTP_200_OK)
-@limiter.limit("60/minute")
+@limiter.limit(lambda: settings.RATE_LIMIT_PROFILE)
 async def list_roles(
     request: Request,  # noqa: ARG001
     user: CurrentUser,  # noqa: ARG001
@@ -53,7 +53,7 @@ async def list_roles(
 
 # GET /api/v1/users/me
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("60/minute")
+@limiter.limit(lambda: settings.RATE_LIMIT_PROFILE)
 async def get_current_user_profile(
     request: Request,  # noqa: ARG001
     user: CurrentUser,
@@ -64,14 +64,19 @@ async def get_current_user_profile(
 
 # PATCH /api/v1/users/me
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("15/day")
+@limiter.limit(lambda: settings.RATE_LIMIT_PROFILE)
 async def update_current_user_profile(
     request: Request,  # noqa: ARG001
     user_update: UserUpdate,
-    user: CurrentUser,
+    user: VerifiedGuestOrHigher,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> UserResponse:
-    """Update current user's profile (username or email)."""
+    """
+    Update current user's profile (username or email).
+
+    Account-lifecycle exception: verified guests may manage their OWN profile
+    even though they are read-only for app data.
+    """
     try:
         updated_user = user_service.update_current_user_profile(
             current_user=user,
@@ -98,17 +103,17 @@ async def update_current_user_profile(
 
 # POST /api/v1/users/change-password
 @router.post("/change-password", response_model=ChangePasswordResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("15/day")
+@limiter.limit(lambda: settings.RATE_LIMIT_PROFILE)
 async def change_password(
     request: Request,  # noqa: ARG001
     password_request: PasswordChangeRequest,
-    user: CurrentUser,
+    user: VerifiedGuestOrHigher,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> ChangePasswordResponse:
-    """
-    Change current user's password.
+    """Change current user's password.
 
-    Rate limited: 15 changes per day per IP.
+    Guests may rotate their password despite being read-only for app data.
+    Rate limited per RATE_LIMIT_PROFILE.
     """
     try:
         user_service.change_password(current_user=user, password_request=password_request)
@@ -128,10 +133,9 @@ async def change_password(
         return ChangePasswordResponse(message="Password changed successfully")
 
 
-# Admin endpoints with higher rate limits (1000/hour)
 # GET /api/v1/users/
 @router.get("", response_model=UserListResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("1000/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 async def list_users(
     request: Request,  # noqa: ARG001
     admin: CurrentAdmin,
@@ -180,7 +184,7 @@ async def list_users(
 
 # GET /api/v1/users/{user_id}
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("1000/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 async def get_user_by_id(
     request: Request,  # noqa: ARG001
     user_id: UUID,
@@ -209,7 +213,7 @@ async def get_user_by_id(
 
 # PATCH /api/v1/users/{user_id}/role
 @router.patch("/{user_id}/role", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("1000/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 async def update_user_role(
     request: Request,  # noqa: ARG001
     user_id: UUID,
@@ -245,7 +249,7 @@ async def update_user_role(
 
 # DELETE /api/v1/users/{user_id}
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-@limiter.limit("1000/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 async def delete_user(
     request: Request,  # noqa: ARG001
     user_id: UUID,
@@ -274,7 +278,7 @@ async def delete_user(
 
 
 @router.patch("/{user_id}/verify-email", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("1000/hour")
+@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
 async def verify_user_email(
     request: Request,  # noqa: ARG001
     user_id: UUID,

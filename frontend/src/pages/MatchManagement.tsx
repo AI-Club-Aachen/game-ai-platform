@@ -174,7 +174,7 @@ export function MatchManagement() {
 
   useEffect(() => {
     setLoadingAgents(true);
-    agentsApi.getAgents(0, 1000, true)
+    agentsApi.getAllAgents(true)
       .then(res => {
         const agentsData = Array.isArray(res) ? res : (res as any).data || [];
         setAgents(agentsData);

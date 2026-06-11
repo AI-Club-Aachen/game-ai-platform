@@ -136,10 +136,13 @@ export function Profile() {
         current_password: currentPassword,
         new_password: newPassword,
       });
-      showFeedback('Password changed successfully', 'success');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      // Password change revokes all tokens, so redirect to login.
+      showFeedback('Password changed. Please log in again.', 'success');
+      logout();
+      navigate('/login');
     } catch (error: any) {
       showFeedback(error.message || 'Failed to change password', 'error');
     }

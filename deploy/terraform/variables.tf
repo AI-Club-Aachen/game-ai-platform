@@ -14,9 +14,20 @@ variable "zone" {
 }
 
 variable "worker_image" {
-  description = "The Docker image tag for the worker container."
+  description = "Worker container image, pinned to @sha256:... or :vX.Y.Z (not :latest)."
   type        = string
-  default     = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:latest"
+  default     = "ghcr.io/ai-club-aachen/game-ai-platform/agent-worker:v0.1.0"
+
+  validation {
+    condition     = !can(regex(":latest$", var.worker_image))
+    error_message = "worker_image must be pinned to @sha256:... or :vX.Y.Z, not :latest."
+  }
+}
+
+variable "deploy_ref" {
+  description = "Git ref backend VM checks out on boot (release tag or commit SHA)."
+  type        = string
+  default     = "main"
 }
 
 variable "worker_command" {
@@ -27,6 +38,12 @@ variable "worker_command" {
 
 variable "worker_api_key" {
   description = "The secret API key for workers and backend validation."
+  type        = string
+  sensitive   = true
+}
+
+variable "redis_password" {
+  description = "Redis password (requirepass). Used in redis://<password>@host:6379/0."
   type        = string
   sensitive   = true
 }

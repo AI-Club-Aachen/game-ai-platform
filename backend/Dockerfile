@@ -28,7 +28,11 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser
 
-EXPOSE 8000
+# API port (defaults to 8000, overridable via BACKEND_PORT env).
+ARG BACKEND_PORT=8000
+ENV BACKEND_PORT=${BACKEND_PORT}
 
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+EXPOSE ${BACKEND_PORT}
+
+CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT}
 

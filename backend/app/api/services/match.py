@@ -10,7 +10,9 @@ from app.api.repositories.match import MatchRepository
 from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.core.match_events import match_event_publisher
+from app.core.payload_limits import PayloadTooLargeError, cap_log_append, ensure_json_within
 from app.core.queue import job_queue
+from app.core.state_init import StateInitValidationError, validate_state_init_data
 from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
@@ -22,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 class MatchServiceError(Exception):
     """Base exception for match service errors."""
+
+
+class MatchPermissionError(MatchServiceError):
+    """Raised when the caller is not allowed to use the requested agents."""
+
+
+class MatchPayloadTooLargeError(MatchServiceError):
+    """Raised when a worker-supplied result/game-state payload exceeds its cap (M-3)."""
 
 
 class MatchService:
@@ -42,14 +52,25 @@ class MatchService:
         game_type: GameType,
         config: MatchConfig,
         agent_ids: list[UUID],
+        owner_user_id: UUID | None = None,
     ) -> Match:
         """
         Create a match and queue it for execution.
+
+        If owner_user_id is given (non-admin API callers), at least one of the
+        participating agents must belong to that user. Admin callers and the
+        internal match scheduler pass None and may match any agents.
         """
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
 
-        self._validate_agents_for_match(game_type, agent_ids)
+        # Validate state_init_data per game (treat as untrusted).
+        try:
+            validate_state_init_data(game_type, config.state_init_data)
+        except StateInitValidationError as e:
+            raise MatchServiceError(str(e)) from e
+
+        self._validate_agents_for_match(game_type, agent_ids, owner_user_id=owner_user_id)
 
         config_dict = config.model_dump()
         match = Match(
@@ -69,6 +90,14 @@ class MatchService:
     def get_match(self, match_id: str) -> Match | None:
         return self._repository.get_by_id(match_id)
 
+    @staticmethod
+    def _reject_oversized(payload: dict[str, Any], *, max_bytes: int, field_name: str) -> None:
+        """Reject a worker-supplied JSON payload that exceeds its configured cap (M-3)."""
+        try:
+            ensure_json_within(payload, max_bytes=max_bytes, field_name=field_name)
+        except PayloadTooLargeError as e:
+            raise MatchPayloadTooLargeError(str(e)) from e
+
     async def update_match(
         self,
         match_id: str,
@@ -87,12 +116,20 @@ class MatchService:
         match.status = MatchStatus(status)
 
         if logs is not None:
-            match.logs += logs + "\n"
+            # Truncate stored logs server-side so a worker cannot grow them without bound.
+            match.logs = cap_log_append(
+                match.logs,
+                logs,
+                append_cap=settings.MAX_LOG_APPEND_BYTES,
+                total_cap=settings.MAX_TOTAL_LOG_BYTES,
+            )
 
         if result is not None:
+            self._reject_oversized(result, max_bytes=settings.MAX_RESULT_BYTES, field_name="result")
             match.result = result
 
         if game_state is not None:
+            self._reject_oversized(game_state, max_bytes=settings.MAX_GAME_STATE_BYTES, field_name="game_state")
             match.game_state = game_state
 
         match.updated_at = datetime.now(UTC)
@@ -143,7 +180,12 @@ class MatchService:
     ) -> Sequence[Match]:
         return self._repository.list_matches(skip, limit, game_type=game_type, status=status)
 
-    def _validate_agents_for_match(self, game_type: GameType, agent_ids: list[UUID]) -> None:
+    def _validate_agents_for_match(
+        self,
+        game_type: GameType,
+        agent_ids: list[UUID],
+        owner_user_id: UUID | None = None,
+    ) -> None:
         if not (game_type.min_players <= len(agent_ids) <= game_type.max_players):
             raise MatchServiceError(
                 f"Game '{game_type.value}' requires between {game_type.min_players} and "
@@ -153,6 +195,9 @@ class MatchService:
         agents = self._agent_repository.list_by_ids(agent_ids)
         if len(agents) != len(agent_ids):
             raise MatchServiceError("One or more agents were not found")
+
+        if owner_user_id is not None and all(agent.user_id != owner_user_id for agent in agents):
+            raise MatchPermissionError("At least one participating agent must belong to you")
 
         agents_by_id = {agent.id: agent for agent in agents}
         for agent_id in agent_ids:

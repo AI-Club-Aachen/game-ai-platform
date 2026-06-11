@@ -17,13 +17,16 @@ class AgentCreate(AgentBase):
 
 
 class AgentUpdate(BaseModel):
+    """
+    User-facing update payload. Stats (wins/losses/draws/matches_played/elo)
+    are intentionally NOT updatable here; they change only via the internal
+    match-completion path. Unknown fields are rejected so stat writes fail loudly.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     active_submission_id: UUID | None = None
-    wins: int | None = None
-    losses: int | None = None
-    draws: int | None = None
-    matches_played: int | None = None
-    elo: int | None = None
 
 
 class AgentRead(AgentBase):

@@ -9,6 +9,7 @@ from app.api.services.email import EmailNotificationService
 from app.core.config import settings
 from app.core.security import (
     create_access_token,
+    dummy_verify_password,
     hash_password,
     validate_password_strength,
     verify_password,
@@ -65,17 +66,18 @@ class AuthService:
 
     # --- Registration ---
 
-    def register(  # noqa: C901
+    def register(
         self,
         user_data: UserCreate,
         background_tasks: BackgroundTasks,
     ) -> tuple[User, str]:
-        """
-        Register a new user with email verification.
+        """Register a new user with email verification.
 
-        Returns the created user and the plain verification token.
+        Returns the created user and plain verification token.
+
+        On collision with unverified account: email re-issued, password discarded.
         """
-        # Validate and hash password
+        # Validate and hash password (also flattens timing for collisions below).
         try:
             password_hash = hash_password(user_data.password)
         except ValueError as e:
@@ -83,61 +85,38 @@ class AuthService:
             raise AuthValidationError(str(e)) from e
 
         # Username uniqueness (case-insensitive)
-        username_lower = user_data.username.lower()
-        existing_user = self._users.get_by_username_ci(username_lower)
+        existing_user = self._users.get_by_username_ci(user_data.username.lower())
         if existing_user:
             if existing_user.email_verified:
-                logger.warning(
-                    "Registration attempt with verified username: %s",
-                    user_data.username,
-                )
+                logger.warning("Registration attempt with verified username: %s", user_data.username)
                 raise AuthConflictError("Username already registered")
-            # Delete unverified account to allow re-registration
-            logger.info(
-                "Deleting unverified account for re-registration: %s",
-                existing_user.id,
-            )
-            try:
-                self._users.delete(existing_user)
-            except UserRepositoryError as e:
-                logger.exception("Error deleting unverified user during re-registration")
-                raise AuthServiceError(
-                    "Failed to clean up previous registration",
-                ) from e
+            return self._reissue_pending_registration(existing_user, background_tasks)
 
         # Email uniqueness (case-insensitive)
-        email_lower = str(user_data.email).lower()
-        existing_user = self._users.get_by_email_ci(email_lower)
+        existing_user = self._users.get_by_email_ci(str(user_data.email).lower())
         if existing_user:
             if existing_user.email_verified:
-                logger.warning(
-                    "Registration attempt with verified email: %s",
-                    user_data.email,
-                )
+                logger.warning("Registration attempt with verified email: %s", user_data.email)
                 raise AuthConflictError("Email already registered")
-            logger.info(
-                "Deleting unverified account for re-registration: %s",
-                existing_user.id,
-            )
-            try:
-                self._users.delete(existing_user)
-            except UserRepositoryError as e:
-                logger.exception("Error deleting unverified user by email")
-                raise AuthServiceError(
-                    "Failed to clean up previous registration",
-                ) from e
+            return self._reissue_pending_registration(existing_user, background_tasks)
 
+        return self._create_user(user_data, password_hash, background_tasks)
+
+    def _create_user(
+        self,
+        user_data: UserCreate,
+        password_hash: str,
+        background_tasks: BackgroundTasks,
+    ) -> tuple[User, str]:
+        """Persist a brand-new guest account and send its verification email."""
         bypass_verification = settings.BYPASS_EMAIL_VERIFICATION and not settings.is_production
 
-        # Generate verification token
         plain_token = "bypassed"  # noqa: S105
         token_hash = None
         expiry = None
-
         if not bypass_verification:
             plain_token, token_hash, expiry = create_email_verification_token()
 
-        # Create user
         now = datetime.now(UTC)
         user = User(
             username=user_data.username,
@@ -157,7 +136,6 @@ class AuthService:
             logger.exception("Database error during registration")
             raise AuthServiceError("Failed to create user account") from e
 
-        # Send verification email in background
         if not bypass_verification:
             background_tasks.add_task(
                 self._emails.send_verification_email,
@@ -171,6 +149,35 @@ class AuthService:
         logger.info("New user registered: %s (ID: %s)", user.email, user.id)
         return user, plain_token
 
+    def _reissue_pending_registration(
+        self,
+        user: User,
+        background_tasks: BackgroundTasks,
+    ) -> tuple[User, str]:
+        """Re-send verification to an existing unverified account on collision.
+
+        Credentials unchanged; only the verification token is refreshed.
+        """
+        plain_token, token_hash, expiry = create_email_verification_token()
+        user.email_verification_token_hash = token_hash
+        user.email_verification_expires_at = expiry
+        user.updated_at = datetime.now(UTC)
+
+        try:
+            user = self._users.save(user)
+        except UserRepositoryError as e:
+            logger.exception("Error re-issuing verification for pending registration")
+            raise AuthServiceError("Failed to create user account") from e
+
+        background_tasks.add_task(
+            self._emails.send_verification_email,
+            to_email=user.email,
+            username=user.username,
+            token=plain_token,
+        )
+        logger.info("Re-issued verification for pending account on re-registration: %s", user.id)
+        return user, plain_token
+
     # --- Login ---
 
     def login(self, login_request: LoginRequest) -> tuple[str, User]:
@@ -182,7 +189,13 @@ class AuthService:
         email_lower = str(login_request.email).lower()
         user = self._users.get_by_email_ci(email_lower)
 
-        if not user or not verify_password(login_request.password, user.password_hash):
+        # On unknown user, run dummy hash to match timing; both paths raise 401.
+        if user is None:
+            dummy_verify_password(login_request.password)
+            logger.warning("Failed login attempt (unknown user): %s", login_request.email)
+            raise AuthValidationError("Invalid email or password")
+
+        if not verify_password(login_request.password, user.password_hash):
             logger.warning("Failed login attempt: %s", login_request.email)
             raise AuthValidationError("Invalid email or password")
 
@@ -196,6 +209,8 @@ class AuthService:
             data={
                 "sub": str(user.id),
                 "role": user.role.value,
+                # tokens become stale when the user's token_version is bumped on password change/reset.
+                "token_version": user.token_version,
             },
             expires_delta=timedelta(hours=settings.JWT_ACCESS_TOKEN_EXPIRE_HOURS),
         )
@@ -403,6 +418,9 @@ class AuthService:
         matched_user.password_hash = password_hash
         matched_user.password_reset_token_hash = None
         matched_user.password_reset_expires_at = None
+        # Invalidate every JWT issued before this reset (M-11) — critical when
+        # recovering a compromised account.
+        matched_user.token_version += 1
         matched_user.updated_at = datetime.now(UTC)
 
         try:

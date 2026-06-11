@@ -4,15 +4,14 @@ from collections.abc import AsyncGenerator, Generator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.api.deps import get_email_client, get_email_notification_service
-from app.api.routes import auth, email, users
 from app.api.services.email import EmailNotificationService
 from app.core.config import settings
+from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
+from app.core.rate_limit import limiter
 from app.db.session import get_session
 from app.main import app
 from tests.fakes import FakeEmailClient
@@ -113,25 +112,14 @@ def override_email_dependencies(fake_email_client: FakeEmailClient):
 @pytest.fixture(scope="session", autouse=True)
 def override_rate_limiter():
     """
-    Completely disable rate limiting during tests.
+    Disable rate limiting during tests.
 
-    The app's main module and route modules each create their own limiter instances.
-    We need to disable rate limiting by setting enabled=False on the limiter
-    instances used in the routes.
+    All routes share the central limiter from app.core.rate_limit (also wired
+    into app.state.limiter), so disabling it covers decorated routes and the
+    middleware-applied default limits alike. Tests that exercise rate limiting
+    re-enable it explicitly (see tests/api/test_rate_limiting.py).
     """
-
-    test_limiter = Limiter(
-        key_func=get_remote_address,
-        default_limits=[],
-        storage_uri="memory://",  # in-memory backend, no Redis
-    )
-    test_limiter.enabled = False  # Completely disable rate limiting
-
-    # Override all the limiter instances used in routes
-    auth.limiter.enabled = False
-    email.limiter.enabled = False
-    users.limiter.enabled = False
-    app.state.limiter = test_limiter
+    limiter.enabled = False
 
 
 @pytest.fixture(autouse=True)
@@ -142,6 +130,16 @@ async def reset_job_queue():
     """
     yield
     await job_queue.close()
+
+
+@pytest.fixture(autouse=True)
+async def reset_match_event_publisher():
+    """
+    Same as reset_job_queue, but for the global match event publisher: its
+    cached redis connection must not leak across per-test event loops.
+    """
+    yield
+    await match_event_publisher.close()
 
 
 # Tell pytest-anyio to use only asyncio, so tests are not duplicated for trio.
