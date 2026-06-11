@@ -18,8 +18,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 
-from app.api.routes import agent_containers, agents, auth, email, jobs, matches, submissions, users
+from app.api.routes import agent_containers, agents, auth, email, jobs, matches, submissions, tournaments, users
 from app.api.services.match_scheduler import MatchSchedulerService
+from app.api.services.tournament_scheduler import TournamentSchedulerService
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.core.tasks import BackgroundTaskRunner
@@ -106,6 +107,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         interval_seconds=10.0,
         name="match_scheduler",
         is_enabled=False,
+    )
+
+    # Register tournament scheduler (advances running tournaments round by round)
+    tournament_scheduler = TournamentSchedulerService()
+    task_runner.add_task(
+        func=tournament_scheduler.check_and_advance_tournaments,
+        interval_seconds=settings.TOURNAMENT_POLL_INTERVAL_SECONDS,
+        name="tournament_scheduler",
+        is_enabled=True,
     )
 
     task_runner.start()
@@ -294,6 +304,7 @@ app.include_router(email.router, prefix=f"{settings.API_V1_PREFIX}/email", tags=
 app.include_router(submissions.router, prefix=f"{settings.API_V1_PREFIX}/submissions", tags=["Submissions"])
 app.include_router(agents.router, prefix=f"{settings.API_V1_PREFIX}/agents", tags=["Agents"])
 app.include_router(matches.router, prefix=f"{settings.API_V1_PREFIX}/matches", tags=["Matches"])
+app.include_router(tournaments.router, prefix=f"{settings.API_V1_PREFIX}/tournaments", tags=["Tournaments"])
 app.include_router(jobs.router, prefix=f"{settings.API_V1_PREFIX}/jobs", tags=["Jobs"])
 app.include_router(
     agent_containers.router,

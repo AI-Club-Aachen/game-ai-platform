@@ -10,6 +10,7 @@ from app.api.repositories.agent_container import AgentContainerRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
+from app.api.repositories.tournament import TournamentRepository
 from app.api.repositories.user import UserRepository
 from app.api.services.agent import AgentService
 from app.api.services.agent_container import AgentContainerService
@@ -18,6 +19,7 @@ from app.api.services.email import EmailNotificationService
 from app.api.services.job import JobService
 from app.api.services.match import MatchService
 from app.api.services.submission import SubmissionService
+from app.api.services.tournament import TournamentService
 from app.api.services.user import UserService
 from app.core.email import EmailClient, email_client
 from app.db.session import get_session
@@ -65,6 +67,13 @@ def get_agent_container_repository(
     return AgentContainerRepository(session)
 
 
+def get_tournament_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> TournamentRepository:
+    """Provide a TournamentRepository bound to the current DB session."""
+    return TournamentRepository(session)
+
+
 def get_user_service(
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> UserService:
@@ -88,6 +97,16 @@ def get_match_service(
 ) -> MatchService:
     """Provide a MatchService with an injected Repository."""
     return MatchService(repository, job_repository, agent_repository)
+
+
+def get_tournament_service(
+    repository: Annotated[TournamentRepository, Depends(get_tournament_repository)],
+    match_repository: Annotated[MatchRepository, Depends(get_match_repository)],
+    agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
+    match_service: Annotated[MatchService, Depends(get_match_service)],
+) -> TournamentService:
+    """Provide a TournamentService with injected repositories and MatchService."""
+    return TournamentService(repository, match_repository, agent_repository, match_service)
 
 
 def get_job_service(

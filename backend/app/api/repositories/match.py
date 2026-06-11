@@ -1,8 +1,9 @@
 import logging
 from collections.abc import Sequence
 from datetime import datetime
+from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.models.match import Match, MatchStatus
 
@@ -25,24 +26,44 @@ class MatchRepository:
     def get_by_id(self, match_id: str) -> Match | None:
         return self._session.get(Match, match_id)
 
+    def list_by_ids(self, match_ids: list[UUID]) -> Sequence[Match]:
+        if not match_ids:
+            return []
+        statement = select(Match).where(Match.id.in_(match_ids))
+        return self._session.exec(statement).all()
+
     def list_matches(
         self,
         skip: int,
         limit: int,
         game_type: str | None = None,
         status: str | None = None,
+        with_tournament: bool | None = None,
     ) -> Sequence[Match]:
-        """List matches with pagination."""
+        """List matches with pagination.
+
+        ``with_tournament`` filters by tournament membership: True keeps only
+        tournament matches, False only normal matches, None keeps all.
+        """
         statement = select(Match)
         if game_type is not None:
             statement = statement.where(Match.game_type == game_type)
         if status is not None:
             statement = statement.where(Match.status == status)
+        if with_tournament is True:
+            statement = statement.where(Match.tournament_id.is_not(None))
+        elif with_tournament is False:
+            statement = statement.where(Match.tournament_id.is_(None))
 
         statement = statement.offset(skip).limit(limit).order_by(Match.created_at.desc())
         return self._session.exec(statement).all()
 
-    def list_stale_running_matches(self, cutoff: datetime, limit: int = 100) -> Sequence[Match]:
+    def list_stale_running_matches(
+        self,
+        cutoff: datetime,
+        limit: int = 100,
+        with_tournament: bool | None = None,
+    ) -> Sequence[Match]:
         """List running matches that have not been updated since ``cutoff``."""
         statement = (
             select(Match)
@@ -51,7 +72,21 @@ class MatchRepository:
             .order_by(Match.updated_at.asc())
             .limit(limit)
         )
+        if with_tournament is True:
+            statement = statement.where(Match.tournament_id.is_not(None))
+        elif with_tournament is False:
+            statement = statement.where(Match.tournament_id.is_(None))
         return self._session.exec(statement).all()
+
+    def count_active_by_tournament(self, tournament_id: UUID) -> int:
+        """Number of queued/running matches belonging to a tournament (concurrency cap)."""
+        statement = (
+            select(func.count())
+            .select_from(Match)
+            .where(Match.tournament_id == tournament_id)
+            .where(Match.status.in_([MatchStatus.QUEUED, MatchStatus.RUNNING]))
+        )
+        return self._session.exec(statement).one()
 
     # --- Commands ---
 

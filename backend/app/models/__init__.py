@@ -7,6 +7,13 @@ from .game import GameType
 from .job import BuildJob, JobStatus, MatchJob
 from .match import Match, MatchStatus
 from .submission import Submission
+from .tournament import (
+    Tournament,
+    TournamentEntrant,
+    TournamentGame,
+    TournamentMatchup,
+    TournamentStatus,
+)
 from .user import User, UserRole
 
 
@@ -21,4 +28,9 @@ __all__ = [
     "BuildJob",
     "MatchJob",
     "JobStatus",
+    "Tournament",
+    "TournamentEntrant",
+    "TournamentGame",
+    "TournamentMatchup",
+    "TournamentStatus",
 ]
