@@ -85,3 +85,44 @@ runner.add_agent(agent1)
 runner.add_agent(agent2)
 runner.start()
 ```
+
+## Playing Locally (`gamelib-play`)
+
+Installing the package also gives you a `gamelib-play` command for running a
+match in your terminal — play against your agent yourself, or watch two agents
+play. No backend required.
+
+```bash
+gamelib-play <game> <player0> <player1>
+```
+
+`<game>` is `tictactoe` or `hex`. Each player is either the literal word
+`human` or a path to a Python file that defines an `Agent` subclass (use
+`file.py:ClassName` if the file defines more than one).
+
+```bash
+# Play against your own agent (you move first)
+gamelib-play tictactoe human my_agent.py
+
+# Let the agent move first
+gamelib-play hex my_agent.py human
+
+# Agent vs agent — watch two agents play
+gamelib-play hex agent_a.py agent_b.py
+
+# Two humans, hot-seat on one keyboard
+gamelib-play tictactoe human human
+```
+
+On your turn the board is printed with the cell coordinates labelled, so you
+can type your move (a position `0–8` for TicTacToe, or `row,col` for Hex).
+
+You can also play directly with the `HumanAgent` class via the DevRunner:
+```python
+from gamelib.tictactoe import DevRunner, HumanAgent
+
+runner = DevRunner()
+runner.add_agent(HumanAgent())     # you, player 0
+runner.add_agent(MyTicTacToeAgent())  # the agent, player 1
+runner.start()
+```

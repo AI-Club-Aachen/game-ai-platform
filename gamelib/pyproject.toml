@@ -1,6 +1,6 @@
 [project]
 name = "aica-gamelib"
-version = "0.2.1"
+version = "0.3.0"
 description = "Gamelib for Game AI Platform of AI Club Aachen"
 readme = "README_PYPI.md"
 requires-python = ">=3.12"
@@ -17,6 +17,9 @@ urls = { "Repository" = "https://github.com/ai-club-aachen/game-ai-platform" }
 dependencies = [
     "pydantic>=2.12.3",
 ]
+
+[project.scripts]
+gamelib-play = "gamelib.play:main"
 
 [build-system]
 requires = ["hatchling"]
