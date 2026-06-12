@@ -14,9 +14,17 @@ from app.api.deps.auth import (
     verify_worker_api_key,
     worker_api_key_header,
 )
-from app.api.deps.services import get_user_repository
+from app.api.deps.services import get_platform_flag_repository, get_user_repository
+from app.api.repositories.platform_flag import PlatformFlagRepository
 from app.api.repositories.user import UserRepository
+from app.models.platform_flag import SUBMISSION_FREEZE
 from app.models.user import User, UserRole
+
+
+SUBMISSION_FREEZE_MESSAGE = (
+    "Submissions are frozen for a tournament. Uploading, deleting, or changing agents "
+    "is temporarily disabled. Please try again once the freeze is lifted."
+)
 
 
 logger = logging.getLogger(__name__)
@@ -159,8 +167,26 @@ def get_worker_or_verified_user(
     return RequestActor(is_worker=False, user=verify_email_verified(user))
 
 
+def enforce_submissions_unfrozen(
+    current_user: Annotated[User, Depends(get_current_user)],
+    flag_repository: Annotated[PlatformFlagRepository, Depends(get_platform_flag_repository)],
+) -> None:
+    """
+    Block submission/agent mutations while the platform submission freeze is on.
+
+    Admins are exempt; every other caller is rejected with 403 when the freeze
+    is active. Used on the routes that could swap an agent's code mid-tournament.
+    """
+    if current_user.role == UserRole.ADMIN:
+        return
+    if flag_repository.is_enabled(SUBMISSION_FREEZE):
+        logger.info("Blocked mutation by user %s: submission freeze active", current_user.id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SUBMISSION_FREEZE_MESSAGE)
+
+
 # Type aliases for common dependencies
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]
+SubmissionsUnfrozen = Annotated[None, Depends(enforce_submissions_unfrozen)]
 VerifiedUser = Annotated[User, Depends(verify_email_verified)]
 AdminOnly = CurrentAdmin
 VerifiedGuestOrHigher = Annotated[User, Depends(verify_email_verified)]

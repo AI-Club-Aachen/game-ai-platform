@@ -3,10 +3,13 @@ import { Box, Container, Typography, Button, Card, CardContent, CircularProgress
 import { ArrowBack } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
+import { useAuth } from '../context/AuthContext';
 import { getLatestBuildJob, submissionsApi } from '../services/api/submissions';
 import { agentsApi } from '../services/api/agents';
 import { fromApiGameType, getActiveGames, toApiGameType } from '../config/games';
 import { FileUploadBox } from '../components/common/FileUploadBox';
+import { SubmissionFreezeBanner } from '../components/common/SubmissionFreezeBanner';
 
 const BUILD_POLL_MS = 2000;
 const BUILD_POLL_ATTEMPTS = 60;
@@ -16,6 +19,9 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export function NewSubmission() {
     const navigate = useNavigate();
     const goBack = useSmartBack('/dashboard');
+    const { isAdmin } = useAuth();
+    const { frozen } = useSubmissionFreeze();
+    const blockedByFreeze = frozen && !isAdmin;
     const [searchParams] = useSearchParams();
     const agentId = searchParams.get('agentId');
     const requestedGameId = searchParams.get('gameId') ?? '';
@@ -121,6 +127,8 @@ export function NewSubmission() {
                         and any necessary dependency files (e.g., `requirements.txt`).
                     </Typography>
 
+                    {blockedByFreeze && <SubmissionFreezeBanner sx={{ mb: 3 }} />}
+
                     {error && (
                         <Alert severity="error" sx={{ mb: 3 }}>
                             {error}
@@ -177,7 +185,7 @@ export function NewSubmission() {
                             variant="contained"
                             color="primary"
                             onClick={handleSubmit}
-                            disabled={!file || !gameId || loading || gameLoading}
+                            disabled={!file || !gameId || loading || gameLoading || blockedByFreeze}
                             sx={{ minWidth: 140 }}
                         >
                             {loading ? <CircularProgress size={24} color="inherit" /> : agentId ? 'Upload Submission' : 'Submit Agent'}

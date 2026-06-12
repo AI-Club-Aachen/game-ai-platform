@@ -9,6 +9,7 @@ from app.api.repositories.agent import AgentRepository
 from app.api.repositories.agent_container import AgentContainerRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
+from app.api.repositories.platform_flag import PlatformFlagRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.api.repositories.tournament import TournamentRepository
 from app.api.repositories.user import UserRepository
@@ -18,6 +19,7 @@ from app.api.services.auth import AuthService
 from app.api.services.email import EmailNotificationService
 from app.api.services.job import JobService
 from app.api.services.match import MatchService
+from app.api.services.platform import PlatformService
 from app.api.services.submission import SubmissionService
 from app.api.services.tournament import TournamentService
 from app.api.services.user import UserService
@@ -72,6 +74,20 @@ def get_tournament_repository(
 ) -> TournamentRepository:
     """Provide a TournamentRepository bound to the current DB session."""
     return TournamentRepository(session)
+
+
+def get_platform_flag_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> PlatformFlagRepository:
+    """Provide a PlatformFlagRepository bound to the current DB session."""
+    return PlatformFlagRepository(session)
+
+
+def get_platform_service(
+    flag_repository: Annotated[PlatformFlagRepository, Depends(get_platform_flag_repository)],
+) -> PlatformService:
+    """Provide a PlatformService with an injected PlatformFlagRepository."""
+    return PlatformService(flag_repository)
 
 
 def get_user_service(

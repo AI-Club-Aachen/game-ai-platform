@@ -11,12 +11,14 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Snackbar,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -43,6 +45,7 @@ import {
   TournamentBracket,
 } from '../services/api/tournaments';
 import { agentsApi, Agent } from '../services/api/agents';
+import { platformApi } from '../services/api/platform';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { fromApiGameType, getGameById } from '../config/games';
@@ -98,6 +101,9 @@ export function TournamentManagement() {
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
+  const [submissionFreeze, setSubmissionFreeze] = useState(false);
+  const [freezeSaving, setFreezeSaving] = useState(false);
+
   const fetchTournaments = useCallback(async () => {
     setLoading(true);
     try {
@@ -128,6 +134,29 @@ export function TournamentManagement() {
       .catch((err) => console.error('Failed to fetch agents', err))
       .finally(() => setLoadingAgents(false));
   }, []);
+
+  useEffect(() => {
+    platformApi
+      .getSubmissionFreeze()
+      .then((state) => setSubmissionFreeze(state.enabled))
+      .catch((err) => console.error('Failed to load submission-freeze state', err));
+  }, []);
+
+  const handleToggleFreeze = async (enabled: boolean) => {
+    setFreezeSaving(true);
+    try {
+      const state = await platformApi.setSubmissionFreeze(enabled);
+      setSubmissionFreeze(state.enabled);
+      setSnackbarMessage(
+        state.enabled ? 'Submissions frozen — entrants can no longer change agents.' : 'Submission freeze lifted.',
+      );
+    } catch (err: any) {
+      console.error('Failed to update submission freeze', err);
+      setSnackbarMessage('Failed to update submission freeze. ' + (err.message || ''));
+    } finally {
+      setFreezeSaving(false);
+    }
+  };
 
   // Entrants must have an active submission; the backend additionally checks
   // for a successful build on creation.
@@ -268,6 +297,31 @@ export function TournamentManagement() {
           </Button>
         </Box>
       </Box>
+
+      <Paper sx={{ p: 2.5, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={submissionFreeze}
+                disabled={freezeSaving}
+                onChange={(e) => handleToggleFreeze(e.target.checked)}
+                color="warning"
+              />
+            }
+            label={<Typography fontWeight={600}>Freeze submissions</Typography>}
+          />
+          <Typography variant="body2" color="text.secondary">
+            While on, non-admin users cannot upload, delete, or re-point agents — turn this on before starting a
+            tournament so entrants can't swap their code mid-run.
+          </Typography>
+        </Box>
+        {submissionFreeze && (
+          <Typography variant="body2" fontWeight={700} color="warning.main" sx={{ whiteSpace: 'nowrap' }}>
+            ● Frozen
+          </Typography>
+        )}
+      </Paper>
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>

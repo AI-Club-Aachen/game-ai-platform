@@ -4,12 +4,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.deps import (
+    SubmissionsUnfrozen,
     VerifiedGuestOrHigher,
     VerifiedUserOrHigher,
     WorkerOrVerifiedUser,
     get_agent_service,
+    get_platform_service,
 )
+from app.api.deps.permissions import SUBMISSION_FREEZE_MESSAGE
 from app.api.services.agent import AgentNotFoundError, AgentPermissionError, AgentService, AgentValidationError
+from app.api.services.platform import PlatformService
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.models.user import UserRole
@@ -25,6 +29,7 @@ def create_agent(
     request: Request,  # noqa: ARG001
     agent_create: AgentCreate,
     current_user: VerifiedUserOrHigher,
+    _unfrozen: SubmissionsUnfrozen,
     service: AgentService = Depends(get_agent_service),
 ) -> AgentRead:
     """
@@ -104,15 +109,21 @@ def update_agent(
     agent_update: AgentUpdate,
     current_user: VerifiedUserOrHigher,
     service: AgentService = Depends(get_agent_service),
+    platform_service: PlatformService = Depends(get_platform_service),
 ) -> AgentRead:
     """
     Update an agent's name or active submission. Requires the USER role or
     higher; only the owner or an admin may update.
+
+    Changing the active submission is blocked while the submission freeze is on
+    (admins exempt); renaming stays allowed.
     """
+    is_admin = current_user.role == UserRole.ADMIN
+    changes_submission = "active_submission_id" in agent_update.model_fields_set
+    if changes_submission and not is_admin and platform_service.is_submission_freeze_active():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SUBMISSION_FREEZE_MESSAGE)
     try:
-        return service.update_agent(
-            agent_id, agent_update, current_user.id, is_admin=current_user.role == UserRole.ADMIN
-        )
+        return service.update_agent(agent_id, agent_update, current_user.id, is_admin=is_admin)
     except AgentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except AgentPermissionError as e:
@@ -127,6 +138,7 @@ def delete_agent(
     request: Request,  # noqa: ARG001
     agent_id: UUID,
     current_user: VerifiedUserOrHigher,
+    _unfrozen: SubmissionsUnfrozen,
     service: AgentService = Depends(get_agent_service),
 ) -> None:
     """
