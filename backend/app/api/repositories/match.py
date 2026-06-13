@@ -37,7 +37,7 @@ class MatchRepository:
         skip: int,
         limit: int,
         game_type: str | None = None,
-        status: str | None = None,
+        status: list[str] | str | None = None,
         with_tournament: bool | None = None,
     ) -> Sequence[Match]:
         """List matches with pagination.
@@ -49,7 +49,11 @@ class MatchRepository:
         if game_type is not None:
             statement = statement.where(Match.game_type == game_type)
         if status is not None:
-            statement = statement.where(Match.status == status)
+            if isinstance(status, (list, tuple, set)):
+                if len(status) > 0:
+                    statement = statement.where(Match.status.in_(status))
+            else:
+                statement = statement.where(Match.status == status)
         if with_tournament is True:
             statement = statement.where(Match.tournament_id.is_not(None))
         elif with_tournament is False:

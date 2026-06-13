@@ -188,7 +188,7 @@ class MatchService:
         skip: int,
         limit: int,
         game_type: str | None = None,
-        status: MatchStatus | None = None,
+        status: list[str] | MatchStatus | None = None,
     ) -> Sequence[Match]:
         return self._repository.list_matches(skip, limit, game_type=game_type, status=status)
 

@@ -27,7 +27,11 @@ export function Matches() {
     const apiGameType = gameParam ? toApiGameType(gameParam) : undefined;
     
     Promise.all([
-      matchesApi.getMatches({ game_type: apiGameType }),
+      matchesApi.getMatches({
+        game_type: apiGameType,
+        status: ['running', 'completed', 'failed', 'client_error'],
+        limit: 50
+      }),
       agentsApi.getAllAgents(true)
     ])
       .then(([matchesData, agentsData]: any) => {
