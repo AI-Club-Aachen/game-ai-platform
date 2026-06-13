@@ -29,7 +29,7 @@ locals {
 # Compute Engine VM instance for the orchestration backend
 resource "google_compute_instance" "backend" {
   name         = "backend"
-  machine_type = "e2-standard-2"
+  machine_type = "e2-standard-8"
   zone         = var.zone
 
   # VM tags for network policies and firewalls

@@ -51,7 +51,7 @@ variable "redis_password" {
 variable "machine_type" {
   description = "The Compute Engine machine type for the workers."
   type        = string
-  default     = "e2-micro"
+  default     = "c4-standard-4"
 }
 
 variable "network" {
