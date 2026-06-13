@@ -50,6 +50,7 @@ The image is pushed to GHCR automatically on changes using GitHub Actions.
 ### Workers
 
 Workers use `Dockerfile.worker` and run either `agent_builder_worker.py` or `match_runner_worker.py`.
+Workers use `Dockerfile.worker` and run either `agent_builder_worker.py` or `match_runner_worker.py`.
 
 Workers gather tasks from Redis queues and process them.
 

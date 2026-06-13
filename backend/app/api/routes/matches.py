@@ -21,6 +21,10 @@ from app.api.services.match import (
     MatchService,
     MatchServiceError,
 )
+from app.api.services.match_scheduler import (
+    SCHEDULING_SERIAL,
+    VALID_SCHEDULING_STRATEGIES,
+)
 from app.core.config import settings
 from app.core.match_events import subscribe_match_events
 from app.core.rate_limit import limiter
@@ -39,6 +43,8 @@ class MatchSchedulerConfig(BaseModel):
     enabled: bool
     interval_seconds: float
     strategy: str
+    # "serial" (one at a time) or "concurrent" (fill up to MATCH_MAX_CONCURRENT_MATCHES)
+    scheduling_strategy: str = SCHEDULING_SERIAL
 
 
 @router.get("/scheduler/config", response_model=MatchSchedulerConfig)
@@ -54,9 +60,14 @@ def get_scheduler_config(
 
     for task in task_runner.tasks:
         if task.name == "match_scheduler":
-            strategy = getattr(task.func.__self__, "strategy", "random") if hasattr(task.func, "__self__") else "random"
+            service = task.func.__self__ if hasattr(task.func, "__self__") else None
+            strategy = getattr(service, "strategy", "random")
+            scheduling_strategy = getattr(service, "scheduling_strategy", SCHEDULING_SERIAL)
             return MatchSchedulerConfig(
-                enabled=task.is_enabled, interval_seconds=task.interval_seconds, strategy=strategy
+                enabled=task.is_enabled,
+                interval_seconds=task.interval_seconds,
+                strategy=strategy,
+                scheduling_strategy=scheduling_strategy,
             )
 
     raise HTTPException(status_code=404, detail="Scheduler task not found")
@@ -74,15 +85,25 @@ def update_scheduler_config(
     if not task_runner:
         raise HTTPException(status_code=500, detail="Task runner not found")
 
+    if config.scheduling_strategy not in VALID_SCHEDULING_STRATEGIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"scheduling_strategy must be one of {sorted(VALID_SCHEDULING_STRATEGIES)}",
+        )
+
     for task in task_runner.tasks:
         if task.name == "match_scheduler":
             task.is_enabled = config.enabled
             task.interval_seconds = config.interval_seconds
             if hasattr(task.func, "__self__"):
                 task.func.__self__.strategy = config.strategy
+                task.func.__self__.scheduling_strategy = config.scheduling_strategy
 
             return MatchSchedulerConfig(
-                enabled=task.is_enabled, interval_seconds=task.interval_seconds, strategy=config.strategy
+                enabled=task.is_enabled,
+                interval_seconds=task.interval_seconds,
+                strategy=config.strategy,
+                scheduling_strategy=config.scheduling_strategy,
             )
 
     raise HTTPException(status_code=404, detail="Scheduler task not found")

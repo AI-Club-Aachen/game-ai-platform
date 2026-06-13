@@ -100,6 +100,13 @@ class Settings(BaseSettings):
             "marks it as failed. This recovers matches abandoned by killed/restarted workers."
         ),
     )
+    MATCH_MAX_CONCURRENT_MATCHES: int = Field(
+        default=4,
+        description=(
+            "Concurrent-strategy target for queued/running non-tournament matches. "
+            "Set to roughly the number of match-runner workers."
+        ),
+    )
     # Per-game state_init_data validated; board_size bounds O(n^2) allocation.
     MAX_HEX_BOARD_SIZE: int = Field(
         default=26,
@@ -378,6 +385,13 @@ class Settings(BaseSettings):
     def validate_match_stale_timeout(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("MATCH_STALE_TIMEOUT_SECONDS must be greater than 0")
+        return v
+
+    @field_validator("MATCH_MAX_CONCURRENT_MATCHES")
+    @classmethod
+    def validate_match_max_concurrent(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("MATCH_MAX_CONCURRENT_MATCHES must be at least 1")
         return v
 
     @field_validator("MAX_HEX_BOARD_SIZE")
