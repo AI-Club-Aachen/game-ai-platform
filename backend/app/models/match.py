@@ -57,6 +57,10 @@ class Match(SQLModel, table=True):
     # Agents that participate in the match
     agent_ids: list[UUID] = Field(default=[], sa_column=Column(JSON))
 
+    # Set for matches played as part of a tournament; such matches are excluded
+    # from global agent stats and from the random auto-scheduler.
+    tournament_id: UUID | None = Field(default=None, foreign_key="tournaments.id", nullable=True, index=True)
+
     # Configuration for the match (e.g. which agents, game rules, seed)
     config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 

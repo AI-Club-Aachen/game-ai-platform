@@ -82,14 +82,19 @@ class MatchSchedulerService:
         """
         Check the current match queue and determine if new matches should be added.
         Matches are added as long as no match is in queue or running for any game type.
+        Tournament matches are managed by the tournament scheduler and ignored here.
         """
         # Check if any matches are currently queued
-        queued_matches = match_repository.list_matches(skip=0, limit=1, status=MatchStatus.QUEUED.value)
+        queued_matches = match_repository.list_matches(
+            skip=0, limit=1, status=MatchStatus.QUEUED.value, with_tournament=False
+        )
         if queued_matches:
             return False
 
         # Check if any matches are currently running
-        running_matches = match_repository.list_matches(skip=0, limit=1, status=MatchStatus.RUNNING.value)
+        running_matches = match_repository.list_matches(
+            skip=0, limit=1, status=MatchStatus.RUNNING.value, with_tournament=False
+        )
 
         return not running_matches
 
@@ -104,9 +109,10 @@ class MatchSchedulerService:
         The match runner sets a match to RUNNING before executing it. If that process or
         its backend connection dies before publishing a terminal status, the scheduler's
         queue gate would otherwise see RUNNING forever and stop scheduling new matches.
+        Stale tournament matches are recovered by the tournament scheduler instead.
         """
         cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
-        stale_matches = match_repository.list_stale_running_matches(cutoff=cutoff)
+        stale_matches = match_repository.list_stale_running_matches(cutoff=cutoff, with_tournament=False)
         for match in stale_matches:
             logger.warning(
                 "Marking stale running match %s as failed; last update at %s exceeded %ss timeout",

@@ -1,154 +1,149 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Container, Typography, Button, Card, CardContent, Chip, LinearProgress } from '@mui/material';
-import { EmojiEvents, CalendarToday, PlayArrow, CheckCircle } from '@mui/icons-material';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  Typography,
+} from '@mui/material';
+import { tournamentsApi, Tournament, TournamentStatus } from '../services/api/tournaments';
+import { StatusIndicator } from '../components/common/StatusIndicator';
+import { PlacementBadge } from '../components/tournaments/PlacementBadge';
+import { getGameById, fromApiGameType } from '../config/games';
 
-interface Tournament {
-  id: string;
-  name: string;
-  status: 'upcoming' | 'active' | 'completed';
-  participants: number;
-  maxParticipants: number;
-  prizePool: string;
-  startDate: string;
-  endDate: string;
-  format: string;
-}
+type StatusFilter = 'all' | TournamentStatus;
+
+const FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All Tournaments' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'running', label: 'Running' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
+const formatDate = (isoDate: string) => {
+  const date = new Date(isoDate);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+};
+
+const gameName = (gameType: string) => getGameById(fromApiGameType(gameType))?.name ?? gameType;
 
 export function Tournaments() {
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<StatusFilter>('all');
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const tournaments: Tournament[] = [
-    { id: '1', name: 'Fall Championship 2025', status: 'active', participants: 48, maxParticipants: 64, prizePool: '$5,000', startDate: '2025-11-01', endDate: '2025-11-15', format: 'Single Elimination' },
-    { id: '2', name: 'Winter League Qualifiers', status: 'upcoming', participants: 32, maxParticipants: 128, prizePool: '$10,000', startDate: '2025-12-01', endDate: '2025-12-20', format: 'Round Robin' },
-    { id: '3', name: 'Quick Match Tournament', status: 'upcoming', participants: 12, maxParticipants: 32, prizePool: '$1,000', startDate: '2025-11-10', endDate: '2025-11-11', format: 'Double Elimination' },
-    { id: '4', name: 'October Masters', status: 'completed', participants: 64, maxParticipants: 64, prizePool: '$3,000', startDate: '2025-10-01', endDate: '2025-10-20', format: 'Swiss System' },
-    { id: '5', name: 'Summer Championship', status: 'completed', participants: 128, maxParticipants: 128, prizePool: '$15,000', startDate: '2025-08-01', endDate: '2025-08-31', format: 'Single Elimination' },
-  ];
+  const fetchTournaments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await tournamentsApi.getTournaments({
+        status: filter !== 'all' ? filter : undefined,
+        limit: 100,
+      });
+      setTournaments(data);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch tournaments:', err);
+      setError('Failed to load tournaments.');
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
-  const filteredTournaments = tournaments.filter(
-    t => filter === 'all' || t.status === filter
-  );
-
-  const getStatusConfig = (status: Tournament['status']) => {
-    const configs = {
-      upcoming: { icon: CalendarToday, color: 'default' as const },
-      active: { icon: PlayArrow, color: 'success' as const },
-      completed: { icon: CheckCircle, color: 'default' as const },
-    };
-    return configs[status];
-  };
-
-  const filters: { key: typeof filter; label: string }[] = [
-    { key: 'all', label: 'All Tournaments' },
-    { key: 'upcoming', label: 'Upcoming' },
-    { key: 'active', label: 'Active' },
-    { key: 'completed', label: 'Completed' },
-  ];
+  useEffect(() => {
+    fetchTournaments();
+  }, [fetchTournaments]);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <EmojiEvents sx={{ fontSize: 32 }} /> Tournaments
+        <Typography variant="h4" gutterBottom>
+          Tournaments
         </Typography>
         <Typography color="text.secondary">
-          Compete with the best AI agents in competitive tournaments
+          Double-elimination tournaments between the platform's AI agents
         </Typography>
       </Box>
 
       <Box sx={{ mb: 4, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        {filters.map(f => (
+        {FILTERS.map(({ key, label }) => (
           <Button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            variant={filter === f.key ? 'contained' : 'text'}
+            key={key}
+            onClick={() => setFilter(key)}
+            variant={filter === key ? 'contained' : 'text'}
             size="small"
             sx={{
-              ...(filter !== f.key && {
+              ...(filter !== key && {
                 border: '1px solid',
                 borderColor: 'divider',
               }),
             }}
           >
-            {f.label}
+            {label}
           </Button>
         ))}
       </Box>
 
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-        gap: 3,
-      }}>
-        {filteredTournaments.map((tournament) => {
-          const statusConfig = getStatusConfig(tournament.status);
-          const participationRate = (tournament.participants / tournament.maxParticipants) * 100;
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-          return (
-            <Card key={tournament.id}>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : tournaments.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography color="text.secondary">No tournaments found</Typography>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+            gap: 3,
+          }}
+        >
+          {tournaments.map((tournament) => (
+            <Card
+              key={tournament.id}
+              component={Link}
+              to={`/tournaments/${tournament.id}`}
+              sx={{
+                textDecoration: 'none',
+                transition: 'transform 0.15s, box-shadow 0.15s',
+                '&:hover': { transform: 'translateY(-2px)', boxShadow: 4 },
+              }}
+            >
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Typography variant="h6" sx={{ flexGrow: 1, pr: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1 }}>
+                  <Typography variant="h6" noWrap title={tournament.name}>
                     {tournament.name}
                   </Typography>
-                  <Chip
-                    icon={<statusConfig.icon />}
-                    label={tournament.status}
-                    color={statusConfig.color}
-                    size="small"
-                  />
+                  <StatusIndicator status={tournament.status} />
                 </Box>
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Format:</Typography>
-                    <Typography variant="body2">{tournament.format}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Prize Pool:</Typography>
-                    <Typography variant="body2" color="primary" fontWeight="bold">
-                      {tournament.prizePool}
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {gameName(tournament.game_type)} · Double Elimination · Best of 3
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Created {formatDate(tournament.created_at)}
+                </Typography>
+                {tournament.status === 'completed' && tournament.winner_agent_id && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
+                    <PlacementBadge placement={1} size={20} />
+                    <Typography variant="body2" color="text.secondary">
+                      Champion crowned — view the podium
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Dates:</Typography>
-                    <Typography variant="body2">
-                      {tournament.startDate} — {tournament.endDate}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">Participants</Typography>
-                    <Typography variant="body2">
-                      {tournament.participants} / {tournament.maxParticipants}
-                    </Typography>
-                  </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={participationRate}
-                    sx={{ height: 4 }}
-                  />
-                </Box>
-
-                <Box>
-                  {tournament.status === 'upcoming' && (
-                    <Button component={Link} to={`/tournaments/${tournament.id}`} variant="contained" fullWidth>Register</Button>
-                  )}
-                  {tournament.status === 'active' && (
-                    <Button component={Link} to={`/tournaments/${tournament.id}`} variant="outlined" fullWidth>View Bracket</Button>
-                  )}
-                  {tournament.status === 'completed' && (
-                    <Button component={Link} to={`/tournaments/${tournament.id}`} variant="outlined" fullWidth>View Results</Button>
-                  )}
-                </Box>
+                )}
               </CardContent>
             </Card>
-          );
-        })}
-      </Box>
+          ))}
+        </Box>
+      )}
     </Container>
   );
 }

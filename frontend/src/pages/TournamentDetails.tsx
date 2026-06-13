@@ -1,247 +1,300 @@
-import { useState, useEffect } from 'react';
-import { Box, Container, Typography, Button, Card, CardContent, CircularProgress, Alert, Chip, Divider, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { ArrowBack, EmojiEvents, CalendarToday, People } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Paper,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  Typography,
+} from '@mui/material';
+import { ArrowBack } from '@mui/icons-material';
 import { useSmartBack } from '../hooks/use-smart-back';
-import { tournamentsApi } from '../services/api/tournaments';
-import { submissionsApi, Submission } from '../services/api/submissions';
-import { useAuth } from '../context/AuthContext';
-import { fromApiGameType } from '../config/games';
-import { palette } from '../theme';
+import { tournamentsApi, TournamentBracket } from '../services/api/tournaments';
+import { alpha } from '@mui/material/styles';
+import { BracketView } from '../components/tournaments/BracketView';
+import { PlacementBadge } from '../components/tournaments/PlacementBadge';
+import { PodiumDialog, PodiumEntry } from '../components/tournaments/PodiumDialog';
+import { StatusIndicator } from '../components/common/StatusIndicator';
+import { getGameById, fromApiGameType } from '../config/games';
+
+const POLL_INTERVAL_MS = 5000;
+
+const bracketLabel: Record<string, string> = {
+  winners: 'Winners Bracket',
+  losers: 'Losers Bracket',
+  grand_final: 'Grand Final',
+  grand_final_reset: 'Bracket Reset',
+};
 
 export function TournamentDetails() {
-    const goBack = useSmartBack('/tournaments');
-    const { id } = useParams<{ id: string }>();
-    const { user } = useAuth();
+  const goBack = useSmartBack('/tournaments');
+  const { id } = useParams<{ id: string }>();
 
-    const [tournament, setTournament] = useState<any | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [bracket, setBracket] = useState<TournamentBracket | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [podiumOpen, setPodiumOpen] = useState(false);
+  const [tab, setTab] = useState<'winners' | 'losers' | 'standings'>('winners');
 
-    const [mySubmissions, setMySubmissions] = useState<Submission[]>([]);
-    const [selectedSubmissionId, setSelectedSubmissionId] = useState<string>('');
-    const [registering, setRegistering] = useState(false);
-    const [registerError, setRegisterError] = useState<string | null>(null);
-    const [registerSuccess, setRegisterSuccess] = useState(false);
-
-    useEffect(() => {
-        if (!id) return;
-
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const tourneyData = await tournamentsApi.getTournament(id);
-                setTournament(tourneyData);
-                setError(null);
-
-                // If user is logged in and tournament is upcoming, fetch submissions for registration
-                if (user && tourneyData.status === 'upcoming') {
-                    const subs = await submissionsApi.getSubmissions();
-                    const validSubs = subs.filter(
-                        (submission) =>
-                            fromApiGameType(submission.game_type) === tourneyData.game_id
-                            && submission.build_jobs?.some(job => job.status === 'completed')
-                    );
-                    setMySubmissions(validSubs);
-                }
-            } catch (err: any) {
-                console.error('Failed to fetch tournament:', err);
-                setError('Failed to load tournament details. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [id, user]);
-
-    const handleRegister = async () => {
-        if (!id || !selectedSubmissionId) return;
-
-        try {
-            setRegistering(true);
-            setRegisterError(null);
-            await tournamentsApi.registerForTournament(id, selectedSubmissionId);
-            setRegisterSuccess(true);
-
-            // Re-fetch tournament to update participants
-            const updatedTourney = await tournamentsApi.getTournament(id);
-            setTournament(updatedTourney);
-        } catch (err: any) {
-            console.error('Registration failed:', err);
-            setRegisterError(err.message || 'Failed to register. Please try again.');
-        } finally {
-            setRegistering(false);
-        }
-    };
-
-    if (loading) {
-        return (
-            <Container maxWidth="lg" sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
-                <CircularProgress />
-            </Container>
-        );
+  const fetchBracket = useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await tournamentsApi.getBracket(id);
+      setBracket(data);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch tournament bracket:', err);
+      setError('Failed to load the tournament.');
+    } finally {
+      setLoading(false);
     }
+  }, [id]);
 
-    if (error || !tournament) {
-        return (
-            <Container maxWidth="lg" sx={{ py: 4 }}>
-                <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
-                    Back to Tournaments
-                </Button>
-                <Alert severity="error">{error || 'Tournament not found'}</Alert>
-            </Container>
-        );
+  useEffect(() => {
+    setLoading(true);
+    fetchBracket();
+  }, [fetchBracket]);
+
+  // Live-refresh the bracket while the tournament engine is advancing it.
+  const status = bracket?.tournament.status;
+  useEffect(() => {
+    if (status !== 'running' && status !== 'needs_attention') return;
+    const interval = setInterval(fetchBracket, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [status, fetchBracket]);
+
+  // Celebrate when the tournament finishes while the page is open.
+  const prevStatusRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const previous = prevStatusRef.current;
+    prevStatusRef.current = status;
+    if (previous && previous !== 'completed' && status === 'completed') {
+      setPodiumOpen(true);
     }
+  }, [status]);
 
-    const { name, status, start_date, end_date, game_id, participants } = tournament;
+  const agentNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const entrant of bracket?.entrants ?? []) {
+      if (entrant.agent_name) names[entrant.agent_id] = entrant.agent_name;
+    }
+    return names;
+  }, [bracket]);
 
-    const isUpcoming = status === 'upcoming';
-    const isRegistered = participants?.some((p: any) => p.user_id === user?.id);
+  const hasLosersBracket = useMemo(
+    () => (bracket?.matchups ?? []).some((m) => m.bracket === 'losers'),
+    [bracket],
+  );
 
+  const podiumEntries: PodiumEntry[] = useMemo(
+    () =>
+      (bracket?.standings ?? [])
+        .filter((standing) => standing.placement !== null && standing.placement <= 3)
+        .slice(0, 3)
+        .map((standing) => ({
+          agentId: standing.agent_id,
+          name: standing.agent_name ?? `${standing.agent_id.slice(0, 8)}…`,
+          placement: standing.placement as number,
+        })),
+    [bracket],
+  );
+
+  if (loading) {
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
-                Back to Tournaments
-            </Button>
-
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Box>
-                    <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <EmojiEvents fontSize="large" color="primary" />
-                        {name}
-                    </Typography>
-                    <Typography color="text.secondary">
-                        Game: {game_id}
-                    </Typography>
-                </Box>
-                <Chip
-                    label={status.toUpperCase()}
-                    color={status === 'active' ? 'success' : status === 'completed' ? 'default' : 'primary'}
-                />
-            </Box>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 4 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom>Details</Typography>
-                            <Divider sx={{ mb: 2 }} />
-
-                            <Box sx={{ display: 'flex', gap: 4, mb: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <CalendarToday color="action" />
-                                    <Box>
-                                        <Typography variant="body2" color="text.secondary">Start Date</Typography>
-                                        <Typography variant="body1">{new Date(start_date).toLocaleDateString()}</Typography>
-                                    </Box>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <CalendarToday color="action" />
-                                    <Box>
-                                        <Typography variant="body2" color="text.secondary">End Date</Typography>
-                                        <Typography variant="body1">{new Date(end_date).toLocaleDateString()}</Typography>
-                                    </Box>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <People /> Participants ({participants?.length || 0})
-                            </Typography>
-                            <Divider sx={{ mb: 2 }} />
-
-                            {participants && participants.length > 0 ? (
-                                <Box component="ul" sx={{ pl: 2, m: 0 }}>
-                                    {participants.map((p: any) => (
-                                        <Typography component="li" key={p.user_id} sx={{ mb: 1 }}>
-                                            {p.username}
-                                            {p.user_id === user?.id && " (You)"}
-                                        </Typography>
-                                    ))}
-                                </Box>
-                            ) : (
-                                <Typography color="text.secondary">No participants registered yet.</Typography>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Box>
-
-                <Box>
-                    {isUpcoming ? (
-                        <Card sx={{ border: `1px solid ${palette.primary}`, backgroundColor: `${palette.primary}05` }}>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom color="primary">
-                                    Registration
-                                </Typography>
-                                <Typography variant="body2" paragraph>
-                                    Select one of your successfully built agent submissions to enter this tournament.
-                                </Typography>
-
-                                {registerSuccess || isRegistered ? (
-                                    <Alert severity="success" sx={{ mt: 2 }}>
-                                        You are registered for this tournament!
-                                    </Alert>
-                                ) : !user ? (
-                                    <Alert severity="warning">
-                                        Please log in to register.
-                                    </Alert>
-                                ) : (
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                                        {registerError && <Alert severity="error">{registerError}</Alert>}
-
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Select Agent</InputLabel>
-                                            <Select
-                                                value={selectedSubmissionId}
-                                                label="Select Agent"
-                                                onChange={(e) => setSelectedSubmissionId(e.target.value)}
-                                            >
-                                                {mySubmissions.map(sub => (
-                                                    <MenuItem key={sub.id} value={sub.id}>
-                                                        Submission {sub.id.substring(0, 8)}
-                                                        ({new Date(sub.created_at).toLocaleDateString()})
-                                                    </MenuItem>
-                                                ))}
-                                                {mySubmissions.length === 0 && (
-                                                    <MenuItem disabled value="">
-                                                        No completed builds found
-                                                    </MenuItem>
-                                                )}
-                                            </Select>
-                                        </FormControl>
-
-                                        <Button
-                                            variant="contained"
-                                            onClick={handleRegister}
-                                            disabled={!selectedSubmissionId || registering}
-                                            fullWidth
-                                        >
-                                            {registering ? <CircularProgress size={24} /> : 'Register Now'}
-                                        </Button>
-                                    </Box>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Match Results
-                                </Typography>
-                                <Typography color="text.secondary" variant="body2">
-                                    {status === 'active'
-                                        ? 'Tournament is currently ongoing. Match results will be displayed here soon.'
-                                        : 'Tournament has concluded. Final standings and match history will be displayed here.'}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    )}
-                </Box>
-            </Box>
-        </Container>
+      <Container maxWidth="lg" sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Container>
     );
+  }
+
+  if (error || !bracket) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+          Back
+        </Button>
+        <Alert severity="error">{error ?? 'Tournament not found.'}</Alert>
+      </Container>
+    );
+  }
+
+  const { tournament, standings, matchups } = bracket;
+  const gameName = getGameById(fromApiGameType(tournament.game_type))?.name ?? tournament.game_type;
+  const championName = tournament.winner_agent_id
+    ? agentNames[tournament.winner_agent_id] ?? tournament.winner_agent_id
+    : null;
+  const boardSize = tournament.config.state_init_data?.board_size as number | undefined;
+
+  const availableTabs: { key: 'winners' | 'losers' | 'standings'; label: string }[] = [
+    ...(matchups.length > 0 ? [{ key: 'winners' as const, label: 'Winners Bracket' }] : []),
+    ...(hasLosersBracket ? [{ key: 'losers' as const, label: 'Losers Bracket' }] : []),
+    { key: 'standings' as const, label: 'Standings' },
+  ];
+  const activeTab = availableTabs.some((t) => t.key === tab) ? tab : availableTabs[0].key;
+
+  return (
+    <Container maxWidth={false} sx={{ py: 4 }}>
+      <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+        Back
+      </Button>
+
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Typography variant="h4">{tournament.name}</Typography>
+        <StatusIndicator status={tournament.status} />
+      </Box>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        {gameName} · Double Elimination · Best of 3 · {bracket.entrants.length} entrants ·{' '}
+        {tournament.config.turn_time_limit}s per turn
+        {boardSize ? ` · ${boardSize}×${boardSize} board` : ''}
+      </Typography>
+
+      {tournament.status === 'completed' && championName && (
+        <Paper
+          variant="outlined"
+          sx={(theme) => ({
+            mb: 3,
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+            borderColor: alpha(theme.palette.primary.main, 0.35),
+            background: `linear-gradient(95deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, transparent 55%)`,
+          })}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+            <PlacementBadge placement={1} size={36} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                variant="overline"
+                color="primary"
+                sx={{ letterSpacing: '0.15em', lineHeight: 1.2, fontWeight: 600 }}
+              >
+                Champion
+              </Typography>
+              <Typography
+                component={Link}
+                to={`/agents/${tournament.winner_agent_id}`}
+                variant="h6"
+                noWrap
+                sx={{
+                  display: 'block',
+                  color: 'text.primary',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                {championName}
+              </Typography>
+            </Box>
+          </Box>
+          {podiumEntries.length > 0 && (
+            <Button variant="outlined" size="small" onClick={() => setPodiumOpen(true)}>
+              View podium
+            </Button>
+          )}
+        </Paper>
+      )}
+      {tournament.status === 'needs_attention' && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          A matchup in this tournament needs admin attention before the bracket can continue.
+        </Alert>
+      )}
+      {tournament.status === 'pending' && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          This tournament has not been started yet. The bracket is seeded when it starts.
+        </Alert>
+      )}
+
+      <Tabs
+        value={activeTab}
+        onChange={(_event, value) => setTab(value)}
+        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+      >
+        {availableTabs.map((t) => (
+          <Tab key={t.key} value={t.key} label={t.label} />
+        ))}
+      </Tabs>
+
+      {activeTab === 'winners' && (
+        <Paper sx={{ p: 3 }}>
+          <BracketView matchups={matchups} agentNames={agentNames} section="winners" />
+        </Paper>
+      )}
+
+      {activeTab === 'losers' && (
+        <Paper sx={{ p: 3 }}>
+          <BracketView matchups={matchups} agentNames={agentNames} section="losers" />
+        </Paper>
+      )}
+
+      {activeTab === 'standings' && (
+        <Paper sx={{ p: 3 }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Agent</TableCell>
+                  <TableCell align="right">Seed</TableCell>
+                  <TableCell align="right">Matchups W–L</TableCell>
+                  <TableCell>Eliminated In</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {standings.map((standing) => (
+                  <TableRow key={standing.agent_id}>
+                    <TableCell>
+                      <PlacementBadge placement={standing.placement} />
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/agents/${standing.agent_id}`} style={{ color: 'inherit' }}>
+                        {standing.agent_name ?? `${standing.agent_id.slice(0, 8)}…`}
+                      </Link>
+                    </TableCell>
+                    <TableCell align="right">{standing.seed ?? '—'}</TableCell>
+                    <TableCell align="right">
+                      {standing.matchup_wins}–{standing.matchup_losses}
+                    </TableCell>
+                    <TableCell>
+                      {standing.eliminated_in_bracket
+                        ? `${bracketLabel[standing.eliminated_in_bracket] ?? standing.eliminated_in_bracket}${
+                            standing.eliminated_in_bracket === 'winners' || standing.eliminated_in_bracket === 'losers'
+                              ? ` · Round ${standing.eliminated_in_round}`
+                              : ''
+                          }`
+                        : standing.placement === 1
+                          ? 'Champion'
+                          : tournament.status === 'completed' || tournament.status === 'cancelled'
+                            ? '—'
+                            : 'Still playing'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      <PodiumDialog
+        open={podiumOpen}
+        onClose={() => setPodiumOpen(false)}
+        tournamentName={tournament.name}
+        entries={podiumEntries}
+      />
+    </Container>
+  );
 }

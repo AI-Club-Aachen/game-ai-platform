@@ -3,12 +3,14 @@ import { Box, Container, Typography, Button, Card, CardContent, CircularProgress
 import { ArrowBack, EmojiEvents, Gamepad } from '@mui/icons-material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
 import { agentsApi, Agent } from '../services/api/agents';
 import { fromApiGameType, getActiveGames } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { StatusIndicator } from '../components/common/StatusIndicator';
+import { SubmissionFreezeBanner } from '../components/common/SubmissionFreezeBanner';
 import { ActiveBadge, PrimarySecondaryCell } from '../components/common/TableCells';
 import { overlays, palette } from '../theme';
 
@@ -51,6 +53,8 @@ export function AgentDetails() {
     const goBack = useSmartBack('/dashboard');
     const { id } = useParams<{ id: string }>();
     const { isAdmin } = useAuth();
+    const { frozen } = useSubmissionFreeze();
+    const blockedByFreeze = frozen && !isAdmin;
 
     const [agent, setAgent] = useState<Agent | null>(null);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -181,6 +185,8 @@ export function AgentDetails() {
                 Back
             </Button>
 
+            {blockedByFreeze && <SubmissionFreezeBanner sx={{ mb: 3 }} />}
+
             <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
                     <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -195,7 +201,7 @@ export function AgentDetails() {
                     <Button
                         variant="outlined"
                         onClick={() => navigate(`/submissions/new?agentId=${agent.id}&gameId=${gameId}`)}
-                        disabled={deleting}
+                        disabled={deleting || blockedByFreeze}
                     >
                         Upload Submission
                     </Button>
@@ -211,7 +217,7 @@ export function AgentDetails() {
                     <Button
                         variant="outlined"
                         onClick={handleDeleteAgent}
-                        disabled={deleting}
+                        disabled={deleting || blockedByFreeze}
                         sx={{
                             color: 'error.main',
                             borderColor: 'error.main',
@@ -406,7 +412,7 @@ export function AgentDetails() {
                                                                             variant="outlined"
                                                                             size="small"
                                                                             onClick={() => handleSwitchSubmission(sub.id)}
-                                                                            disabled={switchingSubmissionId === sub.id}
+                                                                            disabled={switchingSubmissionId === sub.id || blockedByFreeze}
                                                                             sx={secondaryTableActionButtonSx}
                                                                         >
                                                                             {switchingSubmissionId === sub.id ? 'Switching...' : 'Use For Agent'}

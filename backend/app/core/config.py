@@ -106,6 +106,31 @@ class Settings(BaseSettings):
         description="Maximum allowed Hex board_size in match state_init_data (DoS guard).",
     )
 
+    # Tournament engine
+    TOURNAMENT_POLL_INTERVAL_SECONDS: float = Field(
+        default=5.0,
+        description="How often the tournament scheduler advances running tournaments.",
+    )
+    TOURNAMENT_MAX_CONCURRENT_MATCHES: int = Field(
+        default=4,
+        description="Default per-tournament cap on concurrently queued/running matches.",
+    )
+    TOURNAMENT_MAX_GAME_RETRIES: int = Field(
+        default=2,
+        description=(
+            "How many times an infrastructure-failed tournament game is re-queued before "
+            "its matchup is flagged for admin attention."
+        ),
+    )
+    TOURNAMENT_DEFAULT_TURN_TIME_LIMIT_SECONDS: float = Field(
+        default=10.0,
+        description="Default per-turn time limit for tournament matches.",
+    )
+    MAX_TOURNAMENT_ENTRANTS: int = Field(
+        default=128,
+        description="Maximum number of agents allowed in a single tournament.",
+    )
+
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
     SUBMISSIONS_DIR: str = "uploads/submissions"
@@ -360,6 +385,34 @@ class Settings(BaseSettings):
     def validate_max_hex_board_size(cls, v: int) -> int:
         if v < 2:  # noqa: PLR2004
             raise ValueError("MAX_HEX_BOARD_SIZE must be at least 2")
+        return v
+
+    @field_validator("TOURNAMENT_POLL_INTERVAL_SECONDS", "TOURNAMENT_DEFAULT_TURN_TIME_LIMIT_SECONDS")
+    @classmethod
+    def validate_tournament_positive_floats(cls, v: float, info: ValidationInfo) -> float:
+        if v <= 0:
+            raise ValueError(f"{info.field_name} must be greater than 0")
+        return v
+
+    @field_validator("TOURNAMENT_MAX_CONCURRENT_MATCHES")
+    @classmethod
+    def validate_tournament_max_concurrent(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("TOURNAMENT_MAX_CONCURRENT_MATCHES must be at least 1")
+        return v
+
+    @field_validator("TOURNAMENT_MAX_GAME_RETRIES")
+    @classmethod
+    def validate_tournament_max_retries(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("TOURNAMENT_MAX_GAME_RETRIES must not be negative")
+        return v
+
+    @field_validator("MAX_TOURNAMENT_ENTRANTS")
+    @classmethod
+    def validate_max_tournament_entrants(cls, v: int) -> int:
+        if v < 2:  # noqa: PLR2004
+            raise ValueError("MAX_TOURNAMENT_ENTRANTS must be at least 2")
         return v
 
     @model_validator(mode="after")

@@ -3,11 +3,13 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, Men
 import { ArrowBack, SmartToy } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
 import { agentsApi } from '../services/api/agents';
 import { getLatestBuildJob, submissionsApi, Submission } from '../services/api/submissions';
 import { useAuth } from '../context/AuthContext';
 import { fromApiGameType, getActiveGames, toApiGameType } from '../config/games';
 import { FileUploadBox } from '../components/common/FileUploadBox';
+import { SubmissionFreezeBanner } from '../components/common/SubmissionFreezeBanner';
 
 const BUILD_POLL_MS = 2000;
 const BUILD_POLL_ATTEMPTS = 60;
@@ -40,7 +42,9 @@ export function NewAgent() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const goBack = useSmartBack('/dashboard');
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
+    const { frozen } = useSubmissionFreeze();
+    const blockedByFreeze = frozen && !isAdmin;
 
     const availableGames = getActiveGames();
     const requestedGameId = searchParams.get('gameId') ?? '';
@@ -136,6 +140,8 @@ export function NewAgent() {
                         we will build it and automatically link it to the new agent when the build succeeds.
                     </Typography>
 
+                    {blockedByFreeze && <SubmissionFreezeBanner sx={{ mb: 3 }} />}
+
                     {error && (
                         <Alert severity="error" sx={{ mb: 3 }}>
                             {error}
@@ -219,7 +225,7 @@ export function NewAgent() {
                         <Button
                             variant="contained"
                             onClick={handleSubmit}
-                            disabled={loading}
+                            disabled={loading || blockedByFreeze}
                             sx={{ minWidth: 180 }}
                         >
                             {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Agent'}

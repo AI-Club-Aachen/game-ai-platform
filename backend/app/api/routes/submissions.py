@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import FileResponse
 
 from app.api.deps import (
+    SubmissionsUnfrozen,
     VerifiedGuestOrHigher,
     VerifiedUserOrHigher,
     WorkerOrVerifiedUser,
@@ -29,6 +30,7 @@ async def create_submission(
     file: Annotated[UploadFile, File(...)],
     game_type: Annotated[GameType, Form(...)],
     current_user: VerifiedUserOrHigher,
+    _unfrozen: SubmissionsUnfrozen,
     service: SubmissionService = Depends(get_submission_service),
     name: Annotated[str | None, Form()] = None,
 ) -> SubmissionRead:
@@ -125,6 +127,7 @@ def delete_submission(
     request: Request,  # noqa: ARG001
     submission_id: UUID,
     current_user: VerifiedUserOrHigher,
+    _unfrozen: SubmissionsUnfrozen,
     service: SubmissionService = Depends(get_submission_service),
 ) -> None:
     """Delete a submission. Requires the USER role or higher; owner or admin only."""

@@ -29,6 +29,9 @@ const statusConfigs: Record<string, StatusConfig> = {
   failed: { label: 'Failed', tone: 'error' },
   dead: { label: 'Dead', tone: 'error' },
   client_error: { label: 'Client Error', tone: 'error' },
+  pending: { label: 'Pending', tone: 'muted' },
+  cancelled: { label: 'Cancelled', tone: 'muted' },
+  needs_attention: { label: 'Needs Attention', tone: 'warning', pulse: true },
   unknown: { label: 'Unknown', tone: 'muted' },
 };
 

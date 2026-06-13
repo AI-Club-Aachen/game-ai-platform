@@ -53,6 +53,7 @@ class MatchService:
         config: MatchConfig,
         agent_ids: list[UUID],
         owner_user_id: UUID | None = None,
+        tournament_id: UUID | None = None,
     ) -> Match:
         """
         Create a match and queue it for execution.
@@ -60,6 +61,10 @@ class MatchService:
         If owner_user_id is given (non-admin API callers), at least one of the
         participating agents must belong to that user. Admin callers and the
         internal match scheduler pass None and may match any agents.
+
+        tournament_id tags a match as tournament play (set only by the
+        tournament engine): such matches skip global agent stats and are
+        ignored by the random auto-scheduler.
         """
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
@@ -74,7 +79,11 @@ class MatchService:
 
         config_dict = config.model_dump()
         match = Match(
-            game_type=game_type, status=MatchStatus.QUEUED, config=config_dict, agent_ids=[str(i) for i in agent_ids]
+            game_type=game_type,
+            status=MatchStatus.QUEUED,
+            config=config_dict,
+            agent_ids=[str(i) for i in agent_ids],
+            tournament_id=tournament_id,
         )
         match = self._repository.save(match)
 
@@ -136,7 +145,10 @@ class MatchService:
 
         saved = self._repository.save(match)
 
-        if old_status != MatchStatus.COMPLETED and saved.status == MatchStatus.COMPLETED:
+        # Tournament matches never touch global agent stats/ELO; tournament
+        # standings live in the tournament tables.
+        became_completed = old_status != MatchStatus.COMPLETED and saved.status == MatchStatus.COMPLETED
+        if became_completed and saved.tournament_id is None:
             self._update_agent_stats(saved)
 
         # Publish game state update to Redis for SSE subscribers

@@ -3,15 +3,21 @@ import { Box, Container, Typography, Button, Card, CardContent, CircularProgress
 import { ArrowBack, Code, Terminal } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
+import { useAuth } from '../context/AuthContext';
 import { submissionsApi, Submission } from '../services/api/submissions';
 import { agentsApi } from '../services/api/agents';
 import { fromApiGameType } from '../config/games';
+import { SubmissionFreezeBanner } from '../components/common/SubmissionFreezeBanner';
 import { overlays } from '../theme';
 
 export function SubmissionDetails() {
     const navigate = useNavigate();
     const goBack = useSmartBack('/dashboard');
     const { id } = useParams<{ id: string }>();
+    const { isAdmin } = useAuth();
+    const { frozen } = useSubmissionFreeze();
+    const blockedByFreeze = frozen && !isAdmin;
 
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [loading, setLoading] = useState(true);
@@ -120,7 +126,7 @@ export function SubmissionDetails() {
                     <Button
                         variant="outlined"
                         onClick={handleDeleteSubmission}
-                        disabled={deleting}
+                        disabled={deleting || blockedByFreeze}
                         sx={{
                             color: 'error.main',
                             borderColor: 'error.main',
@@ -134,6 +140,8 @@ export function SubmissionDetails() {
                     </Button>
                 </Box>
             </Box>
+
+            {blockedByFreeze && <SubmissionFreezeBanner sx={{ mb: 3 }} />}
 
             <Typography variant="h4" gutterBottom>
                 {submission.name}
