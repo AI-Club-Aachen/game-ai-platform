@@ -95,6 +95,7 @@ export const matchesApi = {
             enabled: boolean;
             interval_seconds: number;
             strategy: string;
+            scheduling_strategy: string;
         }>('/matches/scheduler/config', {
             method: 'GET',
         });
@@ -103,11 +104,12 @@ export const matchesApi = {
     /**
      * Update scheduler configuration
      */
-    updateSchedulerConfig: async (config: { enabled: boolean; interval_seconds: number; strategy: string }) => {
+    updateSchedulerConfig: async (config: { enabled: boolean; interval_seconds: number; strategy: string; scheduling_strategy: string }) => {
         return apiRequest<{
             enabled: boolean;
             interval_seconds: number;
             strategy: string;
+            scheduling_strategy: string;
         }>('/matches/scheduler/config', {
             method: 'PUT',
             body: JSON.stringify(config),

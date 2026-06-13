@@ -141,7 +141,7 @@ export function MatchManagement() {
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
-  const [schedulerConfig, setSchedulerConfig] = useState({ enabled: false, interval_seconds: 10, strategy: 'least_played' });
+  const [schedulerConfig, setSchedulerConfig] = useState({ enabled: false, interval_seconds: 10, strategy: 'least_played', scheduling_strategy: 'serial' });
   const [isSavingScheduler, setIsSavingScheduler] = useState(false);
 
   const selectedGameConfig = getGameById(fromApiGameType(newMatchGameType));
@@ -590,14 +590,26 @@ export function MatchManagement() {
             />
 
             <FormControl fullWidth disabled={!schedulerConfig.enabled}>
-              <InputLabel>Scheduling Strategy</InputLabel>
+              <InputLabel>Agent Selection</InputLabel>
               <Select
                 value={schedulerConfig.strategy}
-                label="Scheduling Strategy"
+                label="Agent Selection"
                 onChange={(e) => setSchedulerConfig({ ...schedulerConfig, strategy: e.target.value })}
               >
                 <MenuItem value="random">Random</MenuItem>
                 <MenuItem value="least_played">Least Played (prioritize agents with fewer games)</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth disabled={!schedulerConfig.enabled}>
+              <InputLabel>Scheduling Mode</InputLabel>
+              <Select
+                value={schedulerConfig.scheduling_strategy}
+                label="Scheduling Mode"
+                onChange={(e) => setSchedulerConfig({ ...schedulerConfig, scheduling_strategy: e.target.value })}
+              >
+                <MenuItem value="serial">Serial (one match at a time)</MenuItem>
+                <MenuItem value="concurrent">Concurrent (keep all workers busy)</MenuItem>
               </Select>
             </FormControl>
           </Box>
