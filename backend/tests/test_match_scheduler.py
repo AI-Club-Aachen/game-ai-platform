@@ -18,6 +18,7 @@ from app.api.services.match_scheduler import (
     MatchSchedulerService,
 )
 from app.core.config import settings
+from app.models.match import MatchStatus
 
 
 def _agent(matches_played: int):
@@ -39,9 +40,7 @@ class _SerialStubRepo:
         self._has_queued = has_queued
         self._has_running = has_running
 
-    def list_matches(self, *, skip, limit, status, with_tournament):  # noqa: ARG002
-        from app.models.match import MatchStatus
-
+    def list_matches(self, *, skip, limit, status, with_tournament):
         if status == MatchStatus.QUEUED.value:
             return [object()] if self._has_queued else []
         if status == MatchStatus.RUNNING.value:
@@ -57,10 +56,10 @@ def test_default_scheduling_strategy_is_serial():
 def test_serial_strategy_queues_one_at_a_time():
     scheduler = MatchSchedulerService()  # defaults to serial
     # Idle -> queue exactly one.
-    assert scheduler._free_slots(_SerialStubRepo(has_queued=False, has_running=False)) == 1
+    assert scheduler._free_slots(_SerialStubRepo(has_queued=False, has_running=False)) == 1  # noqa: SLF001
     # Something already queued or running -> queue nothing.
-    assert scheduler._free_slots(_SerialStubRepo(has_queued=True, has_running=False)) == 0
-    assert scheduler._free_slots(_SerialStubRepo(has_queued=False, has_running=True)) == 0
+    assert scheduler._free_slots(_SerialStubRepo(has_queued=True, has_running=False)) == 0  # noqa: SLF001
+    assert scheduler._free_slots(_SerialStubRepo(has_queued=False, has_running=True)) == 0  # noqa: SLF001
 
 
 def test_concurrent_strategy_fills_up_to_target(monkeypatch):
@@ -68,9 +67,9 @@ def test_concurrent_strategy_fills_up_to_target(monkeypatch):
     scheduler = MatchSchedulerService()
     scheduler.scheduling_strategy = SCHEDULING_CONCURRENT
     # Nothing in flight -> fill all 5 slots (serial would only ever return 1).
-    assert scheduler._free_slots(_ConcurrentStubRepo(0)) == 5
+    assert scheduler._free_slots(_ConcurrentStubRepo(0)) == 5  # noqa: SLF001
     # Partially busy -> top up the remainder.
-    assert scheduler._free_slots(_ConcurrentStubRepo(3)) == 2
+    assert scheduler._free_slots(_ConcurrentStubRepo(3)) == 2  # noqa: SLF001
 
 
 def test_concurrent_strategy_capped_at_target(monkeypatch):
@@ -78,8 +77,8 @@ def test_concurrent_strategy_capped_at_target(monkeypatch):
     scheduler = MatchSchedulerService()
     scheduler.scheduling_strategy = SCHEDULING_CONCURRENT
     # At or above the target -> no new matches (don't flood the queue).
-    assert scheduler._free_slots(_ConcurrentStubRepo(4)) == 0
-    assert scheduler._free_slots(_ConcurrentStubRepo(6)) <= 0
+    assert scheduler._free_slots(_ConcurrentStubRepo(4)) == 0  # noqa: SLF001
+    assert scheduler._free_slots(_ConcurrentStubRepo(6)) <= 0  # noqa: SLF001
 
 
 def test_choose_agents_spreads_batch_across_agents():
@@ -92,7 +91,7 @@ def test_choose_agents_spreads_batch_across_agents():
 
     # Create two matches as the tick loop would, updating the local tally between.
     for _ in range(2):
-        chosen = scheduler._choose_agents_for_match(agents, local_played)
+        chosen = scheduler._choose_agents_for_match(agents, local_played)  # noqa: SLF001
         assert len(chosen) == 2
         assert chosen[0] != chosen[1]
         for agent_id in chosen:
@@ -107,7 +106,7 @@ def test_choose_agents_without_local_tally_picks_least_played():
     scheduler = MatchSchedulerService()
     low_a, low_b = _agent(0), _agent(0)
     high = _agent(100)
-    chosen = set(scheduler._choose_agents_for_match([low_a, low_b, high]))
+    chosen = set(scheduler._choose_agents_for_match([low_a, low_b, high]))  # noqa: SLF001
     assert chosen == {low_a.id, low_b.id}
 
 
