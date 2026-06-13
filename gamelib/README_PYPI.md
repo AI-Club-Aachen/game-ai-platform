@@ -81,12 +81,6 @@ if __name__ == "__main__":
     MyTicTacToeAgent().start()
 ```
 
-That same single line is all you need **both** to upload to the Game AI Platform
-and to test the agent locally with `gamelib-play` (see below). You no longer need
-any `DevRunner` boilerplate or `AGENT_ONLINE`-style branching in `__main__` -
-`gamelib-play` imports your `Agent` class directly and runs the match for you, so
-your `__main__` block is never executed during local play.
-
 ## Playing Locally (`gamelib-play`)
 
 The package ships a `gamelib-play` command to run a match in your terminal - no

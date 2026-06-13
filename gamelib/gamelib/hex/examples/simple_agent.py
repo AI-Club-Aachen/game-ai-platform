@@ -32,7 +32,7 @@ class HexAgent(Agent):
 
 
 if __name__ == "__main__":
-    # The only entry point you need — works both on the platform and for local
+    # The only entry point you need
     # play via `gamelib-play hex <player0> <player1>`.
     HexAgent().start()
 
