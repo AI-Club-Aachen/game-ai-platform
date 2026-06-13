@@ -95,6 +95,7 @@ services:
       WORKER_API_KEY: ${WORKER_API_KEY:?WORKER_API_KEY is required}
       MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
       MAX_AGENTS_PER_GAME: ${MAX_AGENTS_PER_GAME:-0}
+      MATCH_MAX_CONCURRENT_MATCHES: ${MATCH_MAX_CONCURRENT_MATCHES:-4}
     depends_on:
       db:
         condition: service_healthy
