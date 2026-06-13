@@ -88,6 +88,16 @@ class MatchRepository:
         )
         return self._session.exec(statement).one()
 
+    def count_active_non_tournament(self) -> int:
+        """Number of queued/running non-tournament matches (auto-scheduler concurrency cap)."""
+        statement = (
+            select(func.count())
+            .select_from(Match)
+            .where(Match.tournament_id.is_(None))
+            .where(Match.status.in_([MatchStatus.QUEUED, MatchStatus.RUNNING]))
+        )
+        return self._session.exec(statement).one()
+
     # --- Commands ---
 
     def save(self, match: Match) -> Match:
