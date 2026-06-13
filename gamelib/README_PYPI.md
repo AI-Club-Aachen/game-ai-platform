@@ -60,9 +60,8 @@ class MyTicTacToeAgent(Agent):
         raise ValueError("No valid moves available.")
 
 if __name__ == "__main__":
-    # Instantiate and start the agent (run by the platform)
-    agent = MyTicTacToeAgent()
-    agent.start()
+    # The only entry point you need - works both on the platform and locally.
+    MyTicTacToeAgent().start()
 ```
 
 You can import this example agent right away with:
@@ -72,16 +71,31 @@ from gamelib.tictactoe.examples import TicTacToeAgent
 
 ## Running Your Agent
 
-The agent uses standard input/output (stdin/stdout) to communicate with the game engine, when running on the platform. This is handled automatically as long as your agent is a subclass of `gamelib.GAME.agent.Agent`and properly started in the `__main__` block.
+Your agent talks to the game engine over standard input/output (stdin/stdout).
+This is handled for you by `Agent.start()` as long as your class subclasses
+`gamelib.GAME.agent.Agent`. The **only** thing your file needs is a one-line
+entry point:
 
-To test locally, you can use the DevRunner provided in the `gamelib.GAME.dev_runner` module:
 ```python
-from gamelib.tictactoe import DevRunner
+if __name__ == "__main__":
+    MyTicTacToeAgent().start()
+```
 
-runner = DevRunner()
-agent1 = TicTacToeAgent()
-agent2 = TicTacToeAgent()
-runner.add_agent(agent1)
-runner.add_agent(agent2)
-runner.start()
+## Playing Locally (`gamelib-play`)
+
+The package ships a `gamelib-play` command to run a match in your terminal - no
+backend required:
+
+```bash
+gamelib-play <game> <player0> <player1>
+```
+
+`<game>` is `tictactoe` etc. Each player is either `human` or a path to a
+Python file defining an `Agent` subclass (use `file.py:ClassName` to pick one).
+
+```bash
+gamelib-play tictactoe human my_agent.py   # you vs your agent (you go first)
+gamelib-play tictactoe my_agent.py human   # you vs your agent (agent goes first)
+gamelib-play hex agent_a.py agent_b.py     # watch two agents play (A goes first)
+gamelib-play tictactoe human human         # hot-seat
 ```

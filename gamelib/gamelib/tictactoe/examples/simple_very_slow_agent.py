@@ -2,11 +2,10 @@
 Sample Tic-Tac-Toe Agent Implementation.
 """
 
-import os
 import time
 from typing import override
 
-from gamelib.tictactoe import Agent, DevRunner, Move
+from gamelib.tictactoe import Agent, Move
 from gamelib.tictactoe import GameState as State
 
 
@@ -44,18 +43,6 @@ class TicTacToeAgent(Agent):
 
 
 if __name__ == "__main__":
-    # Check if running in online mode or local development mode
-    # No need to set any environment variable for local testing
-    ONLINE = os.getenv("AGENT_ONLINE", "0") == "1"
-    if ONLINE:
-        # Online submission runner
-        agent = TicTacToeAgent()
-        agent.start()
-    else:
-        # Local development runner
-        runner = DevRunner()
-        agent1 = TicTacToeAgent()
-        agent2 = TicTacToeAgent()
-        runner.add_agent(agent1)
-        runner.add_agent(agent2)
-        runner.start()
+    # The only entry point you need
+    # play via `gamelib-play tictactoe <player0> <player1>`.
+    TicTacToeAgent().start()
