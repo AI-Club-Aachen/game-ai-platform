@@ -103,9 +103,8 @@ class Settings(BaseSettings):
     MATCH_MAX_CONCURRENT_MATCHES: int = Field(
         default=4,
         description=(
-            "Target number of concurrently queued/running non-tournament matches the auto-scheduler "
-            "keeps in flight. Set this to roughly the number of match-runner workers so they stay busy "
-            "without flooding the queue (which would make freshly built agents wait behind a backlog)."
+            "Concurrent-strategy target for queued/running non-tournament matches. "
+            "Set to roughly the number of match-runner workers."
         ),
     )
     # Per-game state_init_data validated; board_size bounds O(n^2) allocation.

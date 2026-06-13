@@ -43,8 +43,7 @@ class MatchSchedulerConfig(BaseModel):
     enabled: bool
     interval_seconds: float
     strategy: str
-    # How many matches to keep in flight: "serial" (one at a time, legacy default)
-    # or "concurrent" (top the queue up to MATCH_MAX_CONCURRENT_MATCHES).
+    # "serial" (one at a time) or "concurrent" (fill up to MATCH_MAX_CONCURRENT_MATCHES)
     scheduling_strategy: str = SCHEDULING_SERIAL
 
 

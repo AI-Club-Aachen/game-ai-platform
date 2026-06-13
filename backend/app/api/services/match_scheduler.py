@@ -21,13 +21,8 @@ from app.models.match import MatchConfig, MatchStatus
 logger = logging.getLogger(__name__)
 
 
-# Scheduling strategies decide *how many* matches to queue each tick.
-#   - "serial":     legacy behaviour — keep at most one non-tournament match in
-#                   flight at a time (queue the next only once the previous one
-#                   has finished).
-#   - "concurrent": keep queued + running matches topped up to
-#                   settings.MATCH_MAX_CONCURRENT_MATCHES, so multiple match
-#                   runners stay busy without flooding the queue.
+# How many matches to queue per tick: "serial" keeps one in flight, "concurrent"
+# fills up to settings.MATCH_MAX_CONCURRENT_MATCHES.
 SCHEDULING_SERIAL = "serial"
 SCHEDULING_CONCURRENT = "concurrent"
 VALID_SCHEDULING_STRATEGIES = {SCHEDULING_SERIAL, SCHEDULING_CONCURRENT}
@@ -39,10 +34,9 @@ class MatchSchedulerService:
     """
 
     def __init__(self) -> None:
-        # Agent-selection strategy: which agents to pair for a new match.
+        # Which agents to pair for a new match.
         self.strategy = "least_played"
-        # Scheduling strategy: how many matches to keep in flight (see constants above).
-        # Defaults to the legacy serial behaviour.
+        # How many matches to keep in flight (see constants above).
         self.scheduling_strategy = SCHEDULING_SERIAL
 
     async def check_and_queue_matches(self) -> None:
@@ -63,9 +57,6 @@ class MatchSchedulerService:
 
             await self._fail_stale_running_matches(match_repository, match_service)
 
-            # Determine how many more matches to queue this tick. The serial strategy
-            # queues at most one match at a time; the concurrent strategy tops the queue
-            # up to the configured target. Tournament matches are managed separately.
             free_slots = self._free_slots(match_repository)
             if free_slots <= 0:
                 logger.info("No new matches need to be queued at this time.")
@@ -80,13 +71,12 @@ class MatchSchedulerService:
                 logger.info("No game types have enough available agents to schedule matches.")
                 return
 
-            # Spread the batch across agents: newly created matches are still QUEUED so
-            # their participants' matches_played won't update until they finish. Without
-            # this local tally, every match in a single tick would pick the same pairing.
+            # Provisional per-tick counts so a batch spreads across agents instead of
+            # repeatedly picking the same least-played pairing (QUEUED matches don't
+            # update matches_played until they finish).
             local_played: dict[UUID, int] = defaultdict(int)
 
             for _ in range(free_slots):
-                # randomly choose a game type
                 game_type_str = random.choice(list(available_agents.keys()))  # noqa: S311
                 agents_for_match = self._choose_agents_for_match(
                     available_agents[game_type_str], local_played
@@ -123,12 +113,7 @@ class MatchSchedulerService:
         return 1 if self._check_match_queue(match_repository) else 0
 
     def _available_match_slots(self, match_repository: MatchRepository) -> int:
-        """
-        Slots for the concurrent strategy: keep queued + running matches topped up to
-        the configured concurrency target so the match-runner workers stay busy, while
-        capping queue depth so freshly built agents don't wait behind a large backlog.
-        Tournament matches are managed by the tournament scheduler and excluded here.
-        """
+        """Concurrent strategy: free slots below the configured concurrency target."""
         in_flight = match_repository.count_active_non_tournament()
         return settings.MATCH_MAX_CONCURRENT_MATCHES - in_flight
 
@@ -219,9 +204,7 @@ class MatchSchedulerService:
         """
         Choose a set of agents to participate in a new match based on strategy.
 
-        ``local_played`` carries provisional match counts for agents already assigned
-        earlier in the same scheduling tick, so a batch of matches spreads across agents
-        instead of repeatedly picking the same least-played pairing.
+        ``local_played`` adds provisional counts for agents already picked this tick.
         """
         local_played = local_played or {}
         if self.strategy == "least_played":
