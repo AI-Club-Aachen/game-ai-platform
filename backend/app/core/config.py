@@ -38,6 +38,18 @@ class Settings(BaseSettings):
         default=None,
         description="Override default DB SQL echoing behavior. Defaults to True in dev environment, False otherwise.",
     )
+    DATABASE_POOL_SIZE: int = Field(
+        default=20,
+        description="SQLAlchemy connection pool size.",
+    )
+    DATABASE_MAX_OVERFLOW: int = Field(
+        default=20,
+        description="SQLAlchemy connection pool max overflow.",
+    )
+    DATABASE_POOL_TIMEOUT: float = Field(
+        default=30.0,
+        description="SQLAlchemy connection pool timeout in seconds.",
+    )
     REDIS_URL: str = "redis://redis:6379/0"
 
     # Rate limiting: Limit strings use the slowapi/limits format,
@@ -392,6 +404,27 @@ class Settings(BaseSettings):
     def validate_match_max_concurrent(cls, v: int) -> int:
         if v < 1:
             raise ValueError("MATCH_MAX_CONCURRENT_MATCHES must be at least 1")
+        return v
+
+    @field_validator("DATABASE_POOL_SIZE")
+    @classmethod
+    def validate_database_pool_size(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("DATABASE_POOL_SIZE must be at least 1")
+        return v
+
+    @field_validator("DATABASE_MAX_OVERFLOW")
+    @classmethod
+    def validate_database_max_overflow(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("DATABASE_MAX_OVERFLOW must be at least 0")
+        return v
+
+    @field_validator("DATABASE_POOL_TIMEOUT")
+    @classmethod
+    def validate_database_pool_timeout(cls, v: float) -> float:
+        if v < 0.0:
+            raise ValueError("DATABASE_POOL_TIMEOUT must be at least 0.0")
         return v
 
     @field_validator("MAX_HEX_BOARD_SIZE")
