@@ -27,9 +27,9 @@ function getStatusText(status: number, name0: string, name1: string): { text: st
     case -1:
       return { text: 'In Progress', color: 'info.main' };
     case 0:
-      return { text: `${name0} wins!`, color: '#ef4444' }; // Red
+      return { text: `${name0} wins!`, color: '#3b82f6' }; // Blue
     case 1:
-      return { text: `${name1} wins!`, color: '#3b82f6' }; // Blue
+      return { text: `${name1} wins!`, color: '#ef4444' }; // Red
     default:
       return { text: 'Unknown', color: 'text.secondary' };
   }
@@ -97,11 +97,11 @@ export function HexRenderer({ gameState, agentIds, agentMap }: GameRendererProps
 
   const colors = {
     empty: isDark ? theme.palette.action.hover : '#f1f5f9',
-    p0: '#ef4444', // Left-Right (Horizontal) Player
-    p1: '#3b82f6', // Top-Bottom (Vertical) Player
+    p0: '#3b82f6', // Left-Right (Horizontal) Player
+    p1: '#ef4444', // Top-Bottom (Vertical) Player
     stroke: isDark ? theme.palette.divider : '#cbd5e1',
-    boardLeftRight: 'rgba(239, 68, 68, 0.3)',
-    boardTopBottom: 'rgba(59, 130, 246, 0.3)',
+    boardLeftRight: 'rgba(59, 130, 246, 0.3)',
+    boardTopBottom: 'rgba(239, 68, 68, 0.3)',
   };
 
   const statusInfo = getStatusText(status, agentName(0), agentName(1));
