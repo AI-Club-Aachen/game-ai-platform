@@ -2,12 +2,10 @@
 A simple agent that plays a random valid move in Hex.
 """
 
-import os
 import random
 from typing import override
 
 from gamelib.hex.agent import Agent
-from gamelib.hex.dev_runner import DevRunner
 from gamelib.hex.gamestate import GameState as State
 from gamelib.hex.move import Move
 
@@ -34,19 +32,7 @@ class HexAgent(Agent):
 
 
 if __name__ == "__main__":
-    # Check if running in online mode or local development mode
-    # No need to set any environment variable for local testing
-    ONLINE = os.getenv("AGENT_ONLINE", "0") == "1"
-    if ONLINE:
-        # Online submission runner
-        agent = HexAgent()
-        agent.start()
-    else:
-        # Local development runner
-        runner = DevRunner()
-        agent1 = HexAgent()
-        agent2 = HexAgent()
-        runner.add_agent(agent1)
-        runner.add_agent(agent2)
-        runner.start()
+    # The only entry point you need — works both on the platform and for local
+    # play via `gamelib-play hex <player0> <player1>`.
+    HexAgent().start()
 

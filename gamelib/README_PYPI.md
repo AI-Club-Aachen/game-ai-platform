@@ -60,9 +60,8 @@ class MyTicTacToeAgent(Agent):
         raise ValueError("No valid moves available.")
 
 if __name__ == "__main__":
-    # Instantiate and start the agent (run by the platform)
-    agent = MyTicTacToeAgent()
-    agent.start()
+    # The only entry point you need - works both on the platform and locally.
+    MyTicTacToeAgent().start()
 ```
 
 You can import this example agent right away with:
@@ -72,57 +71,37 @@ from gamelib.tictactoe.examples import TicTacToeAgent
 
 ## Running Your Agent
 
-The agent uses standard input/output (stdin/stdout) to communicate with the game engine, when running on the platform. This is handled automatically as long as your agent is a subclass of `gamelib.GAME.agent.Agent`and properly started in the `__main__` block.
+Your agent talks to the game engine over standard input/output (stdin/stdout).
+This is handled for you by `Agent.start()` as long as your class subclasses
+`gamelib.GAME.agent.Agent`. The **only** thing your file needs is a one-line
+entry point:
 
-To test locally, you can use the DevRunner provided in the `gamelib.GAME.dev_runner` module:
 ```python
-from gamelib.tictactoe import DevRunner
-
-runner = DevRunner()
-agent1 = TicTacToeAgent()
-agent2 = TicTacToeAgent()
-runner.add_agent(agent1)
-runner.add_agent(agent2)
-runner.start()
+if __name__ == "__main__":
+    MyTicTacToeAgent().start()
 ```
+
+That same single line is all you need **both** to upload to the Game AI Platform
+and to test the agent locally with `gamelib-play` (see below). You no longer need
+any `DevRunner` boilerplate or `AGENT_ONLINE`-style branching in `__main__` -
+`gamelib-play` imports your `Agent` class directly and runs the match for you, so
+your `__main__` block is never executed during local play.
 
 ## Playing Locally (`gamelib-play`)
 
-Installing the package also gives you a `gamelib-play` command for running a
-match in your terminal — play against your agent yourself, or watch two agents
-play. No backend required.
+The package ships a `gamelib-play` command to run a match in your terminal - no
+backend required:
 
 ```bash
 gamelib-play <game> <player0> <player1>
 ```
 
-`<game>` is `tictactoe` or `hex`. Each player is either the literal word
-`human` or a path to a Python file that defines an `Agent` subclass (use
-`file.py:ClassName` if the file defines more than one).
+`<game>` is `tictactoe` etc. Each player is either `human` or a path to a
+Python file defining an `Agent` subclass (use `file.py:ClassName` to pick one).
 
 ```bash
-# Play against your own agent (you move first)
-gamelib-play tictactoe human my_agent.py
-
-# Let the agent move first
-gamelib-play hex my_agent.py human
-
-# Agent vs agent — watch two agents play
-gamelib-play hex agent_a.py agent_b.py
-
-# Two humans, hot-seat on one keyboard
-gamelib-play tictactoe human human
-```
-
-On your turn the board is printed with the cell coordinates labelled, so you
-can type your move (a position `0–8` for TicTacToe, or `row,col` for Hex).
-
-You can also play directly with the `HumanAgent` class via the DevRunner:
-```python
-from gamelib.tictactoe import DevRunner, HumanAgent
-
-runner = DevRunner()
-runner.add_agent(HumanAgent())     # you, player 0
-runner.add_agent(MyTicTacToeAgent())  # the agent, player 1
-runner.start()
+gamelib-play tictactoe human my_agent.py   # you vs your agent (you go first)
+gamelib-play tictactoe my_agent.py human   # you vs your agent (agent goes first)
+gamelib-play hex agent_a.py agent_b.py     # watch two agents play (A goes first)
+gamelib-play tictactoe human human         # hot-seat
 ```

@@ -10,12 +10,14 @@ This directory contains the core game logic and interfaces for the AI Game Compe
     - `gamestate_base.py`: Base class for game state representations.
     - `move_base.py`: Base class for move representations.
     - `dev_runner_base.py`: Utility to run games between agents for development and testing.
+    - `play.py`: `gamelib-play` console-script entry point for local play (human vs agent, agent vs agent, or hot-seat). Games are registered in its `GAME_MODULES` map.
 
 - **Game Implementations**: Each game has its own subdirectory (e.g., `tictactoe/`) containing implementations of the base classes.
     - `gamestate.py`: Defines the specific game state (board, scores, etc.).
     - `move.py`: Defines valid moves for the game.
     - `engine.py`: Implements the game rules.
     - `agent.py`: Base agent for the specific game (handles game-specific I/O).
+    - `human_agent.py`: Human-controlled agent (reads moves from stdin) used by `gamelib-play` for local play.
     - `dev_runner.py`: Utility to run matches between agents for that game.
 
 - **Tests**: `tests/` contains unit and integration tests for the games.
@@ -30,6 +32,8 @@ To add a new game (e.g., "Chess"), follow these steps:
 4.  **Implement Engine**: Create `gamelib/chess/engine.py` inheriting from `EngineBase`. Implement `__init__`, `validate_move`, `apply_move`, `is_game_over`, and `get_status`.
 5.  **Implement Agent**: Create `gamelib/chess/agent.py` inheriting from `AgentBase`. Implement `_read_init` and `_read_state` to parse your specific JSON formats.
 6.  **Implement Dev Runner**: Create `gamelib/chess/dev_runner.py` inheriting from `DevRunnerBase`. Implement the game loop in the `start` method.
+7.  **Implement Human Agent**: Create `gamelib/chess/human_agent.py` subclassing your game `Agent`, prompting for moves on stdin in `get_move`. This enables human play via `gamelib-play`.
+8.  **Export & register**: Export `Agent`, `DevRunner`, `HumanAgent` (and `GameState`, `Move`) from `gamelib/chess/__init__.py`, then add `"chess": "gamelib.chess"` to `GAME_MODULES` in `gamelib/play.py` so `gamelib-play chess ...` works.
 
 ## Tic-Tac-Toe Example
 
