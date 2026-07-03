@@ -85,6 +85,7 @@ resource "google_compute_instance" "backend" {
     bypass_email_verification             = var.bypass_email_verification
     seed_db                               = var.seed_db
     max_turn_time_limit_seconds           = var.max_turn_time_limit_seconds
+    max_upload_bytes                      = var.max_upload_bytes
     db_echo                               = var.db_echo
     domain_name                           = var.domain_name
     certbot_email                         = var.certbot_email
