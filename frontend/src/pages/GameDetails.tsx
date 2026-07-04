@@ -166,7 +166,11 @@ export function GameDetails() {
         if (!gameId) return;
 
         // Matches
-        matchesApi.getMatches({ game_type: toApiGameType(gameId) })
+        matchesApi.getMatches({
+            game_type: toApiGameType(gameId),
+            status: ['running', 'completed', 'failed', 'client_error'],
+            limit: 50
+        })
             .then(data => setMatches(data))
             .catch(err => setMatchesError(err.message || 'Failed to load matches'))
             .finally(() => setMatchesLoading(false));

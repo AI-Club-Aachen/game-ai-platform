@@ -59,7 +59,7 @@ class TournamentConfig(BaseModel):
     """
 
     turn_time_limit: float = 10.0
-    max_concurrent_matches: int = 4
+    max_concurrent_matches: int = 64
     state_init_data: dict[str, Any] = {}
 
 

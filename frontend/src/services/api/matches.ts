@@ -7,10 +7,16 @@ export const matchesApi = {
     /**
      * Get all matches
      */
-    getMatches: async (params?: { game_type?: string; status?: string; skip?: number; limit?: number }) => {
+    getMatches: async (params?: { game_type?: string; status?: string | string[]; skip?: number; limit?: number }) => {
         const queryParams = new URLSearchParams();
         if (params?.game_type) queryParams.append('game_type', params.game_type);
-        if (params?.status) queryParams.append('status', params.status);
+        if (params?.status) {
+            if (Array.isArray(params.status)) {
+                params.status.forEach(s => queryParams.append('status', s));
+            } else {
+                queryParams.append('status', params.status);
+            }
+        }
         if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString());
         if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
 

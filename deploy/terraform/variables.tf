@@ -51,7 +51,7 @@ variable "redis_password" {
 variable "machine_type" {
   description = "The Compute Engine machine type for the workers."
   type        = string
-  default     = "e2-micro"
+  default     = "e2-standard-4"
 }
 
 variable "network" {
@@ -215,6 +215,13 @@ variable "max_turn_time_limit_seconds" {
   type        = string
   default     = "120"
 }
+
+variable "max_upload_bytes" {
+  description = "Maximum accepted submission upload size in bytes."
+  type        = string
+  default     = "20485760" # 20MB
+}
+
 
 variable "db_echo" {
   description = "Enable SQLAlchemy echo log (true/false)."

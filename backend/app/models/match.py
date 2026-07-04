@@ -36,7 +36,7 @@ class MatchConfig(BaseModel):
     new per-match settings without touching the DB schema.
     """
 
-    turn_time_limit: float = 10.0
+    turn_time_limit: float = 5.0
     state_init_data: dict[str, Any] = {}
 
 

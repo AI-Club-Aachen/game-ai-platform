@@ -189,7 +189,7 @@ def list_matches(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     game_type: GameType | None = None,
-    status: MatchStatus | None = None,
+    status: Annotated[list[MatchStatus] | None, Query()] = None,
 ) -> list[MatchRead]:
     """
     List matches. Requires a verified login (any role).
