@@ -51,14 +51,9 @@ def create_tournament(
     agents. Admin only.
     """
     try:
-        # Merge per-game defaults (e.g. Hex board size) into the init data,
-        # mirroring match creation.
-        for k, v in tournament_in.game_type.additional_data.items():
-            if k not in tournament_in.config.state_init_data:
-                tournament_in.config.state_init_data[k] = v
         return service.create_tournament(
             tournament_in.name,
-            tournament_in.game_type,
+            tournament_in.arena_id,
             tournament_in.agent_ids,
             tournament_in.config,
         )
@@ -130,12 +125,13 @@ def list_tournaments(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     game_type: GameType | None = None,
+    arena_id: UUID | None = None,
     status: TournamentStatus | None = None,
 ) -> list[TournamentRead]:
     """
     List tournaments. Requires a verified login (any role).
     """
-    return service.list_tournaments(skip, limit, game_type=game_type, status=status)
+    return service.list_tournaments(skip, limit, game_type=game_type, arena_id=arena_id, status=status)
 
 
 # GET /api/v1/tournaments/{tournament_id}

@@ -9,7 +9,8 @@ from app.models.match import MatchConfig, MatchStatus
 
 
 class MatchBase(BaseModel):
-    game_type: GameType
+    game_type: GameType | None = None
+    arena_id: UUID
     config: MatchConfig = MatchConfig()
     agent_ids: list[UUID] = []
 

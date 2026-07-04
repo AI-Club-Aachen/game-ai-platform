@@ -7,6 +7,7 @@ from sqlmodel import Session
 
 from app.api.repositories.agent import AgentRepository
 from app.api.repositories.agent_container import AgentContainerRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.platform_flag import PlatformFlagRepository
@@ -15,6 +16,7 @@ from app.api.repositories.tournament import TournamentRepository
 from app.api.repositories.user import UserRepository
 from app.api.services.agent import AgentService
 from app.api.services.agent_container import AgentContainerService
+from app.api.services.arena import ArenaService
 from app.api.services.auth import AuthService
 from app.api.services.email import EmailNotificationService
 from app.api.services.job import JobService
@@ -83,6 +85,20 @@ def get_platform_flag_repository(
     return PlatformFlagRepository(session)
 
 
+def get_arena_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> ArenaRepository:
+    """Provide an ArenaRepository bound to the current DB session."""
+    return ArenaRepository(session)
+
+
+def get_arena_service(
+    arena_repository: Annotated[ArenaRepository, Depends(get_arena_repository)],
+) -> ArenaService:
+    """Provide an ArenaService with an injected ArenaRepository."""
+    return ArenaService(arena_repository)
+
+
 def get_platform_service(
     flag_repository: Annotated[PlatformFlagRepository, Depends(get_platform_flag_repository)],
 ) -> PlatformService:
@@ -101,18 +117,20 @@ def get_submission_service(
     repository: Annotated[SubmissionRepository, Depends(get_submission_repository)],
     job_repository: Annotated[JobRepository, Depends(get_job_repository)],
     agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
+    arena_repository: Annotated[ArenaRepository, Depends(get_arena_repository)],
 ) -> SubmissionService:
     """Provide a SubmissionService with an injected Repository."""
-    return SubmissionService(repository, job_repository, agent_repository)
+    return SubmissionService(repository, job_repository, agent_repository, arena_repository)
 
 
 def get_match_service(
     repository: Annotated[MatchRepository, Depends(get_match_repository)],
     job_repository: Annotated[JobRepository, Depends(get_job_repository)],
     agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
+    arena_repository: Annotated[ArenaRepository, Depends(get_arena_repository)],
 ) -> MatchService:
     """Provide a MatchService with an injected Repository."""
-    return MatchService(repository, job_repository, agent_repository)
+    return MatchService(repository, job_repository, agent_repository, arena_repository)
 
 
 def get_tournament_service(
@@ -120,9 +138,10 @@ def get_tournament_service(
     match_repository: Annotated[MatchRepository, Depends(get_match_repository)],
     agent_repository: Annotated[AgentRepository, Depends(get_agent_repository)],
     match_service: Annotated[MatchService, Depends(get_match_service)],
+    arena_repository: Annotated[ArenaRepository, Depends(get_arena_repository)],
 ) -> TournamentService:
     """Provide a TournamentService with injected repositories and MatchService."""
-    return TournamentService(repository, match_repository, agent_repository, match_service)
+    return TournamentService(repository, match_repository, agent_repository, match_service, arena_repository)
 
 
 def get_job_service(
@@ -137,9 +156,10 @@ def get_job_service(
 def get_agent_service(
     repository: Annotated[AgentRepository, Depends(get_agent_repository)],
     submission_repository: Annotated[SubmissionRepository, Depends(get_submission_repository)],
+    arena_repository: Annotated[ArenaRepository, Depends(get_arena_repository)],
 ) -> AgentService:
     """Provide an AgentService with an injected AgentRepository."""
-    return AgentService(repository, submission_repository)
+    return AgentService(repository, submission_repository, arena_repository)
 
 
 def get_agent_container_service(

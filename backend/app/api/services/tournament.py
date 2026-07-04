@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.tournament import TournamentRepository
 from app.api.services.match import MatchService, MatchServiceError
@@ -69,11 +70,13 @@ class TournamentService:
         match_repository: MatchRepository,
         agent_repository: AgentRepository,
         match_service: MatchService,
+        arena_repository: ArenaRepository,
     ) -> None:
         self._repository = tournament_repository
         self._match_repository = match_repository
         self._agent_repository = agent_repository
         self._match_service = match_service
+        self._arena_repository = arena_repository
 
     # --- Queries ---
 
@@ -85,9 +88,10 @@ class TournamentService:
         skip: int,
         limit: int,
         game_type: str | None = None,
+        arena_id: UUID | None = None,
         status: TournamentStatus | None = None,
     ) -> Sequence[Tournament]:
-        return self._repository.list_tournaments(skip, limit, game_type=game_type, status=status)
+        return self._repository.list_tournaments(skip, limit, game_type=game_type, arena_id=arena_id, status=status)
 
     def get_bracket(self, tournament_id: UUID) -> dict[str, Any]:
         """Full bracket view: tournament, entrants, matchups with games, and standings."""
@@ -132,17 +136,31 @@ class TournamentService:
     def create_tournament(
         self,
         name: str,
-        game_type: GameType,
+        arena_id: UUID,
         agent_ids: list[UUID],
         config: TournamentConfig,
     ) -> Tournament:
         """Create a tournament with an admin-curated set of entrant agents."""
+        arena = self._arena_repository.get_by_id(arena_id)
+        if not arena or not arena.is_active:
+            raise TournamentServiceError("Target arena not found or inactive")
+        game_type = arena.game_type
+
+        # Merge arena config into tournament config
+        if "turn_time_limit" in arena.config:
+            config.turn_time_limit = arena.config["turn_time_limit"]
+        
+        for k, v in arena.config.items():
+            if k != "turn_time_limit" and k not in config.state_init_data:
+                config.state_init_data[k] = v
+
         self._validate_config(game_type, config)
-        self._validate_entrants(game_type, agent_ids)
+        self._validate_entrants_per_arena(arena_id, game_type, agent_ids)
 
         tournament = Tournament(
             name=name,
             game_type=game_type,
+            arena_id=arena_id,
             status=TournamentStatus.PENDING,
             config=config.model_dump(),
         )
@@ -324,7 +342,7 @@ class TournamentService:
         except StateInitValidationError as e:
             raise TournamentServiceError(str(e)) from e
 
-    def _validate_entrants(self, game_type: GameType, agent_ids: list[UUID]) -> None:
+    def _validate_entrants_per_arena(self, arena_id: UUID, game_type: GameType, agent_ids: list[UUID]) -> None:
         if len(agent_ids) < self.MIN_ENTRANTS:
             raise TournamentServiceError(f"A tournament requires at least {self.MIN_ENTRANTS} entrants")
         if len(agent_ids) > settings.MAX_TOURNAMENT_ENTRANTS:
@@ -338,6 +356,8 @@ class TournamentService:
             agent = agents_by_id.get(agent_id)
             if agent is None:
                 raise TournamentServiceError(f"Agent {agent_id} was not found")
+            if agent.arena_id != arena_id:
+                raise TournamentServiceError(f"Agent {agent.id} does not belong to target arena")
             if agent.game_type != game_type:
                 raise TournamentServiceError(f"Agent {agent.id} does not belong to game '{game_type}'")
             if agent.active_submission is None or not submission_has_successful_build(agent.active_submission):
@@ -660,9 +680,9 @@ class TournamentService:
         )
         try:
             match = await self._match_service.create_match(
-                tournament.game_type,
-                match_config,
-                agent_ids,
+                arena_id=tournament.arena_id,
+                config=match_config,
+                agent_ids=agent_ids,
                 tournament_id=tournament.id,
             )
         except MatchServiceError:

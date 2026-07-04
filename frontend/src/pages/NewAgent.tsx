@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, MenuItem, TextField, Typography } from '@mui/material';
-import { ArrowBack, SmartToy } from '@mui/icons-material';
+import { useMemo, useState, useEffect } from 'react';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, MenuItem, TextField, Typography, InputAdornment, IconButton } from '@mui/material';
+import { ArrowBack, SmartToy, Visibility, VisibilityOff, Lock } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
 import { agentsApi } from '../services/api/agents';
 import { getLatestBuildJob, submissionsApi, Submission } from '../services/api/submissions';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { useAuth } from '../context/AuthContext';
-import { fromApiGameType, getActiveGames, toApiGameType } from '../config/games';
+import { fromApiGameType, getGameById } from '../config/games';
 import { FileUploadBox } from '../components/common/FileUploadBox';
 import { SubmissionFreezeBanner } from '../components/common/SubmissionFreezeBanner';
 
@@ -46,17 +47,14 @@ export function NewAgent() {
     const { frozen } = useSubmissionFreeze();
     const blockedByFreeze = frozen && !isAdmin;
 
-    const availableGames = getActiveGames();
-    const requestedGameId = searchParams.get('gameId') ?? '';
-    const initialGameId = useMemo(() => {
-        const normalized = fromApiGameType(requestedGameId);
-        return availableGames.some(game => game.id === normalized)
-            ? normalized
-            : availableGames[0]?.id ?? 'chess';
-    }, [availableGames, requestedGameId]);
-
-    const [gameId, setGameId] = useState(initialGameId);
+    const [arenas, setArenas] = useState<ArenaRead[]>([]);
+    const [arenasLoading, setArenasLoading] = useState(true);
+    
+    const requestedArenaId = searchParams.get('arenaId') ?? '';
+    const [arenaId, setArenaId] = useState(requestedArenaId);
     const [agentName, setAgentName] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [submissionName, setSubmissionName] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
@@ -65,9 +63,34 @@ export function NewAgent() {
     const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
     const [createdSubmissionId, setCreatedSubmissionId] = useState<string | null>(null);
 
+    useEffect(() => {
+        setArenasLoading(true);
+        arenasApi.getArenas()
+            .then(data => {
+                const activeArenas = data.filter(a => a.is_active);
+                setArenas(activeArenas);
+                if (activeArenas.length > 0 && !arenaId) {
+                    setArenaId(activeArenas[0].id);
+                }
+            })
+            .catch(err => {
+                setError(err.message || 'Failed to load arenas');
+            })
+            .finally(() => setArenasLoading(false));
+    }, []);
+
+    const selectedArena = useMemo(() => {
+        return arenas.find(a => a.id === arenaId);
+    }, [arenas, arenaId]);
+
     const handleSubmit = async () => {
         if (!user) {
             setError('You need to be logged in to create an agent.');
+            return;
+        }
+
+        if (!selectedArena) {
+            setError('Please select a valid arena.');
             return;
         }
 
@@ -80,19 +103,21 @@ export function NewAgent() {
             setStatusMessage('Creating your agent...');
             const agent = await agentsApi.createAgent({
                 user_id: user.id,
-                game_type: toApiGameType(gameId),
+                game_type: selectedArena.game_type,
+                arena_id: selectedArena.id,
                 name: agentName.trim(),
+                password: selectedArena.has_password && password.trim() ? password : undefined,
                 active_submission_id: null,
             });
             setCreatedAgentId(agent.id);
 
             if (!file) {
-                navigate(`/agents/${agent.id}`);
+                navigate(`/arenas/${selectedArena.id}`);
                 return;
             }
 
             setStatusMessage('Uploading your submission...');
-            const submission = await submissionsApi.submitAgent(file, toApiGameType(gameId), submissionName.trim());
+            const submission = await submissionsApi.submitAgent(file, selectedArena.id, submissionName.trim());
             setCreatedSubmissionId(submission.id);
 
             setStatusMessage('Building your submission and linking it to the agent if it succeeds...');
@@ -101,7 +126,7 @@ export function NewAgent() {
 
             if (latestJob?.status === 'completed') {
                 await agentsApi.updateAgent(agent.id, { active_submission_id: completedSubmission.id });
-                navigate(`/agents/${agent.id}`);
+                navigate(`/arenas/${selectedArena.id}`);
                 return;
             }
 
@@ -127,7 +152,7 @@ export function NewAgent() {
             </Button>
 
             <Typography variant="h4" gutterBottom>
-                Create New Agent
+                Submit Agent
             </Typography>
 
             <Card>
@@ -136,8 +161,7 @@ export function NewAgent() {
                         Agent Setup
                     </Typography>
                     <Typography variant="body2" color="text.secondary" paragraph>
-                        Create an agent for a game first. Uploading a ZIP file is optional here. If you upload one now,
-                        we will build it and automatically link it to the new agent when the build succeeds.
+                        Select a target arena to create and submit an agent. If the arena is password-protected, you must supply the password to join.
                     </Typography>
 
                     {blockedByFreeze && <SubmissionFreezeBanner sx={{ mb: 3 }} />}
@@ -155,23 +179,60 @@ export function NewAgent() {
                             onChange={(e) => setAgentName(e.target.value)}
                             disabled={loading}
                             fullWidth
-                            helperText="Optional. If left blank, the agent ID will be used as the name."
+                            helperText="Optional. If left blank, a default name will be assigned."
                         />
 
-                        <TextField
-                            select
-                            label="Game"
-                            value={gameId}
-                            onChange={(e) => setGameId(e.target.value)}
-                            disabled={loading}
-                            fullWidth
-                        >
-                            {availableGames.map((game) => (
-                                <MenuItem key={game.id} value={game.id}>
-                                    {game.name}
-                                </MenuItem>
-                            ))}
-                        </TextField>
+                        {arenasLoading ? (
+                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                <CircularProgress size={20} />
+                                <Typography color="text.secondary">Loading arenas...</Typography>
+                            </Box>
+                        ) : (
+                            <TextField
+                                select
+                                label="Arena"
+                                value={arenaId}
+                                onChange={(e) => setArenaId(e.target.value)}
+                                disabled={loading}
+                                fullWidth
+                            >
+                                {arenas.map((arena) => {
+                                    const gameConfig = getGameById(fromApiGameType(arena.game_type));
+                                    return (
+                                        <MenuItem key={arena.id} value={arena.id}>
+                                            {arena.name} ({gameConfig?.name || arena.game_type})
+                                        </MenuItem>
+                                    );
+                                })}
+                            </TextField>
+                        )}
+
+                        {selectedArena?.has_password && (
+                            <TextField
+                                label="Arena Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                disabled={loading}
+                                type={showPassword ? 'text' : 'password'}
+                                required
+                                fullWidth
+                                helperText="This arena is protected. Please enter the password to submit your agent."
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Lock sx={{ color: 'warning.main', fontSize: 18 }} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" disabled={loading}>
+                                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        )}
 
                         <TextField
                             label="Submission Name"
@@ -179,7 +240,7 @@ export function NewAgent() {
                             onChange={(e) => setSubmissionName(e.target.value)}
                             disabled={loading}
                             fullWidth
-                            helperText="Optional. Only used if you upload a submission now."
+                            helperText="Optional. Descriptive label for your code bundle."
                         />
 
                         <FileUploadBox
@@ -225,7 +286,7 @@ export function NewAgent() {
                         <Button
                             variant="contained"
                             onClick={handleSubmit}
-                            disabled={loading || blockedByFreeze}
+                            disabled={loading || blockedByFreeze || arenasLoading || !arenaId}
                             sx={{ minWidth: 180 }}
                         >
                             {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Agent'}

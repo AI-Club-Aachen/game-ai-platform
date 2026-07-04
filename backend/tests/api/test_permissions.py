@@ -12,7 +12,9 @@ import uuid
 from pathlib import Path
 
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
+from app.models.arena import Arena
+from app.api.repositories.arena import ArenaRepository
 
 from app.api.repositories.agent import AgentRepository
 from app.api.repositories.job import JobRepository
@@ -66,6 +68,21 @@ async def _admin(api_client, fake_email_client, db_session) -> tuple[str, dict]:
     return user_id, {"Authorization": token}
 
 
+def _get_or_create_test_arena(db_session: Session, game_type: GameType) -> Arena:
+    repo = ArenaRepository(db_session)
+    arena = db_session.exec(select(Arena).where(Arena.game_type == game_type)).first()
+    if not arena:
+        arena = Arena(
+            id=uuid.uuid4(),
+            name=f"Test Arena {game_type.name}",
+            game_type=game_type,
+            config={},
+            is_active=True,
+        )
+        arena = repo.save(arena)
+    return arena
+
+
 def _make_submission(db_session: Session, user_id: str, tmp_path: Path | None = None) -> Submission:
     object_path = "path/to/zip"
     if tmp_path is not None:
@@ -75,10 +92,12 @@ def _make_submission(db_session: Session, user_id: str, tmp_path: Path | None = 
         submissions_dir.mkdir(parents=True, exist_ok=True)
         (submissions_dir / key).write_bytes(b"PK\x05\x06" + b"\x00" * 18)  # minimal empty zip
         object_path = key
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     submission = Submission(
         user_id=uuid.UUID(user_id),
         name=random_lower_string(8),
         game_type=GameType.TICTACTOE,
+        arena_id=arena.id,
         object_path=object_path,
     )
     return SubmissionRepository(db_session).save(submission)
@@ -98,18 +117,22 @@ def _make_built_submission(db_session: Session, user_id: str) -> Submission:
 
 
 def _make_agent(db_session: Session, user_id: str, submission: Submission | None = None) -> Agent:
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     agent = Agent(
         user_id=uuid.UUID(user_id),
         name=random_lower_string(8),
         game_type=GameType.TICTACTOE,
+        arena_id=arena.id,
         active_submission_id=submission.id if submission else None,
     )
     return AgentRepository(db_session).save(agent)
 
 
 def _make_match(db_session: Session, agent_ids: list[str] | None = None) -> Match:
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     match = Match(
         game_type=GameType.TICTACTOE,
+        arena_id=arena.id,
         status=MatchStatus.QUEUED,
         config={"turn_time_limit": 10.0, "state_init_data": {}},
         agent_ids=agent_ids or [],

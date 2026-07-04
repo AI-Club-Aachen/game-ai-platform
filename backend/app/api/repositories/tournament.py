@@ -36,12 +36,15 @@ class TournamentRepository:
         skip: int,
         limit: int,
         game_type: str | None = None,
+        arena_id: UUID | None = None,
         status: str | None = None,
     ) -> Sequence[Tournament]:
         """List tournaments with pagination."""
         statement = select(Tournament)
         if game_type is not None:
             statement = statement.where(Tournament.game_type == game_type)
+        if arena_id is not None:
+            statement = statement.where(Tournament.arena_id == arena_id)
         if status is not None:
             statement = statement.where(Tournament.status == status)
 

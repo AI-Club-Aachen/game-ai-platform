@@ -17,7 +17,8 @@ from app.models.tournament import (
 
 class TournamentBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    game_type: GameType
+    game_type: GameType | None = None
+    arena_id: UUID
     config: TournamentConfig = Field(default_factory=TournamentConfig)
 
 

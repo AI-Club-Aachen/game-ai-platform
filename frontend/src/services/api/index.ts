@@ -10,3 +10,4 @@ export * from './leaderboard';
 export * from './tournaments';
 export * from './platform';
 export * from './containers';
+export * from './arenas';

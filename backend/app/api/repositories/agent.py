@@ -46,6 +46,12 @@ class AgentRepository:
         )
         return self._session.exec(statement).one()
 
+    def count_by_user_and_arena(self, user_id: UUID, arena_id: UUID) -> int:
+        statement = (
+            select(func.count()).select_from(Agent).where(Agent.user_id == user_id, Agent.arena_id == arena_id)
+        )
+        return self._session.exec(statement).one()
+
     def list_agents(
         self,
         skip: int,
@@ -89,6 +95,32 @@ class AgentRepository:
                 "draws": agent.draws,
                 "matches_played": agent.matches_played,
                 "game_type": agent.game_type.value,
+            }
+            for agent, username in results
+        ]
+
+    def get_leaderboard_by_arena(self, arena_id: UUID, limit: int) -> list[dict]:
+        statement = (
+            select(Agent, User.username)
+            .join(User, Agent.user_id == User.id)
+            .where(Agent.arena_id == arena_id)
+            .where(Agent.elo.is_not(None))
+            .order_by(Agent.elo.desc())
+            .limit(limit)
+        )
+        results = self._session.exec(statement).all()
+        return [
+            {
+                "id": str(agent.id),
+                "agent_name": agent.name,
+                "username": username,
+                "elo": agent.elo,
+                "wins": agent.wins,
+                "losses": agent.losses,
+                "draws": agent.draws,
+                "matches_played": agent.matches_played,
+                "game_type": agent.game_type.value,
+                "arena_id": str(agent.arena_id),
             }
             for agent, username in results
         ]

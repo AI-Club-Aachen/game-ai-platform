@@ -125,3 +125,21 @@ def test_full_game():
     assert state.status != -1, "Game should be over."
     assert state.status in [0, 1], "One of the players should win."
 
+
+def test_hex_dev_runner_configurable_board_size():
+    """Test that Hex DevRunner accepts board_size parameter."""
+    from gamelib.hex.dev_runner import DevRunner
+    runner = DevRunner(board_size=5)
+    assert runner.board_size == 5
+    runner.add_agent(Agent())
+    runner.add_agent(Agent())
+    
+    import unittest.mock as mock
+    with mock.patch("builtins.print") as mock_print:
+        # Mock engine.is_game_over to return True immediately to avoid running the game loop
+        with mock.patch.object(Engine, "is_game_over", return_value=True) as mock_is_game_over:
+            runner.start()
+            mock_is_game_over.assert_called_once()
+            mock_print.assert_any_call("Starting Hex dev match: Player 0 (Left-Right) vs Player 1 (Top-Bottom)")
+
+

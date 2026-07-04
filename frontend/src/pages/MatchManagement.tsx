@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { matchesApi } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { fromApiGameType, getGameById } from '../config/games';
 import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { StatusIndicator } from '../components/common/StatusIndicator';
@@ -130,7 +131,8 @@ export function MatchManagement() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const [createDialogOpen, setDialogOpen] = useState(false);
-  const [newMatchGameType, setNewMatchGameType] = useState('tictactoe');
+  const [arenas, setArenas] = useState<ArenaRead[]>([]);
+  const [newMatchArenaId, setNewMatchArenaId] = useState('');
   const [matchConfig, setMatchConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
 
@@ -144,7 +146,8 @@ export function MatchManagement() {
   const [schedulerConfig, setSchedulerConfig] = useState({ enabled: false, interval_seconds: 10, strategy: 'least_played', scheduling_strategy: 'serial' });
   const [isSavingScheduler, setIsSavingScheduler] = useState(false);
 
-  const selectedGameConfig = getGameById(fromApiGameType(newMatchGameType));
+  const selectedArena = arenas.find(a => a.id === newMatchArenaId);
+  const selectedGameConfig = selectedArena ? getGameById(fromApiGameType(selectedArena.game_type)) : null;
   const minRequiredAgents = selectedGameConfig?.minPlayers ?? 2;
   const maxAllowedAgents = selectedGameConfig?.maxPlayers ?? minRequiredAgents;
   const hasValidAgentCount = selectedAgents.length >= minRequiredAgents && selectedAgents.length <= maxAllowedAgents;
@@ -175,12 +178,21 @@ export function MatchManagement() {
   useEffect(() => {
     setLoadingAgents(true);
     agentsApi.getAllAgents(true)
-      .then(res => {
-        const agentsData = Array.isArray(res) ? res : (res as any).data || [];
+      .then(agentsData => {
         setAgents(agentsData);
       })
       .catch(err => console.error("Failed to fetch agents", err))
       .finally(() => setLoadingAgents(false));
+
+    arenasApi.getArenas()
+      .then(data => {
+        const activeArenas = data.filter(a => a.is_active);
+        setArenas(activeArenas);
+        if (activeArenas.length > 0) {
+          setNewMatchArenaId(activeArenas[0].id);
+        }
+      })
+      .catch(err => console.error("Failed to load arenas", err));
   }, []);
 
   const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
@@ -193,7 +205,9 @@ export function MatchManagement() {
   const handleOpenDialog = () => {
     setMatchConfig(DEFAULT_CONFIG);
     setSelectedAgents([]);
-    setNewMatchGameType('tictactoe');
+    if (arenas.length > 0) {
+      setNewMatchArenaId(arenas[0].id);
+    }
     setDialogOpen(true);
   };
 
@@ -208,7 +222,7 @@ export function MatchManagement() {
     setIsCreating(true);
     try {
       await matchesApi.createMatch({
-        game_type: newMatchGameType,
+        arena_id: newMatchArenaId,
         config,
         agent_ids: agentIdsArray,
       });
@@ -453,28 +467,29 @@ export function MatchManagement() {
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
 
-            {/* Game type */}
+            {/* Arena */}
             <FormControl fullWidth>
-              <InputLabel>Game Type</InputLabel>
+              <InputLabel>Arena</InputLabel>
               <Select
-                value={newMatchGameType}
+                value={newMatchArenaId}
                 onChange={(e) => {
-                  setNewMatchGameType(e.target.value);
+                  setNewMatchArenaId(e.target.value);
                   setSelectedAgents([]);
                 }}
-                label="Game Type"
+                label="Arena"
               >
-                <MenuItem value="tictactoe">Tic-Tac-Toe</MenuItem>
-                <MenuItem value="hex">Hex</MenuItem>
-                <MenuItem value="connect_four">Connect Four</MenuItem>
-                <MenuItem value="chess">Chess</MenuItem>
+                {arenas.map((arena) => (
+                  <MenuItem key={arena.id} value={arena.id}>
+                    {arena.name} ({getGameById(fromApiGameType(arena.game_type))?.name || arena.game_type})
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
 
             {/* Agent picker */}
             <Autocomplete
               multiple
-              options={agents.filter(a => a.game_type === newMatchGameType)}
+              options={agents.filter(a => a.arena_id === newMatchArenaId)}
               getOptionLabel={(option) => `${option.name} (${option.id.substring(0, 8)}...)`}
               value={selectedAgents}
               onChange={(_, newValue) => setSelectedAgents(newValue)}
@@ -487,7 +502,7 @@ export function MatchManagement() {
                   {...params}
                   label="Select Agents"
                   placeholder="Select participating agents"
-                  helperText={`Select ${minRequiredAgents}-${maxAllowedAgents} agents. List filtered by selected game type.`}
+                  helperText={`Select ${minRequiredAgents}-${maxAllowedAgents} agents. List filtered by selected arena.`}
                   error={!hasValidAgentCount && selectedAgents.length > 0}
                   InputProps={{
                     ...params.InputProps,

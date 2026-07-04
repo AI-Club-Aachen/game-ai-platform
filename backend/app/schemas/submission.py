@@ -20,6 +20,7 @@ class SubmissionRead(SubmissionBase):
     user_id: UUID
     name: str
     game_type: GameType
+    arena_id: UUID
     object_path: str
     created_at: datetime
     updated_at: datetime

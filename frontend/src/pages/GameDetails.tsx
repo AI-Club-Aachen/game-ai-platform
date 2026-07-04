@@ -1,48 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
+import { useAuth } from '../context/AuthContext';
 import {
-    Box, Container, Typography, Button, Card, CardContent, Chip,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    LinearProgress, CircularProgress, Alert, Divider,
+    Box, Container, Typography, Button, Card, CardContent,
+    Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+    FormControlLabel, Checkbox, CircularProgress, Alert, InputAdornment, IconButton
 } from '@mui/material';
 import {
-    ArrowBack, SportsEsports, EmojiEvents, Close, Circle, Album,
-    PanoramaFishEye, Casino, Videocam, History, ArrowForward,
-    AddCircleOutline, SmartToy, FiberManualRecord, Hexagon
+    ArrowBack, SportsEsports, Close, Circle, Album,
+    PanoramaFishEye, Casino, AddCircleOutline, Hexagon,
+    Lock, LockOpen, Visibility, VisibilityOff
 } from '@mui/icons-material';
-import { fromApiGameType, toApiGameType, getGameById } from '../config/games';
-import { matchesApi } from '../services/api/matches';
-import { leaderboardApi } from '../services/api/leaderboard';
-import { agentsApi, Agent } from '../services/api/agents';
-import { submissionsApi, Submission } from '../services/api/submissions';
-import { StatusIndicator } from '../components/common/StatusIndicator';
-import { PrimarySecondaryCell } from '../components/common/TableCells';
+import { toApiGameType, getGameById } from '../config/games';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { palette, overlays } from '../theme';
-
-// ─── Types ────────────────────────────────────────────────────────
-
-interface Match {
-    id: string;
-    game_type: string;
-    status: string;
-    created_at: string;
-    completed_at?: string;
-    result?: any;
-}
-
-interface LeaderboardEntry {
-    rank: number;
-    user_id: string;
-    username: string;
-    score: number;
-    wins: number;
-    losses: number;
-    draws: number;
-    total_matches: number;
-}
-
-// ─── Icon Map ────────────────────────────────────────────────────
 
 const iconMap: Record<string, React.ReactNode> = {
     chess: '♟',
@@ -58,163 +30,97 @@ const iconMap: Record<string, React.ReactNode> = {
     casino: <Casino sx={{ fontSize: 'inherit' }} />,
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────
-
-const isRunning = (match: Match) =>
-    match.status === 'running' || match.status === 'in_progress';
-
-const isCompleted = (match: Match) =>
-    match.status === 'completed' || match.status === 'failed' || match.status === 'client_error';
-
-const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-};
-
-const truncateLabel = (value: string | null | undefined, maxLength = 18) => {
-    if (!value) return '';
-    return value.length > maxLength
-        ? `${value.slice(0, maxLength - 1)}…`
-        : value;
-};
-
-const difficultyColor = (d: string) => {
-    if (d === 'easy') return palette.success;
-    if (d === 'medium') return palette.warning;
-    if (d === 'hard') return palette.error;
-    return palette.textMuted;
-};
-
-const getRankBadge = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return `#${rank}`;
-};
-
-// ─── Section Header ───────────────────────────────────────────────
-
-function SectionHeader({
-    icon,
-    title,
-    linkTo,
-    linkLabel,
-}: {
-    icon: React.ReactNode;
-    title: string;
-    linkTo?: string;
-    linkLabel?: string;
-}) {
-    return (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {icon} {title}
-            </Typography>
-            {linkTo && (
-                <Button
-                    component={Link}
-                    to={linkTo}
-                    endIcon={<ArrowForward sx={{ fontSize: 16 }} />}
-                    variant="text"
-                    size="small"
-                    sx={{ color: palette.primary }}
-                >
-                    {linkLabel}
-                </Button>
-            )}
-        </Box>
-    );
-}
-
-// ─── Loading / Error helpers ──────────────────────────────────────
-
-function SectionSkeleton() {
-    return (
-        <Box sx={{ py: 3, display: 'flex', justifyContent: 'center' }}>
-            <CircularProgress size={28} />
-        </Box>
-    );
-}
-
-function SectionError({ message }: { message: string }) {
-    return <Alert severity="error" sx={{ mb: 2 }}>{message}</Alert>;
-}
-
-// ─── Main Component ───────────────────────────────────────────────
-
 export function GameDetails() {
     const { gameId } = useParams<{ gameId: string }>();
-    const navigate = useNavigate();
     const goBack = useSmartBack('/games');
+    const { isAdmin } = useAuth();
     const game = getGameById(gameId ?? '');
 
-    // Data state
-    const [matches, setMatches] = useState<Match[]>([]);
-    const [matchesLoading, setMatchesLoading] = useState(true);
-    const [matchesError, setMatchesError] = useState<string | null>(null);
+    const [arenas, setArenas] = useState<ArenaRead[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-    const [lbLoading, setLbLoading] = useState(true);
-    const [lbError, setLbError] = useState<string | null>(null);
+    // Dialog state
+    const [openCreate, setOpenCreate] = useState(false);
+    const [arenaName, setArenaName] = useState('');
+    const [arenaDesc, setArenaDesc] = useState('');
+    const [boardSize, setBoardSize] = useState('11');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [isActive, setIsActive] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
-    const [agents, setAgents] = useState<Agent[]>([]);
-    const [submissions, setSubmissions] = useState<Submission[]>([]);
-    const [agentsLoading, setAgentsLoading] = useState(true);
-    const [agentsError, setAgentsError] = useState<string | null>(null);
+    const loadArenas = () => {
+        if (!gameId) return;
+        setLoading(true);
+        arenasApi.getArenas()
+            .then(data => {
+                const apiGameType = toApiGameType(gameId);
+                setArenas(data.filter(arena => arena.game_type === apiGameType));
+                setError(null);
+            })
+            .catch(err => {
+                setError(err.message || 'Failed to load arenas');
+            })
+            .finally(() => setLoading(false));
+    };
 
     useEffect(() => {
-        if (!gameId) return;
-
-        // Matches
-        matchesApi.getMatches({
-            game_type: toApiGameType(gameId),
-            status: ['running', 'completed', 'failed', 'client_error'],
-            limit: 50
-        })
-            .then(data => setMatches(data))
-            .catch(err => setMatchesError(err.message || 'Failed to load matches'))
-            .finally(() => setMatchesLoading(false));
-
-        // Leaderboard
-        leaderboardApi.getLeaderboard(gameId)
-            .then(data => setLeaderboard(data))
-            .catch(err => setLbError(err.message || 'Failed to load leaderboard'))
-            .finally(() => setLbLoading(false));
-
-        // Agents (filtered client-side by game)
-        agentsApi.getAllAgents()
-            .then(data => setAgents(data.filter(agent => fromApiGameType(agent.game_type) === gameId)))
-            .catch(err => setAgentsError(err.message || 'Failed to load agents'))
-            .finally(() => setAgentsLoading(false));
-
-        submissionsApi.getSubmissions(0, 100)
-            .then(data => setSubmissions(data))
-            .catch(err => setAgentsError(err.message || 'Failed to load submissions'));
+        loadArenas();
     }, [gameId]);
 
-    // ── 404 guard ────────────────────────────────────────────────
     if (!game) {
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
                 <Alert severity="error">Game "{gameId}" not found.</Alert>
-                <Button
-                    startIcon={<ArrowBack />}
-                    onClick={goBack}
-                    sx={{ mt: 2 }}
-                >
+                <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mt: 2 }}>
                     Back to Games
                 </Button>
             </Container>
         );
     }
 
-    const runningMatches = matches.filter(isRunning);
-    const recentMatches = matches.filter(isCompleted).slice(0, 5);
-    const topLeaderboard = leaderboard.slice(0, 5);
+    const handleCreateArena = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!arenaName.trim() || !gameId) return;
+
+        setSubmitting(true);
+        setSubmitError(null);
+
+        const config: Record<string, any> = {};
+        if (boardSize.trim()) {
+            config.board_size = parseInt(boardSize, 10);
+        }
+
+        try {
+            await arenasApi.createArena({
+                name: arenaName,
+                description: arenaDesc,
+                game_type: toApiGameType(gameId),
+                config,
+                password: password.trim() ? password : undefined,
+                is_active: isActive,
+            });
+            // Clear form
+            setArenaName('');
+            setArenaDesc('');
+            setBoardSize(gameId === 'hex' ? '11' : '');
+            setPassword('');
+            setIsActive(true);
+            setOpenCreate(false);
+            // Refresh
+            loadArenas();
+        } catch (err: any) {
+            setSubmitError(err.message || 'Failed to create arena');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
-            {/* ── Back button ─────────────────────────────────── */}
+            {/* Back button */}
             <Button
                 startIcon={<ArrowBack />}
                 onClick={goBack}
@@ -224,7 +130,7 @@ export function GameDetails() {
                 All Games
             </Button>
 
-            {/* ── Hero Card ───────────────────────────────────── */}
+            {/* Hero Card */}
             <Card
                 sx={{
                     mb: 4,
@@ -256,376 +162,185 @@ export function GameDetails() {
                             <Typography color="text.secondary" sx={{ mb: 2 }}>
                                 {game.description}
                             </Typography>
-                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                <Chip
-                                    label={game.category}
-                                    size="small"
-                                    sx={{ textTransform: 'capitalize' }}
-                                />
-                                <Chip
-                                    label={game.difficulty}
-                                    size="small"
-                                    sx={{
-                                        backgroundColor: `${difficultyColor(game.difficulty)}18`,
-                                        color: difficultyColor(game.difficulty),
-                                        textTransform: 'capitalize',
-                                    }}
-                                />
-                                <Chip
-                                    label={
-                                        game.minPlayers === game.maxPlayers
-                                            ? `${game.maxPlayers} players`
-                                            : `${game.minPlayers}–${game.maxPlayers} players`
-                                    }
-                                    size="small"
-                                />
-                            </Box>
                         </Box>
 
-                        {/* CTA */}
-                        <Button
-                            variant="contained"
-                            size="large"
-                            startIcon={<AddCircleOutline />}
-                            onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
-                        >
-                            Create New Agent
-                        </Button>
+                        {/* Admin Action: Create Arena */}
+                        {isAdmin && (
+                            <Button
+                                variant="contained"
+                                startIcon={<AddCircleOutline />}
+                                onClick={() => {
+                                    setBoardSize(gameId === 'hex' ? '11' : '');
+                                    setOpenCreate(true);
+                                }}
+                            >
+                                Create Arena
+                            </Button>
+                        )}
                     </Box>
                 </CardContent>
             </Card>
 
-            {/* ── Grid layout for lower sections ──────────────── */}
-            <Box
-                sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' },
-                    gap: 4,
-                    alignItems: 'start',
-                }}
-            >
-                {/* ── Left column ───────────────────────────── */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Arenas
+            </Typography>
 
-                    {/* ── Matches section ────────────────────── */}
-                    <Box>
-                        <SectionHeader
-                            icon={<Videocam sx={{ fontSize: 22 }} />}
-                            title="Matches"
-                            linkTo={`/games/matches?game=${gameId}`}
-                            linkLabel="See all matches"
-                        />
-
-                        {matchesLoading && <SectionSkeleton />}
-                        {matchesError && <SectionError message={matchesError} />}
-
-                        {!matchesLoading && !matchesError && (
-                            <>
-                                {/* Running matches */}
-                                {runningMatches.length > 0 && (
-                                    <Box sx={{ mb: 3 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                                            <FiberManualRecord sx={{
-                                                fontSize: 12,
-                                                color: palette.error,
-                                                animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite',
-                                                '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.4 } },
-                                            }} />
-                                            <Typography variant="body2" color="text.secondary">
-                                                {runningMatches.length} match{runningMatches.length !== 1 ? 'es' : ''} in progress
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                            {runningMatches.map(match => (
-                                                <Card key={match.id} sx={{ border: `1px solid ${palette.error}30` }}>
-                                                    <CardContent sx={{ py: '16px !important' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                                                            <Box sx={{ flexGrow: 1 }}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                                                    <Chip label="LIVE" size="small" color="error" sx={{ height: 20, fontSize: '0.7rem' }} />
-                                                                    <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                                                                        {match.id.slice(0, 8)}…
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    Started {formatDate(match.created_at)}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Button
-                                                                component={Link}
-                                                                to={`/games/live/${match.id}`}
-                                                                variant="outlined"
-                                                                size="small"
-                                                                startIcon={<Videocam sx={{ fontSize: 16 }} />}
-                                                                color="error"
-                                                            >
-                                                                Watch Live
-                                                            </Button>
-                                                        </Box>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </Box>
-                                    </Box>
-                                )}
-
-                                {/* Recent / past matches */}
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
-                                        <History sx={{ fontSize: 16 }} /> Recent Matches
-                                    </Typography>
-
-                                    {recentMatches.length === 0 && runningMatches.length === 0 && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                                            No matches yet for this game.
-                                        </Typography>
-                                    )}
-
-                                    {recentMatches.length > 0 && (
-                                        <Card>
-                                            <TableContainer>
-                                                <Table size="small">
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            <TableCell>Match</TableCell>
-                                                            <TableCell>Status</TableCell>
-                                                            <TableCell>Finished</TableCell>
-                                                            <TableCell align="right">Actions</TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {recentMatches.map(match => (
-                                                            <TableRow key={match.id}>
-                                                                <TableCell>
-                                                                    <PrimarySecondaryCell
-                                                                        primary={`${match.id.slice(0, 8)}…`}
-                                                                        title={match.id}
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <StatusIndicator status={match.status} />
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Typography variant="body2" color="text.secondary">
-                                                                        {match.completed_at
-                                                                            ? formatDate(match.completed_at)
-                                                                            : formatDate(match.created_at)}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell align="right">
-                                                                    <Button
-                                                                        component={Link}
-                                                                        to={`/games/live/${match.id}`}
-                                                                        size="small"
-                                                                        variant="text"
-                                                                    >
-                                                                        View
-                                                                    </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        </Card>
-                                    )}
-                                </Box>
-                            </>
-                        )}
-                    </Box>
-
-                    {/* ── My Agents section ──────────────────── */}
-                    <Box>
-                        <SectionHeader
-                            icon={<SmartToy sx={{ fontSize: 22 }} />}
-                            title="My Agents"
-                        />
-
-                        {agentsLoading && <SectionSkeleton />}
-                        {agentsError && <SectionError message={agentsError} />}
-
-                        {!agentsLoading && !agentsError && (
-                            <>
-                                {agents.length === 0 ? (
-                                    <Card>
-                                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                                            <SmartToy sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-                                            <Typography color="text.secondary" sx={{ mb: 2 }}>
-                                                You haven't created any agents for this game yet.
-                                            </Typography>
-                                            <Button
-                                                variant="contained"
-                                                startIcon={<AddCircleOutline />}
-                                                onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
-                                            >
-                                                Create New Agent
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-                                ) : (
-                                    <>
-                                        <Card sx={{ mb: 2 }}>
-                                            <TableContainer>
-                                                <Table size="small">
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            <TableCell>Agent</TableCell>
-                                                            <TableCell>Submission</TableCell>
-                                                            <TableCell>Date</TableCell>
-                                                            <TableCell align="right">Actions</TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {agents.map(agent => (
-                                                            <TableRow key={agent.id}>
-                                                                <TableCell>
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        fontWeight={600}
-                                                                        title={agent.name}
-                                                                    >
-                                                                        {truncateLabel(agent.name)}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        title={agent.active_submission_id
-                                                                            ? (submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
-                                                                            : 'None'}
-                                                                    >
-                                                                        {agent.active_submission_id
-                                                                            ? truncateLabel(submissions.find(submission => submission.id === agent.active_submission_id)?.name ?? 'Linked Submission')
-                                                                            : 'None'}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Typography variant="caption" color="text.secondary">
-                                                                        {formatDate(agent.created_at)}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell align="right">
-                                                                    <Button
-                                                                        component={Link}
-                                                                        to={`/agents/${agent.id}`}
-                                                                        size="small"
-                                                                        variant="text"
-                                                                    >
-                                                                        Details
-                                                                    </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        </Card>
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<AddCircleOutline />}
-                                            onClick={() => navigate(`/agents/new?gameId=${gameId}`)}
-                                            fullWidth
-                                        >
-                                            Create New Agent
-                                        </Button>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </Box>
+            {loading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                    <CircularProgress />
                 </Box>
+            )}
 
-                {/* ── Right column: Leaderboard ─────────────── */}
-                <Box>
-                    <SectionHeader
-                        icon={<EmojiEvents sx={{ fontSize: 22 }} />}
-                        title="Leaderboard"
-                        linkTo={`/leaderboard?game=${gameId}`}
-                        linkLabel="Full leaderboard"
-                    />
+            {error && <Alert severity="error" sx={{ mb: 4 }}>{error}</Alert>}
 
-                    {lbLoading && <SectionSkeleton />}
-                    {lbError && <SectionError message={lbError} />}
-
-                    {!lbLoading && !lbError && (
-                        <Card>
-                            {topLeaderboard.length === 0 ? (
-                                <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                                    <Typography color="text.secondary">No rankings yet.</Typography>
-                                </CardContent>
-                            ) : (
-                                <>
-                                    {topLeaderboard.map((entry, idx) => (
-                                        <Box key={entry.user_id}>
-                                            {idx > 0 && <Divider />}
-                                            <Box
-                                                sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 2,
-                                                    px: 3,
-                                                    py: 1.5,
-                                                    backgroundColor: entry.rank <= 3
-                                                        ? overlays.primaryGlowFaint
-                                                        : 'transparent',
-                                                }}
-                                            >
-                                                {/* Rank */}
-                                                <Typography
-                                                    sx={{
-                                                        minWidth: 32,
-                                                        fontSize: entry.rank <= 3 ? '1.1rem' : '0.875rem',
-                                                        fontWeight: 700,
-                                                        textAlign: 'center',
-                                                    }}
-                                                >
-                                                    {getRankBadge(entry.rank)}
-                                                </Typography>
-
-                                                {/* User info */}
-                                                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                                    <Typography variant="body2" fontWeight={600} noWrap>
-                                                        {entry.username}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {entry.wins}W · {entry.losses}L
-                                                        {entry.total_matches > 0 && (
-                                                            <> · {((entry.wins / entry.total_matches) * 100).toFixed(0)}% WR</>
-                                                        )}
-                                                    </Typography>
-                                                </Box>
-
-                                                {/* Score */}
-                                                <Box sx={{ textAlign: 'right' }}>
-                                                    <Typography
-                                                        variant="body2"
-                                                        fontWeight={700}
-                                                        color="primary"
-                                                    >
-                                                        {entry.score}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        pts
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-
-                                            {/* Win rate bar */}
-                                            {entry.total_matches > 0 && (
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={(entry.wins / entry.total_matches) * 100}
-                                                    sx={{ height: 2, mx: 3, mb: 0.5 }}
-                                                />
+            {!loading && !error && (
+                <>
+                    {arenas.length === 0 ? (
+                        <Card sx={{ borderStyle: 'dashed', borderWidth: 2, borderColor: palette.border }}>
+                            <CardContent sx={{ py: 6, textPosition: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <Typography color="text.secondary" sx={{ mb: 2 }}>
+                                    No arenas have been created for this game yet.
+                                </Typography>
+                                {isAdmin && (
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<AddCircleOutline />}
+                                        onClick={() => setOpenCreate(true)}
+                                    >
+                                        Create the First Arena
+                                    </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Box sx={{
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                            gap: 3,
+                        }}>
+                            {arenas.map(arena => (
+                                <Card
+                                    key={arena.id}
+                                    component={Link}
+                                    to={`/arenas/${arena.id}`}
+                                    sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        textDecoration: 'none',
+                                        cursor: 'pointer',
+                                        '&:hover': {
+                                            borderColor: palette.primary,
+                                            transform: 'translateY(-2px)',
+                                        },
+                                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    }}
+                                >
+                                    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Typography variant="h6">
+                                                {arena.name}
+                                            </Typography>
+                                            {arena.has_password ? (
+                                                <Lock sx={{ color: 'warning.main', fontSize: 18 }} />
+                                            ) : (
+                                                <LockOpen sx={{ color: 'success.main', fontSize: 18 }} />
                                             )}
                                         </Box>
-                                    ))}
-                                </>
-                            )}
-                        </Card>
+                                        
+                                        <Typography color="text.secondary" sx={{ mb: 3, flexGrow: 1, fontSize: '0.875rem' }}>
+                                            {arena.description || 'Custom configured arena'}
+                                        </Typography>
+
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${palette.border}`, pt: 1.5 }}>
+                                            <Typography variant="body2" color="text.secondary">Board Size</Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                {arena.config.board_size ? `${arena.config.board_size}x${arena.config.board_size}` : 'Standard'}
+                                            </Typography>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </Box>
                     )}
-                </Box>
-            </Box>
+                </>
+            )}
+
+            {/* Create Arena Dialog */}
+            <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="sm">
+                <form onSubmit={handleCreateArena}>
+                    <DialogTitle>Create New Arena</DialogTitle>
+                    <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+                        {submitError && <Alert severity="error">{submitError}</Alert>}
+
+                        <TextField
+                            label="Arena Name"
+                            value={arenaName}
+                            onChange={(e) => setArenaName(e.target.value)}
+                            required
+                            fullWidth
+                        />
+
+                        <TextField
+                            label="Description"
+                            value={arenaDesc}
+                            onChange={(e) => setArenaDesc(e.target.value)}
+                            multiline
+                            rows={3}
+                            fullWidth
+                        />
+
+                        {gameId === 'hex' && (
+                            <TextField
+                                label="Board Size"
+                                value={boardSize}
+                                onChange={(e) => setBoardSize(e.target.value)}
+                                type="number"
+                                helperText="Hex board size (e.g. 5 for 5x5, 11 for 11x11)"
+                                fullWidth
+                            />
+                        )}
+
+                        <TextField
+                            label="Arena Password (Optional)"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            type={showPassword ? 'text' : 'password'}
+                            helperText="Simple password protection if you want to restrict submission entry."
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                            fullWidth
+                        />
+
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={isActive}
+                                    onChange={(e) => setIsActive(e.target.checked)}
+                                    color="primary"
+                                />
+                            }
+                            label="Active (visible and accepting submissions)"
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={submitting || !arenaName.trim()}
+                        >
+                            {submitting ? 'Creating...' : 'Create'}
+                        </Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
         </Container>
     );
 }

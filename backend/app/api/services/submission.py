@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import UploadFile
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository, SubmissionRepositoryError
 from app.core.config import settings
@@ -38,10 +39,12 @@ class SubmissionService:
         submission_repository: SubmissionRepository,
         job_repository: JobRepository,
         agent_repository: AgentRepository,
+        arena_repository: ArenaRepository,
     ) -> None:
         self._repository = submission_repository
         self._job_repository = job_repository
         self._agent_repository = agent_repository
+        self._arena_repository = arena_repository
         # Directory to store uploaded zips temporarily or permanently
         self._upload_dir = Path(settings.SUBMISSIONS_DIR)
 
@@ -49,7 +52,7 @@ class SubmissionService:
         self,
         user_id: UUID,
         file: UploadFile,
-        game_type: GameType,
+        arena_id: UUID,
         name: str | None = None,
         cleanup_image: bool = True,
     ) -> Submission:
@@ -61,8 +64,14 @@ class SubmissionService:
         """
         self._validate_upload(user_id, file)
 
+        # Fetch arena to validate and get game_type
+        arena = self._arena_repository.get_by_id(arena_id)
+        if not arena or not arena.is_active:
+            raise SubmissionServiceError("Target arena not found or inactive")
+        game_type = arena.game_type
+
         # 1. Create initial record
-        submission = Submission(user_id=user_id, name=name or "", game_type=game_type, object_path="pending")
+        submission = Submission(user_id=user_id, name=name or "", game_type=game_type, arena_id=arena_id, object_path="pending")
         if not submission.name.strip():
             submission.name = str(submission.id)
         submission = self._repository.save(submission)

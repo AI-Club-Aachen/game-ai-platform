@@ -1,12 +1,15 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from app.models.game import GameType
+
+if TYPE_CHECKING:
+    from app.models.arena import Arena
 
 
 class TournamentStatus(str, Enum):
@@ -75,6 +78,9 @@ class Tournament(SQLModel, table=True):
     name: str = Field(nullable=False)
 
     game_type: GameType = Field(nullable=False, index=True)
+
+    arena_id: UUID = Field(foreign_key="arenas.id", nullable=False, index=True)
+    arena: Optional["Arena"] = Relationship(back_populates="tournaments")
 
     status: TournamentStatus = Field(default=TournamentStatus.PENDING, nullable=False, index=True)
 

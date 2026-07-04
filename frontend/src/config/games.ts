@@ -44,6 +44,7 @@ export const GAMES: Game[] = [
     difficulty: 'medium',
     active: true,
   },
+
   {
     id: 'connect4',
     name: 'Connect Four',

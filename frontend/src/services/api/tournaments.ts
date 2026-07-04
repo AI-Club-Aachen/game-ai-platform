@@ -20,6 +20,7 @@ export interface Tournament {
     id: string;
     name: string;
     game_type: string;
+    arena_id: string;
     status: TournamentStatus;
     config: TournamentConfig;
     winner_agent_id: string | null;
@@ -83,7 +84,7 @@ export interface TournamentBracket {
 
 export interface TournamentCreateRequest {
     name: string;
-    game_type: string;
+    arena_id: string;
     agent_ids: string[];
     config?: Partial<TournamentConfig>;
 }
@@ -94,12 +95,14 @@ export const tournamentsApi = {
      */
     getTournaments: async (params?: {
         game_type?: string;
+        arena_id?: string;
         status?: TournamentStatus;
         skip?: number;
         limit?: number;
     }) => {
         const queryParams = new URLSearchParams();
         if (params?.game_type) queryParams.append('game_type', params.game_type);
+        if (params?.arena_id) queryParams.append('arena_id', params.arena_id);
         if (params?.status) queryParams.append('status', params.status);
         if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString());
         if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());

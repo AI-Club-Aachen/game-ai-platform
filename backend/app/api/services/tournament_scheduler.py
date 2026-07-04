@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlmodel import Session
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.tournament import TournamentRepository
@@ -33,9 +34,10 @@ class TournamentSchedulerService:
             match_repository = MatchRepository(session)
             agent_repository = AgentRepository(session)
             job_repository = JobRepository(session)
-            match_service = MatchService(match_repository, job_repository, agent_repository)
+            arena_repository = ArenaRepository(session)
+            match_service = MatchService(match_repository, job_repository, agent_repository, arena_repository)
             tournament_service = TournamentService(
-                tournament_repository, match_repository, agent_repository, match_service
+                tournament_repository, match_repository, agent_repository, match_service, arena_repository
             )
 
             await self._fail_stale_tournament_matches(match_repository, match_service)

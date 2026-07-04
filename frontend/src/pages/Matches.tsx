@@ -13,8 +13,9 @@ export function Matches() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const gameParam = queryParams.get('game') || '';
+  const arenaParam = queryParams.get('arena_id') || '';
   
-  const goBack = useSmartBack(gameParam ? `/games/${gameParam}` : '/games');
+  const goBack = useSmartBack(arenaParam ? `/arenas/${arenaParam}` : gameParam ? `/games/${gameParam}` : '/games');
 
   const [matches, setMatches] = useState<any[]>([]);
   const [agentMap, setAgentMap] = useState<Record<string, string>>({});
@@ -25,10 +26,12 @@ export function Matches() {
     let mounted = true;
     setLoading(true);
     const apiGameType = gameParam ? toApiGameType(gameParam) : undefined;
+    const apiArenaId = arenaParam || undefined;
     
     Promise.all([
       matchesApi.getMatches({
         game_type: apiGameType,
+        arena_id: apiArenaId,
         status: ['running', 'completed', 'failed', 'client_error'],
         limit: 50
       }),
@@ -53,7 +56,7 @@ export function Matches() {
         if (mounted) setLoading(false);
       });
       return () => { mounted = false; };
-  }, [gameParam]);
+  }, [gameParam, arenaParam]);
 
   const liveMatches = matches.filter(m => m.status === 'running' || m.status === 'in_progress');
   const pastMatches = matches.filter(m => m.status === 'completed' || m.status === 'failed' || m.status === 'client_error');

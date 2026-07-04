@@ -8,6 +8,7 @@ from app.models.game import GameType
 
 
 if TYPE_CHECKING:
+    from app.models.arena import Arena
     from app.models.submission import Submission
 
 
@@ -24,6 +25,9 @@ class Agent(SQLModel, table=True):
     name: str = Field(nullable=False)
 
     game_type: GameType = Field(nullable=False, index=True)
+
+    arena_id: UUID = Field(foreign_key="arenas.id", nullable=False, index=True)
+    arena: Optional["Arena"] = Relationship(back_populates="agents")
 
     active_submission_id: UUID | None = Field(
         default=None,
