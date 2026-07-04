@@ -33,6 +33,7 @@ export function Sidebar({ onToggle }: SidebarProps) {
   const { mode, toggleTheme } = useAppTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+
   const toggleSidebar = () => {
     const newCollapsedState = !isCollapsed;
     setIsCollapsed(newCollapsedState);

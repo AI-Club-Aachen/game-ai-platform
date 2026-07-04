@@ -19,12 +19,16 @@ interface LeaderboardEntry {
   gameId: string;
 }
 
+const LEADERBOARD_ARENA_KEY = 'leaderboard_selected_arena';
+
 export function Leaderboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const arenaFromQuery = searchParams.get('arena');
 
   const [arenas, setArenas] = useState<ArenaRead[]>([]);
-  const [selectedArena, setSelectedArena] = useState<string>(arenaFromQuery || '');
+  const [selectedArena, setSelectedArena] = useState<string>(
+    arenaFromQuery || localStorage.getItem(LEADERBOARD_ARENA_KEY) || ''
+  );
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [arenasLoading, setArenasLoading] = useState<boolean>(true);
@@ -56,14 +60,28 @@ export function Leaderboard() {
   useEffect(() => {
     if (arenas.length === 0) return;
 
+    let resolved: string;
+
     if (arenaFromQuery && arenas.some(a => a.id === arenaFromQuery)) {
-      setSelectedArena(arenaFromQuery);
+      resolved = arenaFromQuery;
     } else {
-      // Default to the first arena
-      setSelectedArena(arenas[0].id);
-      setSearchParams({ arena: arenas[0].id });
+      // Fall back to localStorage, then first arena
+      const stored = localStorage.getItem(LEADERBOARD_ARENA_KEY);
+      resolved = (stored && arenas.some(a => a.id === stored)) ? stored : arenas[0].id;
     }
-  }, [arenaFromQuery, arenas, setSearchParams]);
+
+    // Sync URL if needed
+    if (resolved !== arenaFromQuery) {
+      setSearchParams({ arena: resolved }, { replace: true });
+    }
+
+    // Sync state and localStorage if needed
+    if (resolved !== selectedArena) {
+      setSelectedArena(resolved);
+    }
+    localStorage.setItem(LEADERBOARD_ARENA_KEY, resolved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arenaFromQuery, arenas]);
 
   useEffect(() => {
     if (!selectedArena) return;
@@ -158,6 +176,7 @@ export function Leaderboard() {
               const arenaId = e.target.value as string;
               setSelectedArena(arenaId);
               setSearchParams({ arena: arenaId });
+              localStorage.setItem(LEADERBOARD_ARENA_KEY, arenaId);
             }}
             disabled={arenasLoading || arenas.length === 0}
             displayEmpty

@@ -1,7 +1,7 @@
 """add arenas
 
 Revision ID: d06f47280c3d
-Revises: f20d83768be4
+Revises: e8c4a1b9f2d3
 Create Date: 2026-07-04 14:50:14.103852
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = 'd06f47280c3d'
-down_revision: Union[str, None] = 'f20d83768be4'
+down_revision: Union[str, None] = 'e8c4a1b9f2d3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -61,7 +61,6 @@ def upgrade() -> None:
     chess_arena_id = str(uuid.uuid4())
     connect_four_arena_id = str(uuid.uuid4())
     hex_11_arena_id = str(uuid.uuid4())
-    hex_5_arena_id = str(uuid.uuid4())
     
     now = datetime.now(UTC)
     
@@ -70,8 +69,7 @@ def upgrade() -> None:
         f"('{tictactoe_arena_id}', 'Tic-Tac-Toe Arena', 'Classic 3x3 Tic-Tac-Toe', 'TICTACTOE', '{{\"turn_time_limit\": 5.0}}', true, '{now}', '{now}'),"
         f"('{chess_arena_id}', 'Chess Arena', 'Classic Strategy Chess', 'CHESS', '{{}}', true, '{now}', '{now}'),"
         f"('{connect_four_arena_id}', 'Connect Four Arena', 'Connect 4 in a row', 'CONNECT_FOUR', '{{}}', true, '{now}', '{now}'),"
-        f"('{hex_11_arena_id}', 'Hex 11x11 Arena', 'Standard 11x11 Hex board', 'HEX', '{{\"board_size\": 11}}', true, '{now}', '{now}'),"
-        f"('{hex_5_arena_id}', 'Hex 5x5 Arena', 'Quick 5x5 Hex board', 'HEX', '{{\"board_size\": 5}}', true, '{now}', '{now}')"
+        f"('{hex_11_arena_id}', 'Hex 11x11 Arena', 'Standard 11x11 Hex board', 'HEX', '{{\"board_size\": 11}}', true, '{now}', '{now}')"
     )
 
     # Migrate existing rows to default arenas
@@ -79,25 +77,21 @@ def upgrade() -> None:
     op.execute(f"UPDATE agents SET arena_id = '{chess_arena_id}' WHERE game_type = 'CHESS'")
     op.execute(f"UPDATE agents SET arena_id = '{connect_four_arena_id}' WHERE game_type = 'CONNECT_FOUR'")
     op.execute(f"UPDATE agents SET arena_id = '{hex_11_arena_id}' WHERE game_type = 'HEX'")
-    op.execute(f"UPDATE agents SET arena_id = '{hex_5_arena_id}' WHERE game_type::text IN ('HEX_RL', 'HEX_5X5')")
 
     op.execute(f"UPDATE submissions SET arena_id = '{tictactoe_arena_id}' WHERE game_type = 'TICTACTOE'")
     op.execute(f"UPDATE submissions SET arena_id = '{chess_arena_id}' WHERE game_type = 'CHESS'")
     op.execute(f"UPDATE submissions SET arena_id = '{connect_four_arena_id}' WHERE game_type = 'CONNECT_FOUR'")
     op.execute(f"UPDATE submissions SET arena_id = '{hex_11_arena_id}' WHERE game_type = 'HEX'")
-    op.execute(f"UPDATE submissions SET arena_id = '{hex_5_arena_id}' WHERE game_type::text IN ('HEX_RL', 'HEX_5X5')")
 
     op.execute(f"UPDATE matches SET arena_id = '{tictactoe_arena_id}' WHERE game_type = 'TICTACTOE'")
     op.execute(f"UPDATE matches SET arena_id = '{chess_arena_id}' WHERE game_type = 'CHESS'")
     op.execute(f"UPDATE matches SET arena_id = '{connect_four_arena_id}' WHERE game_type = 'CONNECT_FOUR'")
     op.execute(f"UPDATE matches SET arena_id = '{hex_11_arena_id}' WHERE game_type = 'HEX'")
-    op.execute(f"UPDATE matches SET arena_id = '{hex_5_arena_id}' WHERE game_type::text IN ('HEX_RL', 'HEX_5X5')")
 
     op.execute(f"UPDATE tournaments SET arena_id = '{tictactoe_arena_id}' WHERE game_type = 'TICTACTOE'")
     op.execute(f"UPDATE tournaments SET arena_id = '{chess_arena_id}' WHERE game_type = 'CHESS'")
     op.execute(f"UPDATE tournaments SET arena_id = '{connect_four_arena_id}' WHERE game_type = 'CONNECT_FOUR'")
     op.execute(f"UPDATE tournaments SET arena_id = '{hex_11_arena_id}' WHERE game_type = 'HEX'")
-    op.execute(f"UPDATE tournaments SET arena_id = '{hex_5_arena_id}' WHERE game_type::text IN ('HEX_RL', 'HEX_5X5')")
 
     # Set non-nullable constraints
     op.alter_column('agents', 'arena_id', nullable=False)
