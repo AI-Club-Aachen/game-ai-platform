@@ -264,7 +264,7 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
         },
     )
     assert match_response.status_code == 400
-    assert "does not belong to game" in match_response.json()["detail"]
+    assert "does not belong to the target arena" in match_response.json()["detail"]
 
 
 async def _make_built_agent(api_client, db_session, bearer_token: str, user_id: str, game_type: GameType) -> str:
