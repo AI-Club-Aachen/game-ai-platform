@@ -34,8 +34,16 @@ async function createAgent(
     } = {},
 ): Promise<{ agentId: string }> {
     const gameId = options.gameId ?? 'tictactoe';
-    await page.goto(`/agents/new?gameId=${gameId}`);
-    await expect(page.getByRole('heading', { name: 'Create New Agent' })).toBeVisible();
+    await page.goto(`/agents/new`);
+    await expect(page.getByRole('heading', { name: 'Submit Agent' })).toBeVisible();
+
+    // Wait for the Arena dropdown to be visible (after arenas load)
+    await expect(page.getByLabel('Arena')).toBeVisible({ timeout: 10000 });
+    await page.getByLabel('Arena').click();
+
+    // Choose the menu option corresponding to the gameId
+    const gameName = gameId === 'hex' ? 'Hex' : (gameId === 'chess' ? 'Chess' : 'Tic-Tac-Toe');
+    await page.getByRole('option', { name: new RegExp(gameName, 'i') }).click();
 
     if (options.agentName) {
         await page.getByLabel('Agent Name').fill(options.agentName);
