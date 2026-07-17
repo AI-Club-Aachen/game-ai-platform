@@ -710,7 +710,10 @@ async def test_auto_scheduler_ignores_tournament_matches(db_session):
     assert scheduler._check_match_queue(m_repo) is True  # noqa: SLF001
 
     # A normal queued match still closes the gate.
-    normal = m_repo.save(Match(game_type=GameType.HEX, status=MatchStatus.QUEUED, config={}, agent_ids=[]))
+    arena = _get_or_create_test_arena(db_session, GameType.HEX)
+    normal = m_repo.save(
+        Match(game_type=GameType.HEX, arena_id=arena.id, status=MatchStatus.QUEUED, config={}, agent_ids=[])
+    )
     assert scheduler._check_match_queue(m_repo) is False  # noqa: SLF001
     normal.status = MatchStatus.COMPLETED
     m_repo.save(normal)

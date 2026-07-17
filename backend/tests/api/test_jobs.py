@@ -1,11 +1,15 @@
+import uuid
+
 import pytest
 from httpx import AsyncClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.core.config import settings
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus, MatchJob
 from app.models.match import Match, MatchStatus
@@ -32,6 +36,21 @@ def match_repository(db_session: Session):
     return MatchRepository(db_session)
 
 
+def _get_or_create_test_arena(db_session: Session, game_type: GameType) -> Arena:
+    repo = ArenaRepository(db_session)
+    arena = db_session.exec(select(Arena).where(Arena.game_type == game_type)).first()
+    if not arena:
+        arena = Arena(
+            id=uuid.uuid4(),
+            name=f"Test Arena {game_type.name}",
+            game_type=game_type,
+            config={},
+            is_active=True,
+        )
+        arena = repo.save(arena)
+    return arena
+
+
 @pytest.mark.anyio
 async def test_build_job_flow(
     api_client: AsyncClient,
@@ -44,10 +63,12 @@ async def test_build_job_flow(
     db_session.add(user)
     db_session.commit()
 
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     submission = Submission(
         user_id=user.id,
         name="test_sub",
         game_type=GameType.TICTACTOE,
+        arena_id=arena.id,
         object_path="path/to/zip",
     )
     submission = submission_repository.save(submission)
@@ -89,7 +110,13 @@ async def test_match_job_flow(
     db_session: Session,
 ):
     # 1. Setup Data
-    match = Match(game_type=GameType.TICTACTOE, config={"players": []}, status=MatchStatus.QUEUED)
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
+    match = Match(
+        game_type=GameType.TICTACTOE,
+        arena_id=arena.id,
+        config={"players": []},
+        status=MatchStatus.QUEUED,
+    )
     match = match_repository.save(match)
 
     job = MatchJob(match_id=match.id, status=JobStatus.QUEUED)
@@ -119,6 +146,7 @@ async def test_oversized_worker_logs_and_game_state_are_capped(
     api_client: AsyncClient,
     match_repository: MatchRepository,
     monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
 ):
     """Worker logs truncated; oversized game-state rejected."""
     # Use small caps so the test payloads stay tiny.
@@ -126,7 +154,13 @@ async def test_oversized_worker_logs_and_game_state_are_capped(
     monkeypatch.setattr(settings, "MAX_TOTAL_LOG_BYTES", 200)
     monkeypatch.setattr(settings, "MAX_GAME_STATE_BYTES", 500)
 
-    match = Match(game_type=GameType.TICTACTOE, config={"players": []}, status=MatchStatus.QUEUED)
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
+    match = Match(
+        game_type=GameType.TICTACTOE,
+        arena_id=arena.id,
+        config={"players": []},
+        status=MatchStatus.QUEUED,
+    )
     match = match_repository.save(match)
 
     # Oversized logs are truncated, not rejected.
