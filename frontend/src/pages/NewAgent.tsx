@@ -112,7 +112,7 @@ export function NewAgent() {
             setCreatedAgentId(agent.id);
 
             if (!file) {
-                navigate(`/arenas/${selectedArena.id}`);
+                navigate(`/agents/${agent.id}`);
                 return;
             }
 
@@ -126,7 +126,7 @@ export function NewAgent() {
 
             if (latestJob?.status === 'completed') {
                 await agentsApi.updateAgent(agent.id, { active_submission_id: completedSubmission.id });
-                navigate(`/arenas/${selectedArena.id}`);
+                navigate(`/agents/${agent.id}`);
                 return;
             }
 
