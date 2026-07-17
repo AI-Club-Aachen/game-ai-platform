@@ -1,12 +1,15 @@
 import io
+import uuid
 import zipfile
 from uuid import UUID
 
 import pytest
-from sqlmodel import select
+from sqlmodel import Session, select
 
+from app.api.repositories.arena import ArenaRepository
 from app.core.config import settings
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
@@ -23,6 +26,26 @@ def _make_zip_bytes(filename: str = "agent.py", content: str = "print('hello')\n
         zip_file.writestr(filename, content)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def _get_or_create_test_arena(db_session: Session, game_type: GameType) -> Arena:
+    repo = ArenaRepository(db_session)
+    arena = db_session.exec(select(Arena).where(Arena.game_type == game_type)).first()
+    if not arena:
+        config = {}
+        if game_type == GameType.HEX:
+            config = {"board_size": 11}
+        elif game_type == GameType.TICTACTOE:
+            config = {"turn_time_limit": 5.0}
+        arena = Arena(
+            id=uuid.uuid4(),
+            name=f"Test Arena {game_type.name}",
+            game_type=game_type,
+            config=config,
+            is_active=True,
+        )
+        arena = repo.save(arena)
+    return arena
 
 
 @pytest.mark.anyio
@@ -63,11 +86,12 @@ async def test_submission_upload_does_not_create_agent(api_client, fake_email_cl
         random_email(),
         strong_password(),
     )
+    arena = _get_or_create_test_arena(db_session, GameType.CHESS)
 
     response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
-        data={"game_type": GameType.CHESS.value},
+        data={"game_type": GameType.CHESS.value, "arena_id": str(arena.id)},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
 
@@ -93,11 +117,13 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
         random_email(),
         strong_password(),
     )
+    ttt_arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
+    chess_arena = _get_or_create_test_arena(db_session, GameType.CHESS)
 
     create_submission_response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
-        data={"game_type": GameType.TICTACTOE.value},
+        data={"game_type": GameType.TICTACTOE.value, "arena_id": str(ttt_arena.id)},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
     assert create_submission_response.status_code == 201
@@ -110,6 +136,7 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
             "name": random_lower_string(8),
             "user_id": user_id,
             "game_type": GameType.TICTACTOE.value,
+            "arena_id": str(ttt_arena.id),
             "active_submission_id": submission_id,
         },
     )
@@ -132,6 +159,7 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
             "name": random_lower_string(8),
             "user_id": user_id,
             "game_type": GameType.TICTACTOE.value,
+            "arena_id": str(ttt_arena.id),
             "active_submission_id": submission_id,
         },
     )
@@ -141,7 +169,7 @@ async def test_agent_requires_successful_submission_and_submission_delete_unlink
     mismatched_submission_response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
-        data={"game_type": GameType.CHESS.value},
+        data={"game_type": GameType.CHESS.value, "arena_id": str(chess_arena.id)},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
     assert mismatched_submission_response.status_code == 201
@@ -186,13 +214,15 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
         random_email(),
         strong_password(),
     )
+    chess_arena = _get_or_create_test_arena(db_session, GameType.CHESS)
+    ttt_arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
 
     submission_ids: list[str] = []
     for _ in range(2):
         response = await api_client.post(
             f"{API_PREFIX}/submissions",
             headers={"Authorization": bearer_token},
-            data={"game_type": GameType.CHESS.value},
+            data={"game_type": GameType.CHESS.value, "arena_id": str(chess_arena.id)},
             files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
         )
         assert response.status_code == 201
@@ -216,6 +246,7 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
                 "name": f"Agent {submission_id[:8]}",
                 "user_id": user_id,
                 "game_type": GameType.CHESS.value,
+                "arena_id": str(chess_arena.id),
                 "active_submission_id": submission_id,
             },
         )
@@ -227,6 +258,7 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
         headers={"Authorization": bearer_token},
         json={
             "game_type": GameType.TICTACTOE.value,
+            "arena_id": str(ttt_arena.id),
             "config": {},
             "agent_ids": agent_ids,
         },
@@ -237,11 +269,12 @@ async def test_match_rejects_agent_from_wrong_game(api_client, fake_email_client
 
 async def _make_built_agent(api_client, db_session, bearer_token: str, user_id: str, game_type: GameType) -> str:
     """Create a submission, mark its build completed, and return a built agent's id."""
+    arena = _get_or_create_test_arena(db_session, game_type)
     headers = {"Authorization": bearer_token}
     sub_resp = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers=headers,
-        data={"game_type": game_type.value},
+        data={"game_type": game_type.value, "arena_id": str(arena.id)},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
     assert sub_resp.status_code == 201, sub_resp.text
@@ -262,6 +295,7 @@ async def _make_built_agent(api_client, db_session, bearer_token: str, user_id: 
             "name": f"Agent {submission_id[:8]}",
             "user_id": user_id,
             "game_type": game_type.value,
+            "arena_id": str(arena.id),
             "active_submission_id": submission_id,
         },
     )
@@ -276,6 +310,8 @@ async def test_match_state_init_data_is_whitelisted(api_client, fake_email_clien
         api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
     )
     headers = {"Authorization": bearer_token}
+    ttt_arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
+    hex_arena = _get_or_create_test_arena(db_session, GameType.HEX)
 
     ttt_agents = [
         await _make_built_agent(api_client, db_session, bearer_token, user_id, GameType.TICTACTOE) for _ in range(2)
@@ -285,7 +321,12 @@ async def test_match_state_init_data_is_whitelisted(api_client, fake_email_clien
         resp = await api_client.post(
             f"{API_PREFIX}/matches",
             headers=headers,
-            json={"game_type": GameType.TICTACTOE.value, "config": config, "agent_ids": ttt_agents},
+            json={
+                "game_type": GameType.TICTACTOE.value,
+                "arena_id": str(ttt_arena.id),
+                "config": config,
+                "agent_ids": ttt_agents,
+            },
         )
         return resp.status_code
 
@@ -312,6 +353,7 @@ async def test_match_state_init_data_is_whitelisted(api_client, fake_email_clien
         headers=headers,
         json={
             "game_type": GameType.HEX.value,
+            "arena_id": str(hex_arena.id),
             "config": {"state_init_data": {"board_size": 100000}},
             "agent_ids": hex_agents,
         },
@@ -324,6 +366,7 @@ async def test_match_state_init_data_is_whitelisted(api_client, fake_email_clien
         headers=headers,
         json={
             "game_type": GameType.HEX.value,
+            "arena_id": str(hex_arena.id),
             "config": {"state_init_data": {"board_size": 11}},
             "agent_ids": hex_agents,
         },
@@ -350,6 +393,7 @@ async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_s
         random_email(),
         strong_password(),
     )
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
 
     monkeypatch.setattr(settings, "MAX_UPLOAD_BYTES", 1024)
     big_zip = _make_zip_of_size(4096)
@@ -357,7 +401,7 @@ async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_s
     response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
-        data={"game_type": GameType.TICTACTOE.value},
+        data={"game_type": GameType.TICTACTOE.value, "arena_id": str(arena.id)},
         files={"file": ("agent.zip", big_zip, "application/zip")},
     )
 
@@ -376,11 +420,12 @@ async def test_download_path_is_contained_to_submissions_dir(api_client, fake_em
         random_email(),
         strong_password(),
     )
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
 
     create_response = await api_client.post(
         f"{API_PREFIX}/submissions",
         headers={"Authorization": bearer_token},
-        data={"game_type": GameType.TICTACTOE.value},
+        data={"game_type": GameType.TICTACTOE.value, "arena_id": str(arena.id)},
         files={"file": ("agent.zip", _make_zip_bytes(), "application/zip")},
     )
     assert create_response.status_code == 201

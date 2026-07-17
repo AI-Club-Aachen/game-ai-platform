@@ -49,11 +49,16 @@ def _get_or_create_test_arena(db_session: Session, game_type: GameType) -> Arena
     repo = ArenaRepository(db_session)
     arena = db_session.exec(select(Arena).where(Arena.game_type == game_type)).first()
     if not arena:
+        config = {}
+        if game_type == GameType.HEX:
+            config = {"board_size": 11}
+        elif game_type == GameType.TICTACTOE:
+            config = {"turn_time_limit": 5.0}
         arena = Arena(
             id=uuid.uuid4(),
             name=f"Test Arena {game_type.name}",
             game_type=game_type,
-            config={},
+            config=config,
             is_active=True,
         )
         arena = repo.save(arena)
