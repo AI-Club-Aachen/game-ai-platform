@@ -31,7 +31,7 @@ class ArenaRepository:
 
     def list_active(self) -> list[Arena]:
         """List active arenas."""
-        statement = select(Arena).where(Arena.is_active == True).order_by(Arena.name.asc())
+        statement = select(Arena).where(Arena.is_active).order_by(Arena.name.asc())
         return list(self._session.exec(statement).all())
 
     def list_all(self, skip: int = 0, limit: int = 100) -> tuple[list[Arena], int]:

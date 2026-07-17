@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -10,21 +10,21 @@ from app.models.game import GameType
 class ArenaBase(BaseModel):
     name: str
     game_type: GameType
-    description: Optional[str] = None
+    description: str | None = None
     config: dict[str, Any] = {}
     is_active: bool = True
 
 
 class ArenaCreate(ArenaBase):
-    password: Optional[str] = None
+    password: str | None = None
 
 
 class ArenaUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    config: Optional[dict[str, Any]] = None
-    password: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    description: str | None = None
+    config: dict[str, Any] | None = None
+    password: str | None = None
+    is_active: bool | None = None
 
     model_config = ConfigDict(extra="forbid")
 

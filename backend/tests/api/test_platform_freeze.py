@@ -4,14 +4,14 @@ import uuid
 
 import pytest
 from sqlmodel import Session, select
-from app.models.arena import Arena
-from app.api.repositories.arena import ArenaRepository
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.core.config import settings
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission

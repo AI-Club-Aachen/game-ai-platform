@@ -2,9 +2,12 @@
 Test suite for Hex GameState and Move validation/serialization.
 """
 
+from unittest import mock
+
 import pytest
 from pydantic import ValidationError
 
+from gamelib.hex.dev_runner import DevRunner
 from gamelib.hex.engine import Engine
 from gamelib.hex.examples.simple_agent import HexAgent as Agent
 from gamelib.hex.gamestate import GameState
@@ -128,18 +131,17 @@ def test_full_game():
 
 def test_hex_dev_runner_configurable_board_size():
     """Test that Hex DevRunner accepts board_size parameter."""
-    from gamelib.hex.dev_runner import DevRunner
     runner = DevRunner(board_size=5)
     assert runner.board_size == 5
     runner.add_agent(Agent())
     runner.add_agent(Agent())
-    
-    import unittest.mock as mock
-    with mock.patch("builtins.print") as mock_print:
-        # Mock engine.is_game_over to return True immediately to avoid running the game loop
-        with mock.patch.object(Engine, "is_game_over", return_value=True) as mock_is_game_over:
-            runner.start()
-            mock_is_game_over.assert_called_once()
-            mock_print.assert_any_call("Starting Hex dev match: Player 0 (Left-Right) vs Player 1 (Top-Bottom)")
+
+    with (
+        mock.patch("builtins.print") as mock_print,
+        mock.patch.object(Engine, "is_game_over", return_value=True) as mock_is_game_over,
+    ):
+        runner.start()
+        mock_is_game_over.assert_called_once()
+        mock_print.assert_any_call("Starting Hex dev match: Player 0 (Left-Right) vs Player 1 (Top-Bottom)")
 
 

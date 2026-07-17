@@ -14,7 +14,6 @@ from app.api.deps import (
 from app.api.services.submission import SubmissionService, SubmissionServiceError
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.models.game import GameType
 from app.models.user import UserRole
 from app.schemas.submission import SubmissionRead
 

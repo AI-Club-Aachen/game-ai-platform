@@ -78,7 +78,7 @@ class MatchService:
         # Merge arena config into match config
         if "turn_time_limit" in arena.config:
             config.turn_time_limit = arena.config["turn_time_limit"]
-        
+
         for k, v in arena.config.items():
             if k != "turn_time_limit" and k not in config.state_init_data:
                 config.state_init_data[k] = v

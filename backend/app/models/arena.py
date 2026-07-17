@@ -1,10 +1,11 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from app.models.game import GameType
+
 
 if TYPE_CHECKING:
     from app.models.agent import Agent
@@ -22,7 +23,7 @@ class Arena(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, nullable=False)
     name: str = Field(nullable=False)
-    description: Optional[str] = Field(default=None, nullable=True)
+    description: str | None = Field(default=None, nullable=True)
 
     # Reference to the game type being played (tictactoe, hex, connect_four, chess)
     game_type: GameType = Field(nullable=False, index=True)
@@ -31,7 +32,7 @@ class Arena(SQLModel, table=True):
     config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
     # Password for simple authentication/access protection
-    password: Optional[str] = Field(default=None, nullable=True)
+    password: str | None = Field(default=None, nullable=True)
 
     is_active: bool = Field(default=True, nullable=False)
 

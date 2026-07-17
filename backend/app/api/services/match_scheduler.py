@@ -15,7 +15,6 @@ from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.db.connection import engine
 from app.models.agent import Agent
-from app.models.game import GameType
 from app.models.match import MatchConfig, MatchStatus
 
 

@@ -6,6 +6,7 @@ from app.api.repositories.arena import ArenaRepository, ArenaRepositoryError
 from app.models.arena import Arena
 from app.schemas.arena import ArenaCreate, ArenaUpdate
 
+
 logger = logging.getLogger(__name__)
 
 

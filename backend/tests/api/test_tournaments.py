@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import Session, select
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
@@ -17,6 +18,7 @@ from app.api.services.tournament import TournamentService
 from app.api.services.tournament_bracket import deterministic_coin_flip, game_agent_order
 from app.core.config import settings
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.match import Match, MatchStatus
@@ -98,8 +100,16 @@ def _build_engine(
     job_repository = JobRepository(db_session)
     tournament_repository = TournamentRepository(db_session)
     arena_repository = ArenaRepository(db_session)
-    match_service = MatchService(match_repository, job_repository, agent_repository, arena_repository)
-    service = TournamentService(tournament_repository, match_repository, agent_repository, match_service, arena_repository)
+    match_service = MatchService(
+        match_repository, job_repository, agent_repository, arena_repository
+    )
+    service = TournamentService(
+        tournament_repository,
+        match_repository,
+        agent_repository,
+        match_service,
+        arena_repository,
+    )
     return service, match_service, tournament_repository, match_repository
 
 

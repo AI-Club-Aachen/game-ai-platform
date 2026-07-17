@@ -10,7 +10,6 @@ from app.api.repositories.submission import SubmissionRepository, SubmissionRepo
 from app.core.config import settings
 from app.core.payload_limits import cap_log_append
 from app.core.queue import job_queue
-from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
 
@@ -71,7 +70,9 @@ class SubmissionService:
         game_type = arena.game_type
 
         # 1. Create initial record
-        submission = Submission(user_id=user_id, name=name or "", game_type=game_type, arena_id=arena_id, object_path="pending")
+        submission = Submission(
+            user_id=user_id, name=name or "", game_type=game_type, arena_id=arena_id, object_path="pending"
+        )
         if not submission.name.strip():
             submission.name = str(submission.id)
         submission = self._repository.save(submission)

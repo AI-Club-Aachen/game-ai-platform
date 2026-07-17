@@ -94,7 +94,7 @@ def _build_runner(game: str, player0: str, player1: str) -> tuple[Any, list[str]
     module = importlib.import_module(GAME_MODULES[game])
     agent_base = module.Agent
     human_cls = module.HumanAgent
-    
+
     runner = module.DevRunner()
 
     labels: list[str] = []

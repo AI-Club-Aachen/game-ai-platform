@@ -13,9 +13,9 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.connection import engine
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
-from app.models.arena import Arena
 from app.models.submission import Submission
 from app.models.user import User, UserRole
 

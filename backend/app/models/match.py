@@ -8,6 +8,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from app.models.game import GameType
 
+
 if TYPE_CHECKING:
     from app.models.arena import Arena
 

@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.schemas.arena import ArenaCreate, ArenaRead, ArenaUpdate
 
+
 router = APIRouter()
 
 
@@ -25,12 +26,13 @@ def create_arena(
     """
     try:
         arena = service.create_arena(arena_create)
+    except ArenaValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    else:
         # Convert password check to a boolean has_password
         read_obj = ArenaRead.model_validate(arena)
         read_obj.has_password = bool(arena.password)
         return read_obj
-    except ArenaValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("", response_model=list[ArenaRead])
@@ -80,11 +82,12 @@ def get_arena(
     """
     try:
         arena = service.get_arena_by_id(arena_id)
+    except ArenaNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    else:
         read_obj = ArenaRead.model_validate(arena)
         read_obj.has_password = bool(arena.password)
         return read_obj
-    except ArenaNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.put("/{arena_id}", response_model=ArenaRead)
@@ -101,13 +104,14 @@ def update_arena(
     """
     try:
         arena = service.update_arena(arena_id, arena_update)
-        read_obj = ArenaRead.model_validate(arena)
-        read_obj.has_password = bool(arena.password)
-        return read_obj
     except ArenaNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ArenaValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    else:
+        read_obj = ArenaRead.model_validate(arena)
+        read_obj.has_password = bool(arena.password)
+        return read_obj
 
 
 @router.delete("/{arena_id}", status_code=status.HTTP_204_NO_CONTENT)
