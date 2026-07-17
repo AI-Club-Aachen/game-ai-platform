@@ -18,8 +18,9 @@ class DevRunner(DevRunnerBase):
     """
 
     @override
-    def __init__(self) -> None:
+    def __init__(self, board_size: int = 11) -> None:
         self.agents: list[Agent] = []
+        self.board_size = board_size
 
     @override
     def add_agent(self, agent: Agent) -> None:
@@ -33,7 +34,7 @@ class DevRunner(DevRunnerBase):
             raise ValueError("DevRunner requires exactly two agents.")
 
         engine = Engine()
-        state = State.initial()
+        state = State.initial({"board_size": self.board_size})
 
         for player_id, agent in enumerate(self.agents):
             agent.initialize({"player_id": player_id})

@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import Session, select
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
@@ -17,6 +18,7 @@ from app.api.services.tournament import TournamentService
 from app.api.services.tournament_bracket import deterministic_coin_flip, game_agent_order
 from app.core.config import settings
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.match import Match, MatchStatus
@@ -43,20 +45,43 @@ SOME_ID = "00000000-0000-0000-0000-000000000001"
 # ---------------------------------------------------------------------------
 
 
+def _get_or_create_test_arena(db_session: Session, game_type: GameType) -> Arena:
+    repo = ArenaRepository(db_session)
+    arena = db_session.exec(select(Arena).where(Arena.game_type == game_type)).first()
+    if not arena:
+        config = {}
+        if game_type == GameType.HEX:
+            config = {"board_size": 11}
+        elif game_type == GameType.TICTACTOE:
+            config = {"turn_time_limit": 5.0}
+        arena = Arena(
+            id=uuid.uuid4(),
+            name=f"Test Arena {game_type.name}",
+            game_type=game_type,
+            config=config,
+            is_active=True,
+        )
+        arena = repo.save(arena)
+    return arena
+
+
 def _make_built_agent(db_session: Session, game_type: GameType = GameType.HEX) -> Agent:
     """Agent with a successfully built active submission (tournament-eligible)."""
     user_id = uuid.uuid4()
+    arena = _get_or_create_test_arena(db_session, game_type)
     submission = Submission(
         user_id=user_id,
         name=random_lower_string(8),
         game_type=game_type,
+        arena_id=arena.id,
         object_path="path/to/zip",
     )
     submission = SubmissionRepository(db_session).save(submission)
-    JobRepository(db_session).save_build_job(
+    db_session.add(
         BuildJob(
             submission_id=submission.id,
             status=JobStatus.COMPLETED,
+            logs="...",
             image_id="sha256:test",
             image_tag=f"agent:{submission.id}",
         )
@@ -66,6 +91,7 @@ def _make_built_agent(db_session: Session, game_type: GameType = GameType.HEX) -
         user_id=user_id,
         name=random_lower_string(8),
         game_type=game_type,
+        arena_id=arena.id,
         active_submission_id=submission.id,
     )
     return AgentRepository(db_session).save(agent)
@@ -78,8 +104,17 @@ def _build_engine(
     agent_repository = AgentRepository(db_session)
     job_repository = JobRepository(db_session)
     tournament_repository = TournamentRepository(db_session)
-    match_service = MatchService(match_repository, job_repository, agent_repository)
-    service = TournamentService(tournament_repository, match_repository, agent_repository, match_service)
+    arena_repository = ArenaRepository(db_session)
+    match_service = MatchService(
+        match_repository, job_repository, agent_repository, arena_repository
+    )
+    service = TournamentService(
+        tournament_repository,
+        match_repository,
+        agent_repository,
+        match_service,
+        arena_repository,
+    )
     return service, match_service, tournament_repository, match_repository
 
 
@@ -117,8 +152,9 @@ async def _start_tournament(
 ) -> tuple[TournamentService, MatchService, TournamentRepository, MatchRepository, Tournament, list[Agent]]:
     agents = [_make_built_agent(db_session) for _ in range(n_agents)]
     service, match_service, t_repo, m_repo = _build_engine(db_session)
+    arena = _get_or_create_test_arena(db_session, GameType.HEX)
     config = TournamentConfig(max_concurrent_matches=max_concurrent)
-    tournament = service.create_tournament("Test Cup", GameType.HEX, [a.id for a in agents], config)
+    tournament = service.create_tournament("Test Cup", arena.id, [a.id for a in agents], config)
     tournament = await service.start_tournament(tournament.id)
     return service, match_service, t_repo, m_repo, tournament, agents
 
@@ -174,7 +210,8 @@ async def test_verified_user_can_read_but_not_mutate(api_client, fake_email_clie
 
     agents = [_make_built_agent(db_session) for _ in range(2)]
     service, *_ = _build_engine(db_session)
-    tournament = service.create_tournament("Readable Cup", GameType.HEX, [a.id for a in agents], TournamentConfig())
+    arena = _get_or_create_test_arena(db_session, GameType.HEX)
+    tournament = service.create_tournament("Readable Cup", arena.id, [a.id for a in agents], TournamentConfig())
 
     for path in (
         f"{API_PREFIX}/tournaments",
@@ -188,7 +225,7 @@ async def test_verified_user_can_read_but_not_mutate(api_client, fake_email_clie
         (
             "POST",
             f"{API_PREFIX}/tournaments",
-            {"name": "x", "game_type": "hex", "agent_ids": [str(a.id) for a in agents]},
+            {"name": "x", "arena_id": str(arena.id), "agent_ids": [str(a.id) for a in agents]},
         ),
         ("POST", f"{API_PREFIX}/tournaments/{tournament.id}/start", None),
         ("POST", f"{API_PREFIX}/tournaments/{tournament.id}/cancel", None),
@@ -219,11 +256,12 @@ async def _admin_headers(api_client, fake_email_client, db_session) -> dict:
 async def test_admin_tournament_lifecycle(api_client, fake_email_client, db_session):
     headers = await _admin_headers(api_client, fake_email_client, db_session)
     agents = [_make_built_agent(db_session) for _ in range(3)]
+    arena = _get_or_create_test_arena(db_session, GameType.HEX)
 
     response = await api_client.post(
         f"{API_PREFIX}/tournaments",
         headers=headers,
-        json={"name": "Hex Open", "game_type": "hex", "agent_ids": [str(a.id) for a in agents]},
+        json={"name": "Hex Open", "arena_id": str(arena.id), "agent_ids": [str(a.id) for a in agents]},
     )
     assert response.status_code == 201, response.text
     body = response.json()
@@ -269,15 +307,16 @@ async def test_create_tournament_validations(api_client, fake_email_client, db_s
     headers = await _admin_headers(api_client, fake_email_client, db_session)
     hex_agent = _make_built_agent(db_session, GameType.HEX)
     other_game_agent = _make_built_agent(db_session, GameType.TICTACTOE)
+    arena = _get_or_create_test_arena(db_session, GameType.HEX)
     unbuilt_agent = AgentRepository(db_session).save(
-        Agent(user_id=uuid.uuid4(), name=random_lower_string(8), game_type=GameType.HEX)
+        Agent(user_id=uuid.uuid4(), name=random_lower_string(8), game_type=GameType.HEX, arena_id=arena.id)
     )
 
     async def create(agent_ids: list[str]) -> int:
         response = await api_client.post(
             f"{API_PREFIX}/tournaments",
             headers=headers,
-            json={"name": "Bad Cup", "game_type": "hex", "agent_ids": agent_ids},
+            json={"name": "Bad Cup", "arena_id": str(arena.id), "agent_ids": agent_ids},
         )
         return response.status_code
 
@@ -676,7 +715,10 @@ async def test_auto_scheduler_ignores_tournament_matches(db_session):
     assert scheduler._check_match_queue(m_repo) is True  # noqa: SLF001
 
     # A normal queued match still closes the gate.
-    normal = m_repo.save(Match(game_type=GameType.HEX, status=MatchStatus.QUEUED, config={}, agent_ids=[]))
+    arena = _get_or_create_test_arena(db_session, GameType.HEX)
+    normal = m_repo.save(
+        Match(game_type=GameType.HEX, arena_id=arena.id, status=MatchStatus.QUEUED, config={}, agent_ids=[])
+    )
     assert scheduler._check_match_queue(m_repo) is False  # noqa: SLF001
     normal.status = MatchStatus.COMPLETED
     m_repo.save(normal)

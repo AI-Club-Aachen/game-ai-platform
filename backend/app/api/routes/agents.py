@@ -58,6 +58,19 @@ def get_leaderboard(
     return service.get_leaderboard(game_type, limit)
 
 
+@router.get("/leaderboard/arena/{arena_id}", response_model=list[dict])
+def get_leaderboard_by_arena(
+    arena_id: UUID,
+    _current_user: VerifiedGuestOrHigher,
+    service: AgentService = Depends(get_agent_service),
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+) -> list[dict]:
+    """
+    Get leaderboard for a specific arena. Requires a verified login.
+    """
+    return service.get_leaderboard_by_arena(arena_id, limit)
+
+
 @router.get("/{agent_id}", response_model=AgentRead)
 def get_agent(
     agent_id: UUID,

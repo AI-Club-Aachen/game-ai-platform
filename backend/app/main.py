@@ -21,6 +21,7 @@ from starlette.responses import Response
 from app.api.routes import (
     agent_containers,
     agents,
+    arenas,
     auth,
     email,
     jobs,
@@ -314,6 +315,7 @@ app.include_router(users.router, prefix=f"{settings.API_V1_PREFIX}/users", tags=
 app.include_router(email.router, prefix=f"{settings.API_V1_PREFIX}/email", tags=["Email"])
 app.include_router(submissions.router, prefix=f"{settings.API_V1_PREFIX}/submissions", tags=["Submissions"])
 app.include_router(agents.router, prefix=f"{settings.API_V1_PREFIX}/agents", tags=["Agents"])
+app.include_router(arenas.router, prefix=f"{settings.API_V1_PREFIX}/arenas", tags=["Arenas"])
 app.include_router(matches.router, prefix=f"{settings.API_V1_PREFIX}/matches", tags=["Matches"])
 app.include_router(tournaments.router, prefix=f"{settings.API_V1_PREFIX}/tournaments", tags=["Tournaments"])
 app.include_router(platform.router, prefix=f"{settings.API_V1_PREFIX}/platform", tags=["Platform"])

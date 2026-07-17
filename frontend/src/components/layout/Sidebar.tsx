@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   SportsEsports,
   Dashboard as DashboardIcon,
   SportsEsportsOutlined,
   EmojiEvents,
+  Leaderboard as LeaderboardIcon,
   ManageAccounts,
   MilitaryTech,
   People,
@@ -31,6 +32,7 @@ export function Sidebar({ onToggle }: SidebarProps) {
   const { user, isAdmin } = useAuth();
   const { mode, toggleTheme } = useAppTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
 
   const toggleSidebar = () => {
     const newCollapsedState = !isCollapsed;
@@ -65,41 +67,46 @@ export function Sidebar({ onToggle }: SidebarProps) {
       </div>
 
       <nav className="sidebar-nav">
-        <Link to="/dashboard" className="sidebar-link">
+        <NavLink to="/dashboard" className="sidebar-link">
           <DashboardIcon />
           {!isCollapsed && <span>Dashboard</span>}
-        </Link>
+        </NavLink>
 
-        <Link to="/games" className="sidebar-link">
+        <NavLink to="/games" className="sidebar-link">
           <SportsEsportsOutlined />
           {!isCollapsed && <span>Games</span>}
-        </Link>
+        </NavLink>
 
-        <Link to="/tournaments" className="sidebar-link">
+        <NavLink to="/tournaments" className="sidebar-link">
           <EmojiEvents />
           {!isCollapsed && <span>Tournaments</span>}
-        </Link>
+        </NavLink>
+
+        <NavLink to="/leaderboard" className="sidebar-link">
+          <LeaderboardIcon />
+          {!isCollapsed && <span>Leaderboard</span>}
+        </NavLink>
 
         {user && isAdmin && (
           <>
             <div className="sidebar-divider"></div>
             {!isCollapsed && <div className="sidebar-section-title">Administration</div>}
-            <Link to="/users" className="sidebar-link">
+            <NavLink to="/users" className="sidebar-link">
               <People />
               {!isCollapsed && <span>User Management</span>}
-            </Link>
-            <Link to="/containers" className="sidebar-link">
+            </NavLink>
+            <NavLink to="/containers" className="sidebar-link">
               <ManageAccounts />
               {!isCollapsed && <span>Container Management</span>}
-            </Link>
-            <Link to="/matches-admin" className="sidebar-link">
+            </NavLink>
+            <NavLink to="/matches-admin" className="sidebar-link">
               <SportsEsports />
               {!isCollapsed && <span>Match Management</span>}
-            </Link>
-            <Link to="/tournaments-admin" className="sidebar-link">
+            </NavLink>
+            <NavLink to="/tournaments-admin" className="sidebar-link">
               <MilitaryTech />
               {!isCollapsed && <span>Tournament Management</span>}
-            </Link>
+            </NavLink>
           </>
         )}
       </nav>

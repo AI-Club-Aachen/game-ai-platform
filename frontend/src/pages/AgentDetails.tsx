@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
 import { agentsApi, Agent } from '../services/api/agents';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { fromApiGameType, getActiveGames } from '../config/games';
 import { matchesApi } from '../services/api/matches';
 import { submissionsApi, Submission } from '../services/api/submissions';
@@ -57,6 +58,7 @@ export function AgentDetails() {
     const blockedByFreeze = frozen && !isAdmin;
 
     const [agent, setAgent] = useState<Agent | null>(null);
+    const [arena, setArena] = useState<ArenaRead | null>(null);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
@@ -82,7 +84,14 @@ export function AgentDetails() {
                 setError(null);
                 
                 try {
-                    const matchData = await matchesApi.getMatches({ game_type: agentData.game_type, limit: 100 });
+                    const arenaData = await arenasApi.getArena(agentData.arena_id);
+                    setArena(arenaData);
+                } catch (e) {
+                    console.error('Failed to load arena details', e);
+                }
+
+                try {
+                    const matchData = await matchesApi.getMatches({ arena_id: agentData.arena_id, limit: 100 });
                     const agentMatches = matchData.filter(m => m.agent_ids?.includes(id));
                     setMatches(agentMatches);
                 } catch (e) {
@@ -137,12 +146,20 @@ export function AgentDetails() {
             setDeleting(true);
             setError(null);
             await agentsApi.deleteAgent(id);
-            navigate(`/games/${gameId}`);
+            navigate(`/arenas/${agent.arena_id}`);
         } catch (err: any) {
             console.error('Failed to delete agent:', err);
             setError(err.message || 'Failed to delete this agent.');
         } finally {
             setDeleting(false);
+        }
+    };
+
+    const handleBack = () => {
+        if (agent) {
+            navigate(`/arenas/${agent.arena_id}`);
+        } else {
+            goBack();
         }
     };
 
@@ -157,7 +174,7 @@ export function AgentDetails() {
     if (error || !agent) {
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
-                <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+                <Button startIcon={<ArrowBack />} onClick={handleBack} sx={{ mb: 2 }}>
                     Back
                 </Button>
                 <Alert severity="error">{error || 'Agent not found'}</Alert>
@@ -181,7 +198,7 @@ export function AgentDetails() {
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 2 }}>
+            <Button startIcon={<ArrowBack />} onClick={handleBack} sx={{ mb: 2 }}>
                 Back
             </Button>
 
@@ -200,7 +217,7 @@ export function AgentDetails() {
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Button
                         variant="outlined"
-                        onClick={() => navigate(`/submissions/new?agentId=${agent.id}&gameId=${gameId}`)}
+                        onClick={() => navigate(`/submissions/new?agentId=${agent.id}`)}
                         disabled={deleting || blockedByFreeze}
                     >
                         Upload Submission
@@ -290,9 +307,15 @@ export function AgentDetails() {
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">Game</Typography>
+                                    <Typography variant="body1">
+                                        {game?.name || gameId}
+                                    </Typography>
+                                </Box>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Arena</Typography>
                                     <Typography 
                                         variant="body1" 
-                                        onClick={() => navigate(`/games/${gameId}`)}
+                                        onClick={() => navigate(`/arenas/${agent.arena_id}`)}
                                         sx={{ 
                                             cursor: 'pointer', 
                                             transition: 'color 0.2s',
@@ -302,7 +325,7 @@ export function AgentDetails() {
                                             }
                                         }}
                                     >
-                                        {game?.name || gameId}
+                                        {arena?.name || agent.arena_id}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -450,11 +473,11 @@ export function AgentDetails() {
                                 <Typography variant="h6">Recent Matches</Typography>
                                 <Button 
                                     component={Link} 
-                                    to={`/games/matches?game=${gameId}`}
+                                    to={`/games/matches?arena_id=${agent.arena_id}`}
                                     variant="text" 
                                     size="small"
                                 >
-                                    View All {game?.name} Matches
+                                    View All Arena Matches
                                 </Button>
                             </Box>
                             

@@ -5,6 +5,7 @@ export interface Agent {
     user_id: string;
     name: string;
     game_type: string;
+    arena_id: string;
     active_submission_id: string | null;
     wins: number;
     losses: number;
@@ -52,7 +53,7 @@ export const agentsApi = {
     /**
      * Create a new agent
      */
-    createAgent: async (data: { user_id: string; game_type: string; name: string; active_submission_id?: string | null }) => {
+    createAgent: async (data: { user_id: string; game_type: string; name: string; arena_id: string; password?: string | null; active_submission_id?: string | null }) => {
         return apiRequest<Agent>('/agents', {
             method: 'POST',
             body: JSON.stringify(data),
@@ -83,6 +84,15 @@ export const agentsApi = {
      */
     getLeaderboard: async (gameType: string, limit = 100) => {
         return apiRequest<any[]>(`/agents/leaderboard/${gameType}?limit=${limit}`, {
+            method: 'GET',
+        });
+    },
+
+    /**
+     * Get the leaderboard for a specific arena
+     */
+    getLeaderboardByArena: async (arenaId: string, limit = 100) => {
+        return apiRequest<any[]>(`/agents/leaderboard/arena/${arenaId}?limit=${limit}`, {
             method: 'GET',
         });
     },

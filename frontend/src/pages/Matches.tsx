@@ -13,8 +13,9 @@ export function Matches() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const gameParam = queryParams.get('game') || '';
-  
-  const goBack = useSmartBack(gameParam ? `/games/${gameParam}` : '/games');
+  const arenaParam = queryParams.get('arena_id') || '';
+
+  const goBack = useSmartBack(arenaParam ? `/arenas/${arenaParam}` : gameParam ? `/games/${gameParam}` : '/games');
 
   const [matches, setMatches] = useState<any[]>([]);
   const [agentMap, setAgentMap] = useState<Record<string, string>>({});
@@ -25,10 +26,12 @@ export function Matches() {
     let mounted = true;
     setLoading(true);
     const apiGameType = gameParam ? toApiGameType(gameParam) : undefined;
-    
+    const apiArenaId = arenaParam || undefined;
+
     Promise.all([
       matchesApi.getMatches({
         game_type: apiGameType,
+        arena_id: apiArenaId,
         status: ['running', 'completed', 'failed', 'client_error'],
         limit: 50
       }),
@@ -37,12 +40,12 @@ export function Matches() {
       .then(([matchesData, agentsData]: any) => {
         if (!mounted) return;
         setMatches(Array.isArray(matchesData) ? matchesData : matchesData.data || []);
-        
+
         const agentsArr = Array.isArray(agentsData) ? agentsData : agentsData.data || [];
         const map: Record<string, string> = {};
         agentsArr.forEach((a: any) => { map[a.id] = a.name; });
         setAgentMap(map);
-        
+
         setError(null);
       })
       .catch((err: any) => {
@@ -52,8 +55,8 @@ export function Matches() {
       .finally(() => {
         if (mounted) setLoading(false);
       });
-      return () => { mounted = false; };
-  }, [gameParam]);
+    return () => { mounted = false; };
+  }, [gameParam, arenaParam]);
 
   const liveMatches = matches.filter(m => m.status === 'running' || m.status === 'in_progress');
   const pastMatches = matches.filter(m => m.status === 'completed' || m.status === 'failed' || m.status === 'client_error');
@@ -193,7 +196,7 @@ export function Matches() {
                           </TableCell>
                           <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                             {match.agent_ids && match.agent_ids.length > 0
-                              ? match.agent_ids.map((id:string)=>agentMap[id] || id.substring(0,8)).join(' vs ')
+                              ? match.agent_ids.map((id: string) => agentMap[id] || id.substring(0, 8)).join(' vs ')
                               : 'None'}
                           </TableCell>
                           <TableCell>

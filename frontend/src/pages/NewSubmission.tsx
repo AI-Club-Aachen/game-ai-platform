@@ -7,7 +7,8 @@ import { useSubmissionFreeze } from '../hooks/useSubmissionFreeze';
 import { useAuth } from '../context/AuthContext';
 import { getLatestBuildJob, submissionsApi } from '../services/api/submissions';
 import { agentsApi } from '../services/api/agents';
-import { fromApiGameType, getActiveGames, toApiGameType } from '../config/games';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
+import { fromApiGameType, getGameById } from '../config/games';
 import { FileUploadBox } from '../components/common/FileUploadBox';
 import { SubmissionFreezeBanner } from '../components/common/SubmissionFreezeBanner';
 
@@ -24,38 +25,39 @@ export function NewSubmission() {
     const blockedByFreeze = frozen && !isAdmin;
     const [searchParams] = useSearchParams();
     const agentId = searchParams.get('agentId');
-    const requestedGameId = searchParams.get('gameId') ?? '';
-    const availableGames = getActiveGames();
-    const initialGameId = availableGames.some(game => game.id === requestedGameId)
-        ? requestedGameId
-        : availableGames[0]?.id ?? '';
+
+    const [arenas, setArenas] = useState<ArenaRead[]>([]);
+    const [arenasLoading, setArenasLoading] = useState(true);
+    const [arenaId, setArenaId] = useState('');
     const [submissionName, setSubmissionName] = useState('');
-    const [gameId, setGameId] = useState(initialGameId);
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
-    const [gameLoading, setGameLoading] = useState(Boolean(agentId));
     const [error, setError] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!agentId) {
-            setGameLoading(false);
-            return;
-        }
-
-        const loadAgentGame = async () => {
+        const initPage = async () => {
             try {
-                const agent = await agentsApi.getAgent(agentId);
-                setGameId(fromApiGameType(agent.game_type));
+                setArenasLoading(true);
+                const fetchedArenas = await arenasApi.getArenas();
+                const activeArenas = fetchedArenas.filter(a => a.is_active);
+                setArenas(activeArenas);
+
+                if (agentId) {
+                    const agent = await agentsApi.getAgent(agentId);
+                    setArenaId(agent.arena_id);
+                } else if (activeArenas.length > 0) {
+                    setArenaId(activeArenas[0].id);
+                }
             } catch (err: any) {
-                console.error('Failed to load agent game:', err);
-                setError(err.message || 'Failed to determine the game for this agent.');
+                console.error('Failed to initialize page:', err);
+                setError(err.message || 'Failed to load configuration.');
             } finally {
-                setGameLoading(false);
+                setArenasLoading(false);
             }
         };
 
-        loadAgentGame();
+        initPage();
     }, [agentId]);
 
     const handleSubmit = async () => {
@@ -64,8 +66,8 @@ export function NewSubmission() {
             return;
         }
 
-        if (!gameId) {
-            setError('Please choose a game for this submission.');
+        if (!arenaId) {
+            setError('Please choose an arena for this submission.');
             return;
         }
 
@@ -73,7 +75,7 @@ export function NewSubmission() {
             setLoading(true);
             setError(null);
             setStatusMessage('Uploading your submission...');
-            const submission = await submissionsApi.submitAgent(file, toApiGameType(gameId), submissionName.trim() || undefined);
+            const submission = await submissionsApi.submitAgent(file, arenaId, submissionName.trim() || undefined);
 
             if (!agentId) {
                 navigate(`/submissions/${submission.id}`);
@@ -141,22 +143,32 @@ export function NewSubmission() {
                         </Alert>
                     )}
 
-                    <TextField
-                        select
-                        label="Game"
-                        value={gameId}
-                        onChange={(e) => setGameId(e.target.value)}
-                        disabled={loading || gameLoading || Boolean(agentId)}
-                        fullWidth
-                        helperText={agentId ? 'This submission will be linked to the agent game.' : 'Choose the game this submission is built for.'}
-                        sx={{ mb: 3 }}
-                    >
-                        {availableGames.map((game) => (
-                            <MenuItem key={game.id} value={game.id}>
-                                {game.name}
-                            </MenuItem>
-                        ))}
-                    </TextField>
+                    {arenasLoading ? (
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3 }}>
+                            <CircularProgress size={20} />
+                            <Typography color="text.secondary">Loading arenas...</Typography>
+                        </Box>
+                    ) : (
+                        <TextField
+                            select
+                            label="Arena"
+                            value={arenaId}
+                            onChange={(e) => setArenaId(e.target.value)}
+                            disabled={loading || Boolean(agentId)}
+                            fullWidth
+                            helperText={agentId ? 'This submission will be linked to the agent.' : 'Choose the arena this submission is uploaded to.'}
+                            sx={{ mb: 3 }}
+                        >
+                            {arenas.map((arena) => {
+                                const gameConfig = getGameById(fromApiGameType(arena.game_type));
+                                return (
+                                    <MenuItem key={arena.id} value={arena.id}>
+                                        {arena.name} ({gameConfig?.name || arena.game_type})
+                                    </MenuItem>
+                                );
+                            })}
+                        </TextField>
+                    )}
 
                     <TextField
                         label="Submission Name"
@@ -172,7 +184,7 @@ export function NewSubmission() {
                         file={file}
                         onFileChange={setFile}
                         onError={setError}
-                        disabled={loading}
+                        disabled={loading || arenasLoading}
                         title="Select a ZIP file to upload"
                         sx={{ mt: 2, mb: 4 }}
                     />
@@ -185,7 +197,7 @@ export function NewSubmission() {
                             variant="contained"
                             color="primary"
                             onClick={handleSubmit}
-                            disabled={!file || !gameId || loading || gameLoading || blockedByFreeze}
+                            disabled={!file || !arenaId || loading || arenasLoading || blockedByFreeze}
                             sx={{ minWidth: 140 }}
                         >
                             {loading ? <CircularProgress size={24} color="inherit" /> : agentId ? 'Upload Submission' : 'Submit Agent'}

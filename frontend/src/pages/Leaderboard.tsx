@@ -4,7 +4,8 @@ import { Box, Container, Typography, Table, TableBody, TableCell, TableContainer
 import { EmojiEvents, ArrowBack } from '@mui/icons-material';
 import { overlays } from '../theme';
 import { useSmartBack } from '../hooks/use-smart-back';
-import { getActiveGames, toApiGameType } from '../config/games';
+import { getGameById, fromApiGameType } from '../config/games';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
 
 interface LeaderboardEntry {
   id: string;
@@ -18,22 +19,78 @@ interface LeaderboardEntry {
   gameId: string;
 }
 
+const LEADERBOARD_ARENA_KEY = 'leaderboard_selected_arena';
+
 export function Leaderboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const gameFromQuery = searchParams.get('game');
-  const [selectedGame, setSelectedGame] = useState<string>(gameFromQuery || 'chess');
-  const goBack = useSmartBack('/dashboard');
+  const arenaFromQuery = searchParams.get('arena');
+
+  const [arenas, setArenas] = useState<ArenaRead[]>([]);
+  const [selectedArena, setSelectedArena] = useState<string>(
+    arenaFromQuery || localStorage.getItem(LEADERBOARD_ARENA_KEY) || ''
+  );
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [arenasLoading, setArenasLoading] = useState<boolean>(true);
+
+  const goBack = useSmartBack('/dashboard');
 
   type Order = 'asc' | 'desc';
   const [order, setOrder] = useState<Order>('desc');
   const [orderBy, setOrderBy] = useState<keyof LeaderboardEntry>('elo');
 
+  // Fetch active arenas once on mount
   useEffect(() => {
+    const fetchArenas = async () => {
+      try {
+        setArenasLoading(true);
+        const data = await arenasApi.getArenas();
+        const activeArenas = data.filter(a => a.is_active);
+        setArenas(activeArenas);
+      } catch (err) {
+        console.error('Failed to fetch arenas:', err);
+      } finally {
+        setArenasLoading(false);
+      }
+    };
+    fetchArenas();
+  }, []);
+
+  // Update selectedArena when query param or arenas list changes
+  useEffect(() => {
+    if (arenas.length === 0) return;
+
+    let resolved: string;
+
+    if (arenaFromQuery && arenas.some(a => a.id === arenaFromQuery)) {
+      resolved = arenaFromQuery;
+    } else {
+      // Fall back to localStorage, then first arena
+      const stored = localStorage.getItem(LEADERBOARD_ARENA_KEY);
+      resolved = (stored && arenas.some(a => a.id === stored)) ? stored : arenas[0].id;
+    }
+
+    // Sync URL if needed
+    if (resolved !== arenaFromQuery) {
+      setSearchParams({ arena: resolved }, { replace: true });
+    }
+
+    // Sync state and localStorage if needed
+    if (resolved !== selectedArena) {
+      setSelectedArena(resolved);
+    }
+    localStorage.setItem(LEADERBOARD_ARENA_KEY, resolved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arenaFromQuery, arenas]);
+
+  useEffect(() => {
+    if (!selectedArena) return;
+
     const fetchLeaderboard = async () => {
+      setLoading(true);
       try {
         const { agentsApi } = await import('../services/api/agents');
-        const data = await agentsApi.getLeaderboard(toApiGameType(selectedGame));
+        const data = await agentsApi.getLeaderboardByArena(selectedArena);
         setEntries(data.map((d: any, index: number) => {
           const matchesPlayed = d.matches_played || (d.wins + d.losses);
           const winRate = matchesPlayed > 0 ? (d.wins / matchesPlayed) * 100 : 0;
@@ -51,10 +108,12 @@ export function Leaderboard() {
         }));
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchLeaderboard();
-  }, [selectedGame]);
+  }, [selectedArena]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -94,27 +153,69 @@ export function Leaderboard() {
           <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <EmojiEvents sx={{ fontSize: 32 }} /> Leaderboard
           </Typography>
-          <Typography color="text.secondary">
-            Top performing AI agents across all games
-          </Typography>
+          {selectedArena && arenas.length > 0 ? (
+            (() => {
+              const arenaObj = arenas.find(a => a.id === selectedArena);
+              const game = arenaObj ? getGameById(fromApiGameType(arenaObj.game_type)) : null;
+              return (
+                <Typography color="text.secondary">
+                  Top performing AI agents in {arenaObj?.name || 'this arena'}{game ? ` (${game.name})` : ''}
+                </Typography>
+              );
+            })()
+          ) : (
+            <Typography color="text.secondary">
+              Top performing AI agents across all arenas
+            </Typography>
+          )}
         </Box>
-        <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+        <FormControl variant="outlined" size="small" sx={{ minWidth: 260 }}>
           <Select
-            value={selectedGame}
+            value={selectedArena}
             onChange={(e) => {
-              const newGame = e.target.value as string;
-              setSelectedGame(newGame);
-              setSearchParams({ game: newGame });
+              const arenaId = e.target.value as string;
+              setSelectedArena(arenaId);
+              setSearchParams({ arena: arenaId });
+              localStorage.setItem(LEADERBOARD_ARENA_KEY, arenaId);
             }}
+            disabled={arenasLoading || arenas.length === 0}
+            displayEmpty
           >
-            {getActiveGames().map(game => (
-              <MenuItem key={game.id} value={game.id}>{game.name}</MenuItem>
-            ))}
+            {arenasLoading ? (
+              <MenuItem disabled value="">
+                Loading arenas...
+              </MenuItem>
+            ) : arenas.length === 0 ? (
+              <MenuItem disabled value="">
+                No arenas available
+              </MenuItem>
+            ) : (
+              arenas.map(arena => {
+                const game = getGameById(fromApiGameType(arena.game_type));
+                return (
+                  <MenuItem key={arena.id} value={arena.id}>
+                    {arena.name} ({game?.name || arena.game_type})
+                  </MenuItem>
+                );
+              })
+            )}
           </Select>
         </FormControl>
       </Box>
 
-      <Card>
+      <Card sx={{ position: 'relative' }}>
+        {loading && (
+          <LinearProgress
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 1,
+              height: 4,
+            }}
+          />
+        )}
         <TableContainer>
           <Table>
             <TableHead>
@@ -185,49 +286,57 @@ export function Leaderboard() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedEntries.map((entry) => (
-                <TableRow
-                  key={entry.id}
-                  sx={{
-                    backgroundColor: entry.rank <= 3 ? overlays.primaryGlowFaint : 'inherit'
-                  }}
-                >
-                  <TableCell>
-                    <Typography variant="h6" sx={{ fontSize: '1rem' }}>
-                      {getRankBadge(entry.rank)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <strong>{entry.username}</strong>
-                  </TableCell>
-                  <TableCell>{entry.agentName}</TableCell>
-                  <TableCell align="right">
-                    <Typography color="primary" fontWeight="bold">
-                      {entry.elo}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: 'success.main' }}>
-                    {entry.wins}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: 'error.main' }}>
-                    {entry.losses}
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={entry.winRate}
-                          sx={{ height: 6 }}
-                        />
-                      </Box>
-                      <Typography variant="body2" sx={{ minWidth: 50 }}>
-                        {entry.winRate.toFixed(1)}%
-                      </Typography>
-                    </Box>
+              {!loading && sortedEntries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    No ranked agents in this arena yet.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                sortedEntries.map((entry) => (
+                  <TableRow
+                    key={entry.id}
+                    sx={{
+                      backgroundColor: entry.rank <= 3 ? overlays.primaryGlowFaint : 'inherit'
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="h6" sx={{ fontSize: '1rem' }}>
+                        {getRankBadge(entry.rank)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <strong>{entry.username}</strong>
+                    </TableCell>
+                    <TableCell>{entry.agentName}</TableCell>
+                    <TableCell align="right">
+                      <Typography color="primary" fontWeight="bold">
+                        {entry.elo}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: 'success.main' }}>
+                      {entry.wins}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: 'error.main' }}>
+                      {entry.losses}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <LinearProgress
+                            variant="determinate"
+                            value={entry.winRate}
+                            sx={{ height: 6 }}
+                          />
+                        </Box>
+                        <Typography variant="body2" sx={{ minWidth: 50 }}>
+                          {entry.winRate.toFixed(1)}%
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>

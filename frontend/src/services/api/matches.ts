@@ -7,9 +7,10 @@ export const matchesApi = {
     /**
      * Get all matches
      */
-    getMatches: async (params?: { game_type?: string; status?: string | string[]; skip?: number; limit?: number }) => {
+    getMatches: async (params?: { game_type?: string; arena_id?: string; status?: string | string[]; skip?: number; limit?: number }) => {
         const queryParams = new URLSearchParams();
         if (params?.game_type) queryParams.append('game_type', params.game_type);
+        if (params?.arena_id) queryParams.append('arena_id', params.arena_id);
         if (params?.status) {
             if (Array.isArray(params.status)) {
                 params.status.forEach(s => queryParams.append('status', s));
@@ -66,7 +67,7 @@ export const matchesApi = {
      * Create a new match
      */
     createMatch: async (matchData: {
-        game_type: string;
+        arena_id: string;
         config: any;
         agent_ids: string[];
     }) => {

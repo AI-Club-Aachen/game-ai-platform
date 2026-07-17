@@ -3,13 +3,15 @@
 import uuid
 
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.core.config import settings
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
@@ -35,12 +37,34 @@ async def _admin(api_client, fake_email_client, db_session) -> tuple[str, dict]:
     return user_id, {"Authorization": token}
 
 
+def _get_or_create_test_arena(db_session: Session, game_type: GameType) -> Arena:
+    repo = ArenaRepository(db_session)
+    arena = db_session.exec(select(Arena).where(Arena.game_type == game_type)).first()
+    if not arena:
+        config = {}
+        if game_type == GameType.HEX:
+            config = {"board_size": 11}
+        elif game_type == GameType.TICTACTOE:
+            config = {"turn_time_limit": 5.0}
+        arena = Arena(
+            id=uuid.uuid4(),
+            name=f"Test Arena {game_type.name}",
+            game_type=game_type,
+            config=config,
+            is_active=True,
+        )
+        arena = repo.save(arena)
+    return arena
+
+
 def _built_submission(db_session: Session, user_id: str) -> Submission:
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     submission = SubmissionRepository(db_session).save(
         Submission(
             user_id=uuid.UUID(user_id),
             name=random_lower_string(8),
             game_type=GameType.TICTACTOE,
+            arena_id=arena.id,
             object_path="path/to/zip",
         )
     )
@@ -57,11 +81,13 @@ def _built_submission(db_session: Session, user_id: str) -> Submission:
 
 
 def _agent(db_session: Session, user_id: str, submission: Submission | None = None) -> Agent:
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     return AgentRepository(db_session).save(
         Agent(
             user_id=uuid.UUID(user_id),
             name=random_lower_string(8),
             game_type=GameType.TICTACTOE,
+            arena_id=arena.id,
             active_submission_id=submission.id if submission else None,
         )
     )
@@ -162,10 +188,16 @@ async def test_admin_is_exempt_while_frozen(api_client, fake_email_client, db_se
 
     await _set_freeze(api_client, admin_headers, True)
 
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
     create = await api_client.post(
         f"{API}/agents",
         headers=admin_headers,
-        json={"user_id": admin_id, "game_type": "tictactoe", "name": "admin-agent"},
+        json={
+            "user_id": admin_id,
+            "game_type": "tictactoe",
+            "name": "admin-agent",
+            "arena_id": str(arena.id),
+        },
     )
     assert create.status_code == 201
     assert (await api_client.delete(f"{API}/agents/{agent.id}", headers=admin_headers)).status_code == 204

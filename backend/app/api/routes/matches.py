@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -123,14 +124,10 @@ async def create_match(
     callers must own at least one of the participating agents.
     """
     try:
-        additional_data = match_in.game_type.additional_data
-        for k, v in additional_data.items():
-            if k not in match_in.config.state_init_data:
-                match_in.config.state_init_data[k] = v
         return await service.create_match(
-            match_in.game_type,
-            match_in.config,
-            match_in.agent_ids,
+            arena_id=match_in.arena_id,
+            config=match_in.config,
+            agent_ids=match_in.agent_ids,
             owner_user_id=None if current_user.role == UserRole.ADMIN else current_user.id,
         )
     except MatchPermissionError as e:
@@ -189,12 +186,13 @@ def list_matches(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     game_type: GameType | None = None,
+    arena_id: UUID | None = None,
     status: Annotated[list[MatchStatus] | None, Query()] = None,
 ) -> list[MatchRead]:
     """
     List matches. Requires a verified login (any role).
     """
-    return service.list_matches(skip, limit, game_type=game_type, status=status)
+    return service.list_matches(skip, limit, game_type=game_type, arena_id=arena_id, status=status)
 
 
 # GET /api/v1/matches/{match_id}/stream

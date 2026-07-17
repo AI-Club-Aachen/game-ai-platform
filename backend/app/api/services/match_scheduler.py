@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlmodel import Session
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.match import MatchService
@@ -14,7 +15,6 @@ from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.db.connection import engine
 from app.models.agent import Agent
-from app.models.game import GameType
 from app.models.match import MatchConfig, MatchStatus
 
 
@@ -53,7 +53,8 @@ class MatchSchedulerService:
             match_repository = MatchRepository(session)
             agent_repository = AgentRepository(session)
             job_repository = JobRepository(session)
-            match_service = MatchService(match_repository, job_repository, agent_repository)
+            arena_repository = ArenaRepository(session)
+            match_service = MatchService(match_repository, job_repository, agent_repository, arena_repository)
 
             await self._fail_stale_running_matches(match_repository, match_service)
 
@@ -62,13 +63,13 @@ class MatchSchedulerService:
                 logger.info("No new matches need to be queued at this time.")
                 return
 
-            # Get available agents that can be scheduled for matches
-            available_agents = self._get_available_agents(agent_repository)
+            # Get available agents grouped by arena
+            available_agents = self._get_available_agents_by_arena(agent_repository)
 
-            # remove game types with less than 2 available agents
-            available_agents = {game_type: agents for game_type, agents in available_agents.items() if len(agents) >= 2}  # noqa: PLR2004
+            # remove arenas with less than 2 available agents
+            available_agents = {arena_id: agents for arena_id, agents in available_agents.items() if len(agents) >= 2}  # noqa: PLR2004
             if not available_agents:
-                logger.info("No game types have enough available agents to schedule matches.")
+                logger.info("No arenas have enough available agents to schedule matches.")
                 return
 
             # Provisional per-tick counts so a batch spreads across agents instead of
@@ -77,29 +78,28 @@ class MatchSchedulerService:
             local_played: dict[UUID, int] = defaultdict(int)
 
             for _ in range(free_slots):
-                game_type_str = random.choice(list(available_agents.keys()))  # noqa: S311
+                arena_id = random.choice(list(available_agents.keys()))  # noqa: S311
                 agents_for_match = self._choose_agents_for_match(
-                    available_agents[game_type_str], local_played
+                    available_agents[arena_id], local_played
                 )
                 for agent_id in agents_for_match:
                     local_played[agent_id] += 1
 
-                # Create and enqueue a new match with the selected agents
+                # Create and enqueue a new match for the selected arena
                 try:
-                    game_type = GameType(game_type_str)
                     config = MatchConfig()
                     match = await match_service.create_match(
-                        game_type=game_type,
+                        arena_id=arena_id,
                         config=config,
                         agent_ids=agents_for_match,
                     )
                     logger.info(
-                        f"Queued a new match for game type '{game_type_str}' with agents: {agents_for_match}, "
+                        f"Queued a new match for arena '{arena_id}' with agents: {agents_for_match}, "
                         f"match_id: {match.id}"
                     )
                 except Exception:
                     logger.exception(
-                        f"Error creating match for game type '{game_type_str}' with agents {agents_for_match}"
+                        f"Error creating match for arena '{arena_id}' with agents {agents_for_match}"
                     )
 
     def _free_slots(self, match_repository: MatchRepository) -> int:
@@ -169,13 +169,13 @@ class MatchSchedulerService:
                 },
             )
 
-    def _get_available_agents(self, agent_repository: AgentRepository) -> dict[GameType, list[Agent]]:
+    def _get_available_agents_by_arena(self, agent_repository: AgentRepository) -> dict[UUID, list[Agent]]:
         """
         Get a list of available agents that can be scheduled for matches.
-        Returns a dictionary of game type to Agent objects.
+        Returns a dictionary of arena ID to Agent objects.
         """
         # Get all agents, fetching in batches
-        available_by_game_type: dict[GameType, list[Agent]] = defaultdict(list)
+        available_by_arena: dict[UUID, list[Agent]] = defaultdict(list)
 
         skip = 0
         limit = 100
@@ -188,13 +188,13 @@ class MatchSchedulerService:
             # Filter agents that have active submissions with successful builds
             for agent in agents:
                 if agent.active_submission and submission_has_successful_build(agent.active_submission):
-                    available_by_game_type[agent.game_type].append(agent)
+                    available_by_arena[agent.arena_id].append(agent)
 
             skip += limit
             if skip >= total:
                 break
 
-        return dict(available_by_game_type)
+        return dict(available_by_arena)
 
     def _choose_agents_for_match(
         self,

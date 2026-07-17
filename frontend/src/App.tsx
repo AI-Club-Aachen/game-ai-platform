@@ -25,6 +25,7 @@ import { AgentDetails } from './pages/AgentDetails';
 import { SubmissionDetails } from './pages/SubmissionDetails';
 import { TournamentDetails } from './pages/TournamentDetails';
 import { GameDetails } from './pages/GameDetails';
+import { ArenaDetails } from './pages/ArenaDetails';
 import { CookieSettings, Imprint, PrivacyPolicy, TermsOfUse } from './pages/LegalPages';
 import './App.css';
 
@@ -52,6 +53,7 @@ function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="games" element={<Games />} />
               <Route path="games/:gameId" element={<GameDetails />} />
+              <Route path="arenas/:arenaId" element={<ArenaDetails />} />
               <Route path="games/matches" element={<Matches />} />
               <Route path="games/live/:matchId" element={<LiveMatch />} />
               <Route path="leaderboard" element={<Leaderboard />} />

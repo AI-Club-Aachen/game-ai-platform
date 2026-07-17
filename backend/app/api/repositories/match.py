@@ -37,6 +37,7 @@ class MatchRepository:
         skip: int,
         limit: int,
         game_type: str | None = None,
+        arena_id: UUID | None = None,
         status: list[str] | str | None = None,
         with_tournament: bool | None = None,
     ) -> Sequence[Match]:
@@ -48,6 +49,8 @@ class MatchRepository:
         statement = select(Match)
         if game_type is not None:
             statement = statement.where(Match.game_type == game_type)
+        if arena_id is not None:
+            statement = statement.where(Match.arena_id == arena_id)
         if status is not None:
             if isinstance(status, (list, tuple, set)):
                 if len(status) > 0:

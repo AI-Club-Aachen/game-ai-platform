@@ -13,6 +13,8 @@ class AgentBase(BaseModel):
 
 class AgentCreate(AgentBase):
     user_id: UUID
+    arena_id: UUID
+    password: str | None = None
     active_submission_id: UUID | None = None
 
 
@@ -32,6 +34,7 @@ class AgentUpdate(BaseModel):
 class AgentRead(AgentBase):
     id: UUID
     user_id: UUID
+    arena_id: UUID
     active_submission_id: UUID | None
     wins: int
     losses: int

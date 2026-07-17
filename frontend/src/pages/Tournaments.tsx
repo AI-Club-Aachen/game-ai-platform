@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { tournamentsApi, Tournament, TournamentStatus } from '../services/api/tournaments';
+import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { PlacementBadge } from '../components/tournaments/PlacementBadge';
 import { getGameById, fromApiGameType } from '../config/games';
@@ -35,6 +36,7 @@ const gameName = (gameType: string) => getGameById(fromApiGameType(gameType))?.n
 export function Tournaments() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [arenas, setArenas] = useState<ArenaRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +60,12 @@ export function Tournaments() {
   useEffect(() => {
     fetchTournaments();
   }, [fetchTournaments]);
+
+  useEffect(() => {
+    arenasApi.getArenas()
+      .then(setArenas)
+      .catch(console.error);
+  }, []);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -126,7 +134,7 @@ export function Tournaments() {
                   <StatusIndicator status={tournament.status} />
                 </Box>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {gameName(tournament.game_type)} · Double Elimination · Best of 3
+                  {arenas.find(a => a.id === tournament.arena_id)?.name || gameName(tournament.game_type)} · Double Elimination · Best of 3
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Created {formatDate(tournament.created_at)}

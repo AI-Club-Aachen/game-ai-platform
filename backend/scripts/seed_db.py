@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.connection import engine
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import BuildJob, JobStatus
 from app.models.submission import Submission
@@ -56,6 +57,23 @@ def _create_build_logs(status: JobStatus, sub_id: int) -> str:
     return logs
 
 
+def _get_chess_arena(session: Session) -> Arena:
+    """Retrieves the seeded Chess Arena or creates one if it does not exist."""
+    arena = session.exec(select(Arena).where(Arena.game_type == GameType.CHESS)).first()
+    if not arena:
+        arena = Arena(
+            id=uuid.uuid4(),
+            name="Chess Arena",
+            game_type=GameType.CHESS,
+            config={},
+            is_active=True,
+        )
+        session.add(arena)
+        session.commit()
+        session.refresh(arena)
+    return arena
+
+
 def _create_submissions_and_jobs(session: Session, user: User) -> uuid.UUID | None:
     """Creates test submissions and jobs. Returns the ID of a completed submission if any."""
     existing_submissions = session.exec(select(Submission).where(Submission.user_id == user.id)).all()
@@ -72,6 +90,7 @@ def _create_submissions_and_jobs(session: Session, user: User) -> uuid.UUID | No
 
     active_sub_id = None
     completed_sub_id = uuid.uuid4()  # Pre-allocate one id for the completed submission
+    arena = _get_chess_arena(session)
 
     statuses = [JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.COMPLETED, JobStatus.FAILED]
 
@@ -84,6 +103,7 @@ def _create_submissions_and_jobs(session: Session, user: User) -> uuid.UUID | No
             user_id=user.id,
             name=f"seed-submission-{i + 1}",
             game_type=GameType.CHESS,
+            arena_id=arena.id,
             object_path=f"seeded/submissions/agent_v{i}.zip",
         )
         session.add(sub)
@@ -112,11 +132,13 @@ def _get_or_create_seed_agent(session: Session, user: User) -> Agent:
     """Creates a seed agent without an active submission for the user if they don't have one."""
     agent = session.exec(select(Agent).where(Agent.user_id == user.id)).first()
     if not agent:
+        arena = _get_chess_arena(session)
         agent = Agent(
             id=uuid.uuid4(),
             user_id=user.id,
             name="seed-agent",
             game_type=GameType.CHESS,
+            arena_id=arena.id,
             active_submission_id=None,
         )
         session.add(agent)

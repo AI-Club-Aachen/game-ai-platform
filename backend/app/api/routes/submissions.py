@@ -14,7 +14,6 @@ from app.api.deps import (
 from app.api.services.submission import SubmissionService, SubmissionServiceError
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.models.game import GameType
 from app.models.user import UserRole
 from app.schemas.submission import SubmissionRead
 
@@ -28,7 +27,7 @@ router = APIRouter()
 async def create_submission(
     request: Request,  # noqa: ARG001
     file: Annotated[UploadFile, File(...)],
-    game_type: Annotated[GameType, Form(...)],
+    arena_id: Annotated[UUID, Form(...)],
     current_user: VerifiedUserOrHigher,
     _unfrozen: SubmissionsUnfrozen,
     service: SubmissionService = Depends(get_submission_service),
@@ -39,7 +38,7 @@ async def create_submission(
     or higher.
     """
     try:
-        submission = await service.create_submission(current_user.id, file, game_type=game_type, name=name)
+        submission = await service.create_submission(current_user.id, file, arena_id=arena_id, name=name)
         return SubmissionRead.model_validate(submission)
     except SubmissionServiceError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

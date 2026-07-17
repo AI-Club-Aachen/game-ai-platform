@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from app.api.repositories.agent import AgentRepository
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.submission_builds import submission_has_successful_build
@@ -42,14 +43,16 @@ class MatchService:
         match_repository: MatchRepository,
         job_repository: JobRepository,
         agent_repository: AgentRepository,
+        arena_repository: ArenaRepository,
     ) -> None:
         self._repository = match_repository
         self._job_repository = job_repository
         self._agent_repository = agent_repository
+        self._arena_repository = arena_repository
 
     async def create_match(
         self,
-        game_type: GameType,
+        arena_id: UUID,
         config: MatchConfig,
         agent_ids: list[UUID],
         owner_user_id: UUID | None = None,
@@ -66,6 +69,20 @@ class MatchService:
         tournament engine): such matches skip global agent stats and are
         ignored by the random auto-scheduler.
         """
+        # Fetch arena
+        arena = self._arena_repository.get_by_id(arena_id)
+        if not arena or not arena.is_active:
+            raise MatchServiceError("Target arena not found or inactive")
+        game_type = arena.game_type
+
+        # Merge arena config into match config
+        if "turn_time_limit" in arena.config:
+            config.turn_time_limit = arena.config["turn_time_limit"]
+
+        for k, v in arena.config.items():
+            if k != "turn_time_limit" and k not in config.state_init_data:
+                config.state_init_data[k] = v
+
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
 
@@ -75,11 +92,12 @@ class MatchService:
         except StateInitValidationError as e:
             raise MatchServiceError(str(e)) from e
 
-        self._validate_agents_for_match(game_type, agent_ids, owner_user_id=owner_user_id)
+        self._validate_agents_for_match(arena_id, game_type, agent_ids, owner_user_id=owner_user_id)
 
         config_dict = config.model_dump()
         match = Match(
             game_type=game_type,
+            arena_id=arena_id,
             status=MatchStatus.QUEUED,
             config=config_dict,
             agent_ids=[str(i) for i in agent_ids],
@@ -188,12 +206,14 @@ class MatchService:
         skip: int,
         limit: int,
         game_type: str | None = None,
+        arena_id: UUID | None = None,
         status: list[str] | MatchStatus | None = None,
     ) -> Sequence[Match]:
-        return self._repository.list_matches(skip, limit, game_type=game_type, status=status)
+        return self._repository.list_matches(skip, limit, game_type=game_type, arena_id=arena_id, status=status)
 
     def _validate_agents_for_match(
         self,
+        arena_id: UUID,
         game_type: GameType,
         agent_ids: list[UUID],
         owner_user_id: UUID | None = None,
@@ -214,6 +234,8 @@ class MatchService:
         agents_by_id = {agent.id: agent for agent in agents}
         for agent_id in agent_ids:
             agent = agents_by_id[agent_id]
+            if agent.arena_id != arena_id:
+                raise MatchServiceError(f"Agent {agent.id} does not belong to the target arena")
             if agent.game_type != game_type:
                 raise MatchServiceError(f"Agent {agent.id} does not belong to game '{game_type}'")
             if agent.active_submission is None:

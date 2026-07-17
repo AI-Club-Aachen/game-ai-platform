@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -9,6 +9,7 @@ from app.models.game import GameType
 
 if TYPE_CHECKING:
     from app.models.agent import Agent
+    from app.models.arena import Arena
     from app.models.job import BuildJob
 
 
@@ -24,6 +25,9 @@ class Submission(SQLModel, table=True):
     user_id: UUID = Field(index=True, nullable=False)  # Foreign key to User, but loose coupling for now
     name: str = Field(nullable=False)
     game_type: GameType = Field(index=True, nullable=False)
+
+    arena_id: UUID = Field(foreign_key="arenas.id", nullable=False, index=True)
+    arena: Optional["Arena"] = Relationship(back_populates="submissions")
 
     # Path to the uploaded zip file
     object_path: str = Field(nullable=False)

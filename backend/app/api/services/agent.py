@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from app.api.repositories.agent import AgentRepository, AgentRepositoryError
+from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
@@ -33,13 +34,34 @@ class AgentValidationError(AgentServiceError):
 class AgentService:
     """Application service for agent-related operations."""
 
-    def __init__(self, repository: AgentRepository, submission_repository: SubmissionRepository) -> None:
+    def __init__(
+        self,
+        repository: AgentRepository,
+        submission_repository: SubmissionRepository,
+        arena_repository: ArenaRepository,
+    ) -> None:
         self._repo = repository
         self._submission_repository = submission_repository
+        self._arena_repo = arena_repository
 
     def create_agent(self, agent_create: AgentCreate) -> Agent:
         """Create a new agent."""
-        self._validate_agent_limit(agent_create.user_id, agent_create.game_type)
+        # 1. Fetch arena
+        arena = self._arena_repo.get_by_id(agent_create.arena_id)
+        if not arena or not arena.is_active:
+            raise AgentValidationError("Target arena not found or inactive")
+
+        # 2. Check password
+        if arena.password and arena.password != agent_create.password:
+            raise AgentPermissionError("Incorrect password for this arena")
+
+        # 3. Check game type matches
+        if arena.game_type != agent_create.game_type:
+            raise AgentValidationError("Agent game type does not match the target arena game type")
+
+        # 4. Check limits
+        self._validate_agent_limit_per_arena(agent_create.user_id, agent_create.arena_id)
+
         if agent_create.active_submission_id is not None:
             self._validate_submission_for_agent_game(
                 agent_create.active_submission_id,
@@ -51,6 +73,7 @@ class AgentService:
             user_id=agent_create.user_id,
             name=agent_create.name or "",
             game_type=agent_create.game_type,
+            arena_id=agent_create.arena_id,
             active_submission_id=agent_create.active_submission_id,
         )
         if not agent.name.strip():
@@ -152,3 +175,20 @@ class AgentService:
         current_count = self._repo.count_by_user_and_game(user_id, game_type)
         if current_count >= max_agents_per_game:
             raise AgentValidationError(f"Agent limit reached for game '{game_type}'")
+
+    def _validate_agent_limit_per_arena(self, user_id: UUID, arena_id: UUID) -> None:
+        max_agents_per_game = settings.MAX_AGENTS_PER_GAME
+        if max_agents_per_game <= 0:
+            return
+
+        current_count = self._repo.count_by_user_and_arena(user_id, arena_id)
+        if current_count >= max_agents_per_game:
+            raise AgentValidationError("Agent limit reached for this arena")
+
+    def get_leaderboard_by_arena(self, arena_id: UUID, limit: int = 100) -> list[dict]:
+        """Fetch the leaderboard for a specific arena."""
+        try:
+            return self._repo.get_leaderboard_by_arena(arena_id, limit)
+        except AgentRepositoryError as e:
+            logger.exception("Error fetching leaderboard")
+            raise AgentServiceError("Failed to fetch leaderboard") from e
