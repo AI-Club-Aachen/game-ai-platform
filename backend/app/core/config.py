@@ -153,9 +153,9 @@ class Settings(BaseSettings):
     # Filesystem Paths
     UPLOAD_DIR: str = "uploads"
     SUBMISSIONS_DIR: str = "uploads/submissions"
-    MAX_AGENTS_PER_GAME: int = Field(
+    MAX_AGENTS_PER_ARENA: int = Field(
         default=0,
-        description="Maximum number of agents a user can create per game. 0 disables the limit.",
+        description="Maximum number of agents a user can create per arena. 0 disables the limit.",
     )
 
     # Upload limits (H-4)

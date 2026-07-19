@@ -291,6 +291,12 @@ export function ArenaDetails() {
                                     label={`Game: ${game?.name || arena.game_type}`}
                                     size="small"
                                 />
+                                <Chip
+                                    label={`Packages: ${arena.packages || 'numpy'}`}
+                                    size="small"
+                                    color="info"
+                                    variant="outlined"
+                                />
                                 {arena.config.board_size && (
                                     <Chip
                                         label={`Board Size: ${arena.config.board_size}x${arena.config.board_size}`}

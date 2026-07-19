@@ -146,13 +146,14 @@ class TournamentService:
             raise TournamentServiceError("Target arena not found or inactive")
         game_type = arena.game_type
 
-        # Merge arena config into tournament config
+        # Merge per-game default config and arena config into tournament config
+        merged_state_init = dict(game_type.additional_data)
+        merged_state_init.update({k: v for k, v in arena.config.items() if k != "turn_time_limit"})
+        merged_state_init.update(config.state_init_data)
+        config.state_init_data = merged_state_init
+
         if "turn_time_limit" in arena.config:
             config.turn_time_limit = arena.config["turn_time_limit"]
-
-        for k, v in arena.config.items():
-            if k != "turn_time_limit" and k not in config.state_init_data:
-                config.state_init_data[k] = v
 
         self._validate_config(game_type, config)
         self._validate_entrants_per_arena(arena_id, game_type, agent_ids)

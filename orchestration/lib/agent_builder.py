@@ -198,8 +198,45 @@ def _find_agent_entry(ctx: Path) -> str:
     return entry_name
 
 
+def get_base_image_name(requirements_file: str, build_local_base: bool) -> str:
+    """
+    Derives the Docker base image tag/repository name based on the requirements file name.
+
+    Examples:
+      - 'base_requirements.txt' -> 'agent-base:latest' (local) / 'ghcr.io/.../agent-base:latest' (remote)
+      - 'torch_requirements.txt' -> 'agent-base-torch:latest' (local) / 'ghcr.io/.../agent-base-torch:latest' (remote)
+    """
+    file_name = Path(requirements_file).name
+    if file_name.endswith("_requirements.txt"):
+        suffix = file_name[:-17]
+    elif file_name.endswith(".txt"):
+        suffix = file_name[:-4]
+    else:
+        suffix = file_name
+
+    if suffix in ("base", "requirements", ""):
+        suffix = "base"
+
+    if build_local_base:
+        if suffix == "base":
+            return "agent-base:latest"
+        return f"agent-base-{suffix}:latest"
+    else:
+        if suffix == "base":
+            env_var = "AGENT_BASE_IMAGE"
+            default_image = "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
+        else:
+            env_var = f"AGENT_BASE_IMAGE_{suffix.upper()}"
+            default_image = f"ghcr.io/ai-club-aachen/game-ai-platform/agent-base-{suffix}:latest"
+        return os.environ.get(env_var, default_image)
+
+
 def build_from_zip(
-    zip_bytes: bytes, owner_id: str, repo_prefix: str = "agent", base_label_ns: str = "org.gameai"
+    zip_bytes: bytes,
+    owner_id: str,
+    repo_prefix: str = "agent",
+    base_label_ns: str = "org.gameai",
+    requirements_file: str = "base_requirements.txt",
 ) -> dict:
     """Uses orchestration/Dockerfile to build a Docker image from the ZIP contents."""
     client = docker.from_env()
@@ -207,10 +244,10 @@ def build_from_zip(
 
     build_local_base = os.environ.get("BUILD_LOCAL_BASE_IMAGE", "False").lower() in ("true", "1", "yes")
 
-    if build_local_base:
-        base_image = "agent-base:latest"
+    base_image = get_base_image_name(requirements_file, build_local_base)
 
-        logger.info("BUILD_LOCAL_BASE_IMAGE is enabled. Building base image locally...")
+    if build_local_base:
+        logger.info(f"BUILD_LOCAL_BASE_IMAGE is enabled. Building base image {base_image} locally...")
 
         reg_user = os.environ.get("DOCKER_REGISTRY_USER")
         reg_pass = os.environ.get("DOCKER_REGISTRY_PASSWORD")
@@ -235,6 +272,7 @@ def build_from_zip(
                     path=str(project_root),
                     dockerfile=str(dockerfile_base_path),
                     tag=base_image,
+                    buildargs={"REQUIREMENTS_FILE": requirements_file},
                     rm=True,
                     nocache=True,
                 )
@@ -246,8 +284,8 @@ def build_from_zip(
                     # Copy context files, preserving timestamps for Docker cache
                     shutil.copy2(dockerfile_base_path, build_ctx / "Dockerfile.base")
 
-                    req_path = build_ctx / "base_requirements.txt"
-                    shutil.copy2(project_root / "base_requirements.txt", req_path)
+                    req_path = build_ctx / requirements_file
+                    shutil.copy2(project_root / requirements_file, req_path)
 
                     # Remove PyPI aica-gamelib dependency to force using the local copy
                     req_lines = [line for line in req_path.read_text().splitlines()
@@ -283,6 +321,7 @@ def build_from_zip(
                         path=str(build_ctx),
                         dockerfile="Dockerfile.base",
                         tag=base_image,
+                        buildargs={"REQUIREMENTS_FILE": requirements_file},
                         rm=True,
                         nocache=True,
                     )
@@ -291,11 +330,6 @@ def build_from_zip(
         except Exception as e:
             raise BuildError(f"Failed to build local base image: {e}")
     else:
-        # Pin to immutable digest in production (@sha256:...), not :latest.
-        base_image = os.environ.get(
-            "AGENT_BASE_IMAGE", "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
-        )
-
         # Pull the base image to ensure we are up to date
         try:
             logger.info(f"Pulling base image: {base_image}...")
@@ -329,10 +363,10 @@ def build_from_zip(
 
         entry_file = _find_agent_entry(ctx)
 
-        # copy base_requirements into the build-directory
-        global_reqs = project_root / "base_requirements.txt"
+        # copy requirements into the build-directory
+        global_reqs = project_root / requirements_file
         if global_reqs.exists():
-            shutil.copy(global_reqs, ctx / "base_requirements.txt")
+            shutil.copy(global_reqs, ctx / requirements_file)
 
         # add .dockerignore, if the user does not provide one
         di = ctx / ".dockerignore"
@@ -361,7 +395,7 @@ def build_from_zip(
             dockerfile=str(dockerfile_path),
             tag=full_tag,
             labels=labels,
-            buildargs={"AGENT_FILE": entry_file},
+            buildargs={"AGENT_FILE": entry_file, "BASE_IMAGE": base_image},
             network_mode=str(build_limits["build_network_mode"]),
             timeout=float(build_limits["build_timeout_seconds"]),
         )
@@ -451,9 +485,21 @@ async def build_images_for_agents(agent_ids: list[str], api: BackendAPI) -> list
             # Get agent to find its active submission
             agent = await api.get_agent(agent_id)
             submission_id = agent.get("active_submission_id")
+            arena_id = agent.get("arena_id")
 
             if not submission_id:
                 raise BuildError(f"Agent {agent_id} does not have an active submission")
+
+            # Fetch the arena to check for packages
+            packages = "numpy"
+            if arena_id:
+                try:
+                    arena = await api.get_arena(str(arena_id))
+                    packages = arena.get("packages", "numpy")
+                except Exception as ae:
+                    logger.warning(f"Failed to fetch arena {arena_id} details, falling back to 'numpy': {ae}")
+
+            requirements_file = "torch_requirements.txt" if packages == "torch" else "base_requirements.txt"
 
             # Get submission to find the user_id
             submission = await api.get_submission(submission_id)
@@ -468,7 +514,8 @@ async def build_images_for_agents(agent_ids: list[str], api: BackendAPI) -> list
             result = await asyncio.to_thread(
                 build_from_zip,
                 zip_bytes=zip_bytes,
-                owner_id=str(user_id)
+                owner_id=str(user_id),
+                requirements_file=requirements_file,
             )
 
             image_tag = result["tag"]

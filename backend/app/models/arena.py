@@ -31,6 +31,9 @@ class Arena(SQLModel, table=True):
     # Custom configuration for the arena (board_size, turn_time_limit, rules)
     config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
+    # Supported packages: "numpy" or "torch"
+    packages: str = Field(default="numpy", nullable=False)
+
     # Password for simple authentication/access protection
     password: str | None = Field(default=None, nullable=True)
 

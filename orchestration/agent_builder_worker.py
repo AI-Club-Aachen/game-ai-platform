@@ -22,9 +22,27 @@ async def process_build(submission_id: str, job_id: str, cleanup_image: bool, ap
         logger.info("Downloading submission ZIP from backend...")
         zip_bytes = await api.download_submission(submission_id)
 
+        # Get submission to find arena_id
+        submission = await api.get_submission(submission_id)
+        arena_id = submission.get("arena_id")
+
+        # Get the arena to check for packages
+        packages = "numpy"
+        if arena_id:
+            try:
+                arena = await api.get_arena(str(arena_id))
+                packages = arena.get("packages", "numpy")
+            except Exception as ae:
+                logger.warning(f"Failed to fetch arena {arena_id} details, falling back to 'numpy': {ae}")
+
+        requirements_file = "torch_requirements.txt" if packages == "torch" else "base_requirements.txt"
+
         logger.info("Starting Docker build...")
         result = await asyncio.to_thread(
-            build_from_zip, zip_bytes=zip_bytes, owner_id=submission_id
+            build_from_zip,
+            zip_bytes=zip_bytes,
+            owner_id=submission_id,
+            requirements_file=requirements_file,
         )
 
         logger.info(f"Build success! Image ID: {result['image_id']}")

@@ -75,13 +75,14 @@ class MatchService:
             raise MatchServiceError("Target arena not found or inactive")
         game_type = arena.game_type
 
-        # Merge arena config into match config
+        # Merge per-game default config and arena config into match config
+        merged_state_init = dict(game_type.additional_data)
+        merged_state_init.update({k: v for k, v in arena.config.items() if k != "turn_time_limit"})
+        merged_state_init.update(config.state_init_data)
+        config.state_init_data = merged_state_init
+
         if "turn_time_limit" in arena.config:
             config.turn_time_limit = arena.config["turn_time_limit"]
-
-        for k, v in arena.config.items():
-            if k != "turn_time_limit" and k not in config.state_init_data:
-                config.state_init_data[k] = v
 
         if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
             raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
