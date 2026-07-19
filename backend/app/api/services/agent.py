@@ -168,21 +168,21 @@ class AgentService:
             raise AgentValidationError("Submission game does not match the agent game")
 
     def _validate_agent_limit(self, user_id: UUID, game_type: str) -> None:
-        max_agents_per_game = settings.MAX_AGENTS_PER_GAME
-        if max_agents_per_game <= 0:
+        max_agents_per_arena = settings.MAX_AGENTS_PER_ARENA
+        if max_agents_per_arena <= 0:
             return
 
         current_count = self._repo.count_by_user_and_game(user_id, game_type)
-        if current_count >= max_agents_per_game:
+        if current_count >= max_agents_per_arena:
             raise AgentValidationError(f"Agent limit reached for game '{game_type}'")
 
     def _validate_agent_limit_per_arena(self, user_id: UUID, arena_id: UUID) -> None:
-        max_agents_per_game = settings.MAX_AGENTS_PER_GAME
-        if max_agents_per_game <= 0:
+        max_agents_per_arena = settings.MAX_AGENTS_PER_ARENA
+        if max_agents_per_arena <= 0:
             return
 
         current_count = self._repo.count_by_user_and_arena(user_id, arena_id)
-        if current_count >= max_agents_per_game:
+        if current_count >= max_agents_per_arena:
             raise AgentValidationError("Agent limit reached for this arena")
 
     def get_leaderboard_by_arena(self, arena_id: UUID, limit: int = 100) -> list[dict]:
