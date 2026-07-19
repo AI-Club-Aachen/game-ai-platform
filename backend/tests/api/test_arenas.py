@@ -1,12 +1,11 @@
 import pytest
-from sqlmodel import Session
 
 from app.core.config import settings
-from app.models.user import UserRole
 from app.models.game import GameType
-from app.models.arena import Arena
+from app.models.user import UserRole
 from tests.api.test_users import _create_verified_user_and_token, _set_user_role
 from tests.utils import random_email, random_username, strong_password
+
 
 API_PREFIX = settings.API_V1_PREFIX
 

@@ -205,7 +205,6 @@ def get_base_image_name(requirements_file: str, build_local_base: bool) -> str:
     Examples:
       - 'base_requirements.txt' -> 'agent-base:latest' (local) / 'ghcr.io/.../agent-base:latest' (remote)
       - 'torch_requirements.txt' -> 'agent-base-torch:latest' (local) / 'ghcr.io/.../agent-base-torch:latest' (remote)
-      - 'custom_requirements.txt' -> 'agent-base-custom:latest' (local) / 'ghcr.io/.../agent-base-custom:latest' (remote)
     """
     file_name = Path(requirements_file).name
     if file_name.endswith("_requirements.txt"):

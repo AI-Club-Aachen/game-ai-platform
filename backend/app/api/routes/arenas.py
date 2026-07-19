@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from app.api.deps import CurrentAdmin, VerifiedGuestOrHigher, WorkerOrVerifiedUser, get_arena_service
+from app.api.deps import CurrentAdmin, WorkerOrVerifiedUser, get_arena_service
 from app.api.services.arena import ArenaNotFoundError, ArenaService, ArenaValidationError
 from app.core.config import settings
 from app.core.rate_limit import limiter

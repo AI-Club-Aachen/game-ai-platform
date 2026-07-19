@@ -22,7 +22,10 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # Add packages column to arenas with default value of 'numpy'
-    op.add_column("arenas", sa.Column("packages", sqlmodel.sql.sqltypes.AutoString(), server_default="numpy", nullable=False))
+    op.add_column(
+        "arenas",
+        sa.Column("packages", sqlmodel.sql.sqltypes.AutoString(), server_default="numpy", nullable=False)
+    )
 
 
 def downgrade() -> None:
