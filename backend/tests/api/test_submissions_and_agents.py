@@ -382,6 +382,25 @@ def _make_zip_of_size(min_bytes: int) -> bytes:
     return buffer.getvalue()
 
 
+def _make_zip_of_exact_size(target_bytes: int, filename: str = "agent.py") -> bytes:
+    """Build a valid ZIP archive whose exact total size is target_bytes."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as zip_file:
+        zip_file.writestr(filename, b"")
+    overhead = len(buffer.getvalue())
+
+    if target_bytes < overhead:
+        raise ValueError(f"target_bytes ({target_bytes}) must be >= ZIP overhead ({overhead})")
+
+    payload_size = target_bytes - overhead
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as zip_file:
+        zip_file.writestr(filename, b"A" * payload_size)
+    result = buffer.getvalue()
+    assert len(result) == target_bytes
+    return result
+
+
 @pytest.mark.anyio
 async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_session, monkeypatch):
     """Oversized uploads are rejected."""
@@ -407,6 +426,49 @@ async def test_upload_rejects_oversized_file(api_client, fake_email_client, db_s
 
     assert response.status_code == 400
     assert "maximum allowed size" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_upload_boundary_max_upload_bytes(api_client, fake_email_client, db_session, monkeypatch):
+    """Uploading files right at MAX_UPLOAD_BYTES succeeds while 1 byte above fails."""
+    _user_id, bearer_token = await _create_member_and_token(
+        api_client,
+        fake_email_client,
+        db_session,
+        random_username(),
+        random_email(),
+        strong_password(),
+    )
+    arena = _get_or_create_test_arena(db_session, GameType.TICTACTOE)
+
+    limit = 2048
+    monkeypatch.setattr(settings, "MAX_UPLOAD_BYTES", limit)
+
+    # 1. File size exactly equal to MAX_UPLOAD_BYTES (right at limit) -> Succeeds (201)
+    valid_zip = _make_zip_of_exact_size(limit)
+    assert len(valid_zip) == limit
+
+    response_valid = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.TICTACTOE.value, "arena_id": str(arena.id)},
+        files={"file": ("agent.zip", valid_zip, "application/zip")},
+    )
+    assert response_valid.status_code == 201
+
+    # 2. File size 1 byte above MAX_UPLOAD_BYTES -> Rejected (400)
+    oversized_zip = _make_zip_of_exact_size(limit + 1)
+    assert len(oversized_zip) == limit + 1
+
+    response_oversized = await api_client.post(
+        f"{API_PREFIX}/submissions",
+        headers={"Authorization": bearer_token},
+        data={"game_type": GameType.TICTACTOE.value, "arena_id": str(arena.id)},
+        files={"file": ("agent.zip", oversized_zip, "application/zip")},
+    )
+    assert response_oversized.status_code == 400
+    assert "maximum allowed size" in response_oversized.json()["detail"]
+
 
 
 @pytest.mark.anyio
