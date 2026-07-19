@@ -6,23 +6,55 @@ on:
       - main
     paths:
       - 'orchestration/Dockerfile.base'
-      - 'orchestration/base_requirements.txt'
+      - 'orchestration/*requirements*.txt'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/agent-base
 
 jobs:
+  find-requirements:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find requirements files
+        id: set-matrix
+        run: |
+          cd orchestration
+          files=$(ls *requirements*.txt 2>/dev/null | jq -R . | jq -s -c .)
+          echo "matrix=$files" >> $GITHUB_OUTPUT
+
   build-and-push:
+    needs: find-requirements
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        requirements_file: ${{ fromJson(needs.find-requirements.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Determine image name
+        id: image_info
+        run: |
+          REQ="${{ matrix.requirements_file }}"
+          SUFFIX=$(echo "$REQ" | sed -E 's/_requirements\.txt$//; s/\.txt$//')
+          if [ "$SUFFIX" = "base" ] || [ "$SUFFIX" = "requirements" ]; then
+            IMAGE_REPO="${{ github.repository }}/agent-base"
+          else
+            IMAGE_REPO="${{ github.repository }}/agent-base-${SUFFIX}"
+          fi
+          echo "image_repo=$IMAGE_REPO" >> $GITHUB_OUTPUT
+          echo "full_image=${{ env.REGISTRY }}/$IMAGE_REPO" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -48,7 +80,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image_info.outputs.full_image }}
           tags: |
             type=raw,value=latest
             type=sha
@@ -58,16 +90,18 @@ jobs:
         with:
           context: ./orchestration
           file: ./orchestration/Dockerfile.base
+          build-args: |
+            REQUIREMENTS_FILE=${{ matrix.requirements_file }}
           push: true
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.requirements_file }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.requirements_file }}
 
       - name: Lowercase image name for Trivy
         id: lowercase
-        run: echo "image_name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "image_name=$(echo '${{ steps.image_info.outputs.full_image }}:latest' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master

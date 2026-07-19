@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import {
     Box, Container, Typography, Button, Card, CardContent,
     Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-    FormControlLabel, Checkbox, CircularProgress, Alert, InputAdornment, IconButton
+    FormControlLabel, Checkbox, CircularProgress, Alert, InputAdornment, IconButton,
+    FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import {
     ArrowBack, SportsEsports, Close, Circle, Album,
@@ -45,6 +46,7 @@ export function GameDetails() {
     const [arenaName, setArenaName] = useState('');
     const [arenaDesc, setArenaDesc] = useState('');
     const [boardSize, setBoardSize] = useState('11');
+    const [packages, setPackages] = useState<'numpy' | 'torch'>('numpy');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isActive, setIsActive] = useState(true);
@@ -99,6 +101,7 @@ export function GameDetails() {
                 description: arenaDesc,
                 game_type: toApiGameType(gameId),
                 config,
+                packages,
                 password: password.trim() ? password : undefined,
                 is_active: isActive,
             });
@@ -106,6 +109,7 @@ export function GameDetails() {
             setArenaName('');
             setArenaDesc('');
             setBoardSize(gameId === 'hex' ? '11' : '');
+            setPackages('numpy');
             setPassword('');
             setIsActive(true);
             setOpenCreate(false);
@@ -251,11 +255,19 @@ export function GameDetails() {
                                             {arena.description || 'Custom configured arena'}
                                         </Typography>
 
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${palette.border}`, pt: 1.5 }}>
-                                            <Typography variant="body2" color="text.secondary">Board Size</Typography>
-                                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                                {arena.config.board_size ? `${arena.config.board_size}x${arena.config.board_size}` : 'Standard'}
-                                            </Typography>
+                                        <Box sx={{ borderTop: `1px solid ${palette.border}`, pt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography variant="body2" color="text.secondary">Board Size</Typography>
+                                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                    {arena.config.board_size ? `${arena.config.board_size}x${arena.config.board_size}` : 'Standard'}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography variant="body2" color="text.secondary">Packages</Typography>
+                                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                    {arena.packages || 'numpy'}
+                                                </Typography>
+                                            </Box>
                                         </Box>
                                     </CardContent>
                                 </Card>
@@ -288,6 +300,20 @@ export function GameDetails() {
                             rows={3}
                             fullWidth
                         />
+
+                        <FormControl fullWidth>
+                            <InputLabel id="packages-select-label">Available Packages</InputLabel>
+                            <Select
+                                labelId="packages-select-label"
+                                id="packages-select"
+                                value={packages}
+                                label="Available Packages"
+                                onChange={(e) => setPackages(e.target.value as 'numpy' | 'torch')}
+                            >
+                                <MenuItem value="numpy">numpy (standard)</MenuItem>
+                                <MenuItem value="torch">torch (PyTorch support)</MenuItem>
+                            </Select>
+                        </FormControl>
 
                         {gameId === 'hex' && (
                             <TextField

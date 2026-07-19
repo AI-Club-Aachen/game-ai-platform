@@ -65,6 +65,7 @@ class ArenaService:
             game_type=arena_create.game_type,
             description=arena_create.description,
             config=arena_create.config,
+            packages=arena_create.packages,
             password=arena_create.password if arena_create.password else None,
             is_active=arena_create.is_active,
         )

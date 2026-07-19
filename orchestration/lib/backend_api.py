@@ -214,6 +214,18 @@ class BackendAPI:
         """
         return await self._get(f"/agents/{agent_id}")
 
+    async def get_arena(self, arena_id: str) -> dict[str, Any]:
+        """
+        Get an arena by ID.
+
+        Args:
+            arena_id: Arena UUID
+
+        Returns:
+            Arena data
+        """
+        return await self._get(f"/arenas/{arena_id}")
+
     # Match methods
 
     async def update_match(

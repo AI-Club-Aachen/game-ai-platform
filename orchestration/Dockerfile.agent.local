@@ -1,4 +1,5 @@
-FROM agent-base:latest
+ARG BASE_IMAGE=agent-base:latest
+FROM ${BASE_IMAGE}
 
 WORKDIR /home/runner/app
 COPY . .

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -13,6 +13,7 @@ class ArenaBase(BaseModel):
     description: str | None = None
     config: dict[str, Any] = {}
     is_active: bool = True
+    packages: Literal["numpy", "torch"] = "numpy"
 
 
 class ArenaCreate(ArenaBase):
@@ -25,6 +26,7 @@ class ArenaUpdate(BaseModel):
     config: dict[str, Any] | None = None
     password: str | None = None
     is_active: bool | None = None
+    packages: Literal["numpy", "torch"] | None = None
 
     model_config = ConfigDict(extra="forbid")
 

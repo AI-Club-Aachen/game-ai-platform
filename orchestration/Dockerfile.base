@@ -3,9 +3,10 @@ FROM dhi.io/python:3.12-debian12-dev AS builder
 
 WORKDIR /build
 
-COPY base_requirements.txt .
+ARG REQUIREMENTS_FILE=base_requirements.txt
+COPY ${REQUIREMENTS_FILE} ./requirements.txt
 # Install dependencies into /install and prune unnecessary files to save space
-RUN pip install --no-cache-dir --prefix=/install -r base_requirements.txt && \
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt && \
     find /install -type d -name "tests" -exec rm -rf {} + && \
     find /install -type d -name "test" -exec rm -rf {} + && \
     find /install -type f -name "*.c" -delete && \

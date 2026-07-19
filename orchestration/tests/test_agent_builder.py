@@ -9,6 +9,7 @@ from lib.agent_builder import (
     BuildError,
     _safe_extract_zip,
     build_from_zip,
+    get_base_image_name,
 )
 
 
@@ -206,3 +207,62 @@ def test_builder_prevents_tag_collision(docker_client, create_zip, track_images)
 
     assert img1.id == res1["image_id"]
     assert img2.id == res2["image_id"]
+
+
+def test_builder_success_torch_requirements(docker_client, create_zip, track_images, monkeypatch):
+    """Test building from a valid zip file with torch_requirements.txt."""
+    monkeypatch.setenv("BUILD_LOCAL_BASE_IMAGE", "True")
+    zip_bytes = create_zip({"agent.py": "print('hello')", "requirements.txt": ""})
+    result = build_from_zip(zip_bytes, owner_id="test_owner", requirements_file="torch_requirements.txt")
+    track_images(result["image_id"])
+
+    # Track base image to ensure it gets cleaned up
+    try:
+        base_img = docker_client.images.get("agent-base-torch:latest")
+        track_images(base_img.id)
+    except Exception:
+        pass
+
+    assert result["image_id"]
+    assert result["tag"].startswith("agent-")
+    assert result["labels"]["org.gameai.owner_id"] == "test_owner"
+
+    img = docker_client.images.get(result["image_id"])
+    assert img
+
+
+def test_get_base_image_name(monkeypatch):
+    """Test dynamic resolution of base image names for various requirements files."""
+    # Local builds
+    assert get_base_image_name("base_requirements.txt", build_local_base=True) == "agent-base:latest"
+    assert get_base_image_name("torch_requirements.txt", build_local_base=True) == "agent-base-torch:latest"
+    assert get_base_image_name("custom_requirements.txt", build_local_base=True) == "agent-base-custom:latest"
+    assert get_base_image_name("requirements.txt", build_local_base=True) == "agent-base:latest"
+
+    # Remote builds (default GHCR URLs)
+    monkeypatch.delenv("AGENT_BASE_IMAGE", raising=False)
+    monkeypatch.delenv("AGENT_BASE_IMAGE_TORCH", raising=False)
+    monkeypatch.delenv("AGENT_BASE_IMAGE_CUSTOM", raising=False)
+
+    assert (
+        get_base_image_name("base_requirements.txt", build_local_base=False)
+        == "ghcr.io/ai-club-aachen/game-ai-platform/agent-base:latest"
+    )
+    assert (
+        get_base_image_name("torch_requirements.txt", build_local_base=False)
+        == "ghcr.io/ai-club-aachen/game-ai-platform/agent-base-torch:latest"
+    )
+    assert (
+        get_base_image_name("custom_requirements.txt", build_local_base=False)
+        == "ghcr.io/ai-club-aachen/game-ai-platform/agent-base-custom:latest"
+    )
+
+    # Remote builds with environment overrides
+    monkeypatch.setenv("AGENT_BASE_IMAGE", "myrepo/agent-base:v1")
+    monkeypatch.setenv("AGENT_BASE_IMAGE_TORCH", "myrepo/agent-base-torch:v1")
+    monkeypatch.setenv("AGENT_BASE_IMAGE_CUSTOM", "myrepo/agent-base-custom:v1")
+
+    assert get_base_image_name("base_requirements.txt", build_local_base=False) == "myrepo/agent-base:v1"
+    assert get_base_image_name("torch_requirements.txt", build_local_base=False) == "myrepo/agent-base-torch:v1"
+    assert get_base_image_name("custom_requirements.txt", build_local_base=False) == "myrepo/agent-base-custom:v1"
+

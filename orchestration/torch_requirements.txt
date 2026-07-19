@@ -1,0 +1,10 @@
+# low number of libraries for now
+numpy==2.4.2
+
+# custom gamelib
+aica-gamelib==0.3.0
+
+# torch
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu

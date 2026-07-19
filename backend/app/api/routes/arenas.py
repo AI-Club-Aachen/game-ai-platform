@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from app.api.deps import CurrentAdmin, VerifiedGuestOrHigher, get_arena_service
+from app.api.deps import CurrentAdmin, VerifiedGuestOrHigher, WorkerOrVerifiedUser, get_arena_service
 from app.api.services.arena import ArenaNotFoundError, ArenaService, ArenaValidationError
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -37,7 +37,7 @@ def create_arena(
 
 @router.get("", response_model=list[ArenaRead])
 def list_arenas(
-    _current_user: VerifiedGuestOrHigher,
+    _actor: WorkerOrVerifiedUser,
     service: ArenaService = Depends(get_arena_service),
 ) -> list[ArenaRead]:
     """
@@ -74,7 +74,7 @@ def list_all_arenas(
 @router.get("/{arena_id}", response_model=ArenaRead)
 def get_arena(
     arena_id: UUID,
-    _current_user: VerifiedGuestOrHigher,
+    _actor: WorkerOrVerifiedUser,
     service: ArenaService = Depends(get_arena_service),
 ) -> ArenaRead:
     """

@@ -6,6 +6,7 @@ export interface ArenaRead {
   description?: string;
   game_type: string;
   config: Record<string, any>;
+  packages?: 'numpy' | 'torch';
   has_password: boolean;
   is_active: boolean;
   created_at: string;
@@ -17,6 +18,7 @@ export interface ArenaCreate {
   game_type: string;
   description?: string;
   config: Record<string, any>;
+  packages?: 'numpy' | 'torch';
   password?: string;
   is_active: boolean;
 }
@@ -25,6 +27,7 @@ export interface ArenaUpdate {
   name?: string;
   description?: string;
   config?: Record<string, any>;
+  packages?: 'numpy' | 'torch';
   password?: string;
   is_active?: boolean;
 }
