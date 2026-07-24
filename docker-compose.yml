@@ -90,7 +90,7 @@ services:
       ALLOW_ORIGINS: ${ALLOW_ORIGINS:?ALLOW_ORIGINS is required}
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
-      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@gameai-redis:6379/0
       LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
       WORKER_API_KEY: ${WORKER_API_KEY:?WORKER_API_KEY is required}
       MAX_TURN_TIME_LIMIT_SECONDS: ${MAX_TURN_TIME_LIMIT_SECONDS:?MAX_TURN_TIME_LIMIT_SECONDS is required}
@@ -121,7 +121,7 @@ services:
     command: python agent_builder_worker.py
     environment:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@gameai-redis:6379/0
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
       - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:-false}
@@ -149,7 +149,7 @@ services:
     command: python match_runner_worker.py
     environment:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@gameai-redis:6379/0
       - WORKER_API_KEY=${WORKER_API_KEY:?WORKER_API_KEY is required}
       - LOG_LEVEL=${WORKER_LOG_LEVEL:?WORKER_LOG_LEVEL is required}
       - BUILD_LOCAL_BASE_IMAGE=${BUILD_LOCAL_BASE_IMAGE:?BUILD_LOCAL_BASE_IMAGE is required}

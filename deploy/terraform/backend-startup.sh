@@ -255,7 +255,7 @@ WORKER_LOG_LEVEL=$(fetch_metadata "log_level" | tr '[:lower:]' '[:upper:]')
 BUILD_LOCAL_BASE_IMAGE=false
 USE_LOCAL_GAMELIB=false
 REDIS_PASSWORD=$(fetch_metadata "redis_password")
-REDIS_URL=redis://:$(fetch_metadata "redis_password")@redis:6379/0
+REDIS_URL=redis://:$(fetch_metadata "redis_password")@gameai-redis:6379/0
 MAX_TURN_TIME_LIMIT_SECONDS=$(fetch_metadata "max_turn_time_limit_seconds")
 MAX_UPLOAD_BYTES=${MAX_UPLOAD_BYTES}
 EOF
