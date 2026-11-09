@@ -35,7 +35,7 @@ function getStatusText(status: number, name0: string, name1: string): { text: st
   }
 }
 
-export function HexRenderer({ gameState, agentIds, agentMap }: GameRendererProps) {
+export function HexRenderer({ gameState, agentIds, agentMap, interactive }: GameRendererProps) {
   const theme = useTheme();
   
   const agentName = (index: number): string => {
@@ -222,7 +222,21 @@ export function HexRenderer({ gameState, agentIds, agentMap }: GameRendererProps
       </Box>
 
       {/* SVG Board Container */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', backgroundColor: 'background.paper', borderRadius: 2, p: 2, boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          backgroundColor: 'background.paper',
+          borderRadius: 2,
+          p: 2,
+          boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)',
+          // Preview the human's colour on hover / keyboard focus.
+          '& .hex-playable:hover polygon, & .hex-playable:focus-visible polygon': {
+            fill: interactive?.playerIndex === 0 ? colors.p0 : colors.p1,
+            fillOpacity: 0.45,
+          },
+        }}
+      >
         <svg
           viewBox={`${viewBoxMinX} ${viewBoxMinY} ${viewBoxWidth} ${viewBoxHeight}`}
           style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block' }}
@@ -273,8 +287,25 @@ export function HexRenderer({ gameState, agentIds, agentMap }: GameRendererProps
               const cx = getX(r, c);
               const cy = getY(r, c);
 
+              const playable = Boolean(interactive?.enabled) && status === -1 && cell === -1;
+
               return (
-                <g key={`${r}-${c}`} transform={`translate(${cx}, ${cy})`}>
+                <g
+                  key={`${r}-${c}`}
+                  transform={`translate(${cx}, ${cy})`}
+                  className={playable ? 'hex-playable' : undefined}
+                  role={playable ? 'button' : undefined}
+                  aria-label={playable ? `Place at row ${r + 1}, column ${c + 1}` : undefined}
+                  tabIndex={playable ? 0 : undefined}
+                  onClick={playable ? () => interactive!.onMove({ position: [r, c] }) : undefined}
+                  onKeyDown={playable ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      interactive!.onMove({ position: [r, c] });
+                    }
+                  } : undefined}
+                  style={{ cursor: playable ? 'pointer' : undefined, outline: 'none' }}
+                >
                   <polygon
                     points={pointsStr}
                     fill={fillStr}

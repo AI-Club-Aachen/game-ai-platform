@@ -20,6 +20,8 @@ import { tournamentsApi, Tournament } from '../services/api/tournaments';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { palette, overlays } from '../theme';
+import { PlayVsAgentDialog } from '../components/PlayVsAgentDialog';
+import { useAuth } from '../context/AuthContext';
 
 interface Match {
     id: string;
@@ -122,6 +124,9 @@ function SectionError({ message }: { message: string }) {
 export function ArenaDetails() {
     const { arenaId } = useParams<{ arenaId: string }>();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const canPlay = user?.role === 'user' || user?.role === 'admin';
+    const [playDialogOpen, setPlayDialogOpen] = useState(false);
     
     const [arena, setArena] = useState<ArenaRead | null>(null);
     const [arenaLoading, setArenaLoading] = useState(true);
@@ -314,18 +319,38 @@ export function ArenaDetails() {
                             </Box>
                         </Box>
 
-                        {/* CTA */}
-                        <Button
-                            variant="contained"
-                            size="large"
-                            startIcon={<AddCircleOutline />}
-                            onClick={() => navigate(`/agents/new?arenaId=${arena.id}&gameId=${fromApiGameType(arena.game_type)}`)}
-                        >
-                            Submit Agent
-                        </Button>
+                        {/* CTAs */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            <Button
+                                variant="contained"
+                                size="large"
+                                startIcon={<AddCircleOutline />}
+                                onClick={() => navigate(`/agents/new?arenaId=${arena.id}&gameId=${fromApiGameType(arena.game_type)}`)}
+                            >
+                                Submit Agent
+                            </Button>
+                            {canPlay && arena.is_active !== false && (
+                                <Button
+                                    variant="outlined"
+                                    size="large"
+                                    startIcon={<SportsEsports />}
+                                    onClick={() => setPlayDialogOpen(true)}
+                                >
+                                    Play vs Agent
+                                </Button>
+                            )}
+                        </Box>
                     </Box>
                 </CardContent>
             </Card>
+
+            {canPlay && (
+                <PlayVsAgentDialog
+                    open={playDialogOpen}
+                    onClose={() => setPlayDialogOpen(false)}
+                    arenaId={arena.id}
+                />
+            )}
 
             {/* Grid layout for lower sections */}
             <Box

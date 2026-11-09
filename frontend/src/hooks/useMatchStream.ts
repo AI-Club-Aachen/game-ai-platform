@@ -18,6 +18,18 @@ export interface MatchStreamState {
   isConnected: boolean;
   /** Error message if connection failed */
   error: string | null;
+  /** Human-vs-agent matches: the user playing by hand, their seat and display name */
+  humanUserId: string | null;
+  humanPlayerIndex: number | null;
+  humanName: string | null;
+  /** Agent UUID → display name, as sent by the server */
+  agentNames: Record<string, string>;
+  /**
+   * Local-clock timestamp (ms) when the human's pending move times out, derived
+   * from the server's authoritative remaining time on every event (so it survives
+   * refreshes and re-syncs on heartbeats). Null when no human move is pending.
+   */
+  humanMoveDeadline: number | null;
 }
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'client_error'];
@@ -42,6 +54,11 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
   const [logs, setLogs] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [humanUserId, setHumanUserId] = useState<string | null>(null);
+  const [humanPlayerIndex, setHumanPlayerIndex] = useState<number | null>(null);
+  const [humanName, setHumanName] = useState<string | null>(null);
+  const [agentNames, setAgentNames] = useState<Record<string, string>>({});
+  const [humanMoveDeadline, setHumanMoveDeadline] = useState<number | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,6 +80,17 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
       setGameType(data.game_type ?? null);
       setAgentIds(data.agent_ids ?? []);
       setResult(data.result ?? null);
+      setHumanUserId(data.human_user_id ?? null);
+      setHumanPlayerIndex(typeof data.human_player_index === 'number' ? data.human_player_index : null);
+      setHumanName(data.human_name ?? null);
+      setHumanMoveDeadline(
+        typeof data.human_move_remaining === 'number'
+          ? Date.now() + data.human_move_remaining * 1000
+          : null,
+      );
+      if (data.agent_names && typeof data.agent_names === 'object') {
+        setAgentNames(data.agent_names);
+      }
       if (data.logs !== undefined) {
         setLogs(data.logs ?? '');
       }
@@ -177,5 +205,10 @@ export function useMatchStream(matchId: string | undefined): MatchStreamState {
     logs,
     isConnected,
     error,
+    humanUserId,
+    humanPlayerIndex,
+    humanName,
+    agentNames,
+    humanMoveDeadline,
   };
 }

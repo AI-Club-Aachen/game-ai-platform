@@ -75,6 +75,29 @@ class JobQueue:
         }
         await self._enqueue("queue:matches", payload)
 
+    async def push_human_move(self, match_id: UUID | str, payload: dict[str, Any]) -> None:
+        """
+        Hand a human player's input (a move or a resignation) to the match runner
+        playing ``match_id``. The worker BLPOPs this list while waiting on the human.
+        """
+        if not self._redis:
+            await self.connect()
+        if not self._redis:
+            raise RuntimeError("Redis not connected")
+        key = human_moves_key(match_id)
+        await self._redis.rpush(key, json.dumps(payload))
+        # Never let an abandoned list linger (the worker deletes it when done).
+        await self._redis.expire(key, HUMAN_MOVES_TTL_SECONDS)
+
+
+# Redis list the match runner reads human input from. Must match
+# orchestration/lib/human_player.py.
+HUMAN_MOVES_TTL_SECONDS = 3600
+
+
+def human_moves_key(match_id: UUID | str) -> str:
+    return f"match:{match_id}:human_moves"
+
 
 # Singleton instance
 job_queue = JobQueue(redis_url=settings.REDIS_URL)

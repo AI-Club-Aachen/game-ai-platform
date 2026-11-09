@@ -10,6 +10,7 @@ from typing import Any
 from lib import agent_manager
 from lib.agent_communication import AgentCommunicationError, AgentProcess, AgentTimeLimitError
 from lib.backend_api import BackendAPI
+from lib.human_player import HUMAN_PLAYER_ID, HumanPlayer, HumanResignedError
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
+DEFAULT_HUMAN_TURN_TIME_LIMIT: float = 60.0  # seconds
 
 # Resource-exhaustion caps; configurable via env.
 MAX_HISTORY_STATES: int = int(os.getenv("MATCH_MAX_HISTORY_STATES", "5000"))
@@ -30,6 +32,9 @@ class MatchConfig:
     """Normalized match configuration used by the runner."""
 
     turn_time_limit: float = DEFAULT_TURN_TIME_LIMIT
+    # Human-vs-agent matches only.
+    human_turn_time_limit: float = DEFAULT_HUMAN_TURN_TIME_LIMIT
+    max_duration_seconds: float | None = None
 
 
 def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
@@ -41,17 +46,30 @@ def _parse_match_config(raw_config: dict[str, Any]) -> MatchConfig:
     """
     raw = raw_config.get("turn_time_limit", DEFAULT_TURN_TIME_LIMIT)
 
+    turn_time_limit = DEFAULT_TURN_TIME_LIMIT
     # If explicitly passed as None (null in JSON), use default
-    if raw is None:
-        return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
+    if raw is not None:
+        try:
+            turn_time_limit = max(0.1, float(raw))
+        except (TypeError, ValueError):
+            logger.warning(f"Invalid turn_time_limit {raw!r}, using default {DEFAULT_TURN_TIME_LIMIT}s")
 
+    human_turn_time_limit = _positive_float(raw_config.get("human_turn_time_limit")) or DEFAULT_HUMAN_TURN_TIME_LIMIT
+    max_duration_seconds = _positive_float(raw_config.get("max_duration_seconds"))
+
+    return MatchConfig(
+        turn_time_limit=turn_time_limit,
+        human_turn_time_limit=human_turn_time_limit,
+        max_duration_seconds=max_duration_seconds,
+    )
+
+
+def _positive_float(raw: Any) -> float | None:
     try:
-        turn_time_limit = float(raw)
+        value = float(raw)
     except (TypeError, ValueError):
-        logger.warning(f"Invalid turn_time_limit {raw!r}, using default {DEFAULT_TURN_TIME_LIMIT}s")
-        return MatchConfig(turn_time_limit=DEFAULT_TURN_TIME_LIMIT)
-
-    return MatchConfig(turn_time_limit=max(0.1, turn_time_limit))
+        return None
+    return value if value > 0 else None
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +206,190 @@ async def _report_all_container_snapshots(
 
 
 # ---------------------------------------------------------------------------
+# Turn helpers
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TurnOutcome:
+    """Result of one player's turn: a move, or the reason the match ends here."""
+
+    move: Any = None
+    move_repr: str = ""
+    elapsed: float = 0.0
+    reason: str = ""
+    winner_id: int = -1
+
+
+async def _play_agent_turn(
+    *,
+    api: BackendAPI,
+    match_id: str,
+    agent: AgentProcess,
+    state: Any,
+    move_cls: Any,
+    turn_count: int,
+    turn_time_limit: float,
+) -> TurnOutcome:
+    """Send the state to a dockerized agent and read back its move."""
+    current_player = agent.player_id
+    # Resume the active agent; keep all others paused
+    agent.resume()
+    try:
+        state_json = state.to_json()
+        logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
+        await agent.send_state(state_json)
+        # Allow some overhead here in time out but expect exact time limit in returned cpu_time
+        raw_move_json, _ = await agent.get_move(timeout=turn_time_limit + 1.5)
+        logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
+
+        # --- Safe JSON parsing ---------------------------------------
+        try:
+            parsed_output = json.loads(raw_move_json)
+        except json.JSONDecodeError as e:
+            raise AgentCommunicationError(
+                f"Player {current_player} returned invalid JSON: {e}"
+            )
+
+        # parsed_output must be a mapping; reject any other type
+        # (e.g. a bare list or string) to prevent type confusion.
+        if not isinstance(parsed_output, dict):
+            raise AgentCommunicationError(
+                f"Player {current_player} returned unexpected JSON type "
+                f"{type(parsed_output).__name__!r}; expected an object."
+            )
+
+        # cpu_time must be a real number; coerce defensively.
+        raw_cpu_time = parsed_output.get("cpu_time", 0.0)
+        try:
+            cpu_time = float(raw_cpu_time)
+        except (TypeError, ValueError):
+            logger.warning(
+                f"[{match_id}] Turn {turn_count}: "
+                f"player {current_player} sent non-numeric cpu_time "
+                f"{raw_cpu_time!r}; defaulting to 0.0"
+            )
+            cpu_time = 0.0
+
+        if cpu_time > turn_time_limit:
+            raise AgentTimeLimitError(
+                f"Player {current_player} exceeded the per-turn time limit of "
+                f"{turn_time_limit}s. (cpu_time: {cpu_time}s)"
+            )
+
+        # Extract the move sub-object if present, otherwise treat the whole response as the move.
+        move_data = parsed_output.get("move", parsed_output)
+        if not isinstance(move_data, dict):
+            raise AgentCommunicationError(
+                f"Player {current_player} move field has unexpected type "
+                f"{type(move_data).__name__!r}; expected an object."
+            )
+        move = move_cls.model_validate(move_data, strict=True)
+
+        move_repr = json.dumps(move_data, separators=(",", ":"))
+        return TurnOutcome(move=move, move_repr=move_repr, elapsed=cpu_time)
+    except AgentTimeLimitError as e:
+        winner_id = 1 - current_player
+        logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
+        await _log(
+            api, match_id, "running",
+            f"[TURN {turn_count}] Player {current_player} exceeded time limit "
+            f"({turn_time_limit}s). Player {winner_id} wins",
+        )
+        return TurnOutcome(reason="Time limit exceeded", winner_id=winner_id)
+    except Exception as e:
+        reason = f"Player {current_player} failed to communicate or generated invalid output"
+        winner_id = 1 - current_player
+        logger.warning(f"[{match_id}] Turn {turn_count}: {reason}" + f": {e}")
+        await _log(
+            api, match_id, "running",
+            f"[TURN {turn_count}] Player {current_player} communication error. "
+            f"Player {winner_id} wins",
+        )
+        return TurnOutcome(reason=reason, winner_id=winner_id)
+    finally:
+        # Pause the active agent now that its turn is done (or failed)
+        agent.pause()
+
+
+async def _play_human_turn(
+    *,
+    api: BackendAPI,
+    match_id: str,
+    human: HumanPlayer,
+    engine: Any,
+    state: Any,
+    move_cls: Any,
+    turn_count: int,
+    move_time_limit: float,
+    match_deadline: float,
+) -> TurnOutcome:
+    """
+    Wait for the human's move via Redis. Illegal or malformed moves are logged
+    and ignored (the human keeps the turn) instead of forfeiting the match, since
+    a misclick should not lose the game. Running out of time or resigning does.
+    """
+    current_player = human.player_id
+    winner_id = 1 - current_player
+    # Never wait past the match's wall-clock cap.
+    wall_remaining = max(0.0, match_deadline - time.monotonic())
+    timeout = min(move_time_limit, wall_remaining)
+
+    # Tell the backend the deadline before starting our own clock, so the UI
+    # countdown (derived from it) can only run slightly short, never long.
+    try:
+        await api.update_match(match_id, status="running", human_turn_seconds=timeout)
+    except Exception as e:
+        logger.warning("[%s] Failed to report human move deadline: %s", match_id, e)
+    started = time.monotonic()
+
+    async def heartbeat() -> None:
+        # Keeps updated_at fresh so the match is not failed as stale while waiting.
+        try:
+            await api.update_match(match_id, status="running")
+        except Exception as e:
+            logger.debug("[%s] Heartbeat failed: %s", match_id, e)
+
+    while True:
+        try:
+            move_data = await human.get_input(
+                timeout=max(0.0, timeout - (time.monotonic() - started)),
+                heartbeat=heartbeat,
+            )
+        except HumanResignedError:
+            await _log(
+                api, match_id, "running",
+                f"[TURN {turn_count}] Player {current_player} (human) resigned. Player {winner_id} wins",
+            )
+            return TurnOutcome(reason="Resigned", winner_id=winner_id)
+        except AgentTimeLimitError:
+            if wall_remaining < move_time_limit:
+                reason = "Match wall-clock limit exceeded"
+                await _log(api, match_id, "running", f"[ABORT] {reason}")
+                # winner_id stays -1: the engine status decides the outcome.
+                return TurnOutcome(reason=reason, winner_id=-1)
+            await _log(
+                api, match_id, "running",
+                f"[TURN {turn_count}] Player {current_player} (human) exceeded time limit "
+                f"({move_time_limit:g}s). Player {winner_id} wins",
+            )
+            return TurnOutcome(reason="Time limit exceeded", winner_id=winner_id)
+
+        move_repr = json.dumps(move_data, separators=(",", ":"))
+        try:
+            move = move_cls.model_validate(move_data, strict=True)
+            legal = engine.validate_move(state, move)
+        except Exception:
+            legal = False
+        if not legal:
+            await _log(
+                api, match_id, "running",
+                f"[TURN {turn_count}] Player {current_player} (human) illegal move ignored: {move_repr}",
+            )
+            continue
+        return TurnOutcome(move=move, move_repr=move_repr, elapsed=time.monotonic() - started)
+
+
+# ---------------------------------------------------------------------------
 # Logging helper
 # ---------------------------------------------------------------------------
 
@@ -234,11 +436,27 @@ async def run_match(
             logger.error(f"[{match_id}] Failed to import game modules for type {game_type!r}: {e}")
             return {"status": "error", "reason": f"Game type {game_type} not supported: {e}"}
 
-        agents = []
+        # Human-vs-agent match: the human takes one seat, the agent(s) fill the rest.
+        # player_ids / player_images are indexed by player (seat) from here on.
+        human_index = match_data.get("human_player_index")
+        player_ids: list[str] = list(agent_ids)
+        player_images: list[str] = list(image_tags)
+        if human_index is not None:
+            human_index = int(human_index)
+            if not (0 <= human_index <= len(agent_ids)):
+                return {"status": "error", "reason": f"Invalid human_player_index {human_index}"}
+            player_ids.insert(human_index, HUMAN_PLAYER_ID)
+            player_images.insert(human_index, "")
+
+        agents: list[AgentProcess | HumanPlayer] = []
         started_at: list[datetime | None] = []
-        for i, tag in enumerate(image_tags):
-            logger.debug(f"[{match_id}] Creating AgentProcess for player {i} with image {tag!r}")
-            agents.append(AgentProcess(tag, player_id=i))
+        for i, tag in enumerate(player_images):
+            if i == human_index:
+                logger.debug(f"[{match_id}] Player {i} is the human player")
+                agents.append(HumanPlayer(match_id, player_id=i))
+            else:
+                logger.debug(f"[{match_id}] Creating AgentProcess for player {i} with image {tag!r}")
+                agents.append(AgentProcess(tag, player_id=i))
             started_at.append(None)
 
         # Check whether the given image exists for all playing agents
@@ -257,7 +475,12 @@ async def run_match(
         logger.debug(f"[{match_id}] Game engine and initial state created")
         await _log(
             api, match_id, "running",
-            f"[INIT] Game={game_type} | Players={len(agent_ids)} | TurnTimeLimit={turn_limit_str}",
+            f"[INIT] Game={game_type} | Players={len(player_ids)} | TurnTimeLimit={turn_limit_str}"
+            + (
+                f" | HumanPlayer={human_index} | HumanMoveLimit={parsed_config.human_turn_time_limit:g}s"
+                if human_index is not None
+                else ""
+            ),
         )
 
         # Start and initialize each agent
@@ -269,10 +492,12 @@ async def run_match(
                 await agent.send_init()
                 started_at[agent.player_id] = datetime.now(UTC)
                 logger.debug(f"[{match_id}] Agent player {agent.player_id} init sent successfully")
-                await _log(
-                    api, match_id, "running",
-                    f"[INIT] Player {agent.player_id} started (image={image_tags[agent.player_id]!r})",
+                started = (
+                    "human player connected"
+                    if isinstance(agent, HumanPlayer)
+                    else f"started (image={player_images[agent.player_id]!r})"
                 )
+                await _log(api, match_id, "running", f"[INIT] Player {agent.player_id} {started}")
             except AgentCommunicationError as e:
                 logger.error(f"[{match_id}] Agent player {agent.player_id} failed to start/init: {e}")
                 await _log(
@@ -292,8 +517,8 @@ async def run_match(
                 await _report_all_container_snapshots(
                     api=api,
                     match_id=match_id,
-                    agent_ids=agent_ids,
-                    image_tags=image_tags,
+                    agent_ids=player_ids,
+                    image_tags=player_images,
                     agents=agents,
                     started_at=started_at,
                     status="error",
@@ -310,19 +535,22 @@ async def run_match(
         await _report_all_container_snapshots(
             api=api,
             match_id=match_id,
-            agent_ids=agent_ids,
-            image_tags=image_tags,
+            agent_ids=player_ids,
+            image_tags=player_images,
             agents=agents,
             started_at=started_at,
             status="running",
             include_stats=False,
         )
 
-        scores = {agent_id: 0 for agent_id in agent_ids}
+        scores = {player_id: 0 for player_id in player_ids}
         winner_id = -1
         reason = ""
         turn_count = 0
-        match_deadline = time.monotonic() + MATCH_WALL_CLOCK_SECONDS
+        wall_clock_seconds = MATCH_WALL_CLOCK_SECONDS
+        if human_index is not None and parsed_config.max_duration_seconds:
+            wall_clock_seconds = parsed_config.max_duration_seconds
+        match_deadline = time.monotonic() + wall_clock_seconds
         history_truncated = False
 
         # Initialize history with initial state and push it to the backend
@@ -359,84 +587,32 @@ async def run_match(
                 turn_count += 1
                 logger.debug(f"[{match_id}] Turn {turn_count}: player {current_player}'s move")
 
-                # Resume the active agent; keep all others paused
-                cur_agent.resume()
-
-                try:
-                    state_json = state.to_json()
-                    logger.debug(f"[{match_id}] Turn {turn_count}: sending state to player {current_player}")
-                    await cur_agent.send_state(state_json)
-                    # Allow some overhead here in time out but expect exact time limit in returned cpu_time
-                    raw_move_json, _ = await cur_agent.get_move(timeout=parsed_config.turn_time_limit + 1.5)
-                    logger.debug(f"[{match_id}] Turn {turn_count}: received move from player {current_player}: {raw_move_json!r}")  # noqa: E501
-
-                    # --- Safe JSON parsing ---------------------------------------
-                    try:
-                        parsed_output = json.loads(raw_move_json)
-                    except json.JSONDecodeError as e:
-                        raise AgentCommunicationError(
-                            f"Player {current_player} returned invalid JSON: {e}"
-                        )
-
-                    # parsed_output must be a mapping; reject any other type
-                    # (e.g. a bare list or string) to prevent type confusion.
-                    if not isinstance(parsed_output, dict):
-                        raise AgentCommunicationError(
-                            f"Player {current_player} returned unexpected JSON type "
-                            f"{type(parsed_output).__name__!r}; expected an object."
-                        )
-
-                    # cpu_time must be a real number; coerce defensively.
-                    raw_cpu_time = parsed_output.get("cpu_time", 0.0)
-                    try:
-                        cpu_time = float(raw_cpu_time)
-                    except (TypeError, ValueError):
-                        logger.warning(
-                            f"[{match_id}] Turn {turn_count}: "
-                            f"player {current_player} sent non-numeric cpu_time "
-                            f"{raw_cpu_time!r}; defaulting to 0.0"
-                        )
-                        cpu_time = 0.0
-
-                    if cpu_time > parsed_config.turn_time_limit:
-                        raise AgentTimeLimitError(
-                            f"Player {current_player} exceeded the per-turn time limit of "
-                            f"{parsed_config.turn_time_limit}s. (cpu_time: {cpu_time}s)"
-                        )
-
-                    # Extract the move sub-object if present, otherwise treat the whole response as the move.
-                    move_data = parsed_output.get("move", parsed_output)
-                    if not isinstance(move_data, dict):
-                        raise AgentCommunicationError(
-                            f"Player {current_player} move field has unexpected type "
-                            f"{type(move_data).__name__!r}; expected an object."
-                        )
-                    move = Move.model_validate(move_data, strict=True)
-
-                    move_repr = json.dumps(move_data, separators=(",", ":"))
-                except AgentTimeLimitError as e:
-                    reason = "Time limit exceeded"
-                    logger.warning(f"[{match_id}] Turn {turn_count}: {e}")
-                    winner_id = 1 - current_player
-                    await _log(
-                        api, match_id, "running",
-                        f"[TURN {turn_count}] Player {current_player} exceeded time limit "
-                        f"({parsed_config.turn_time_limit}s) — Player {winner_id} wins",
+                if isinstance(cur_agent, HumanPlayer):
+                    outcome = await _play_human_turn(
+                        api=api,
+                        match_id=match_id,
+                        human=cur_agent,
+                        engine=engine,
+                        state=state,
+                        move_cls=Move,
+                        turn_count=turn_count,
+                        move_time_limit=parsed_config.human_turn_time_limit,
+                        match_deadline=match_deadline,
                     )
-                    break
-                except Exception as e:
-                    reason = f"Player {current_player} failed to communicate or generated invalid output"
-                    logger.warning(f"[{match_id}] Turn {turn_count}: {reason}" + f": {e}")
-                    winner_id = 1 - current_player
-                    await _log(
-                        api, match_id, "running",
-                        f"[TURN {turn_count}] Player {current_player} communication error "
-                        f"— Player {winner_id} wins",
+                else:
+                    outcome = await _play_agent_turn(
+                        api=api,
+                        match_id=match_id,
+                        agent=cur_agent,
+                        state=state,
+                        move_cls=Move,
+                        turn_count=turn_count,
+                        turn_time_limit=parsed_config.turn_time_limit,
                     )
+                if outcome.move is None:
+                    reason, winner_id = outcome.reason, outcome.winner_id
                     break
-                finally:
-                    # Pause the active agent now that its turn is done (or failed)
-                    cur_agent.pause()
+                move, move_repr, cpu_time = outcome.move, outcome.move_repr, outcome.elapsed
 
                 if not engine.validate_move(state, move):
                     reason = f"Player {current_player} made an invalid move."
@@ -444,8 +620,8 @@ async def run_match(
                     winner_id = 1 - current_player
                     await _log(
                         api, match_id, "running",
-                        f"[TURN {turn_count}] Player {current_player} invalid move: {move_repr} "
-                        f"— Player {winner_id} wins",
+                        f"[TURN {turn_count}] Player {current_player} invalid move: {move_repr}. "
+                        f"Player {winner_id} wins",
                     )
                     break
 
@@ -468,14 +644,18 @@ async def run_match(
                     await _report_all_container_snapshots(
                         api=api,
                         match_id=match_id,
-                        agent_ids=agent_ids,
-                        image_tags=image_tags,
+                        agent_ids=player_ids,
+                        image_tags=player_images,
                         agents=agents,
                         started_at=started_at,
                         status="running",
                         include_stats=True,
                     )
                     logger.debug(f"[{match_id}] Turn {turn_count}: backend state updated")
+                    if isinstance(cur_agent, HumanPlayer):
+                        # The backend now reports the agent's turn and rejects human
+                        # moves; drop any duplicate the human sent before that.
+                        await cur_agent.discard_pending()
                 except Exception as e:
                     logger.error(f"[{match_id}] Turn {turn_count}: failed to update match game_state: {e}")
         finally:
@@ -496,8 +676,8 @@ async def run_match(
             await _report_all_container_snapshots(
                 api=api,
                 match_id=match_id,
-                agent_ids=agent_ids,
-                image_tags=image_tags,
+                agent_ids=player_ids,
+                image_tags=player_images,
                 agents=agents,
                 started_at=started_at,
                 status="stopped",
@@ -517,8 +697,8 @@ async def run_match(
                 reason = "Draw"
 
         if winner_id >= 0:
-            scores[agent_ids[winner_id]] = 1
-            winner_result = agent_ids[winner_id]
+            scores[player_ids[winner_id]] = 1
+            winner_result = player_ids[winner_id]
         else:
             winner_result = "draw"
 

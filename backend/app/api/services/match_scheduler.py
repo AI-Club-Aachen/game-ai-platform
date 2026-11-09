@@ -38,6 +38,11 @@ class MatchSchedulerService:
         self.strategy = "least_played"
         # How many matches to keep in flight (see constants above).
         self.scheduling_strategy = SCHEDULING_SERIAL
+        # Human-vs-agent play limits, applied to newly started human matches.
+        # Not used by the auto-scheduler itself; they live here so admins edit
+        # them alongside the other match settings.
+        self.human_move_time_limit = settings.HUMAN_MOVE_TIME_LIMIT_SECONDS
+        self.human_match_max_duration = settings.HUMAN_MATCH_MAX_DURATION_SECONDS
 
     async def check_and_queue_matches(self) -> None:
         """
@@ -120,16 +125,16 @@ class MatchSchedulerService:
     def _check_match_queue(self, match_repository: MatchRepository) -> bool:
         """
         Serial-strategy gate: only queue a new match when no non-tournament match is
-        currently queued or running. Tournament matches are ignored here.
+        currently queued or running. Tournament and human-vs-agent matches are ignored here.
         """
         queued_matches = match_repository.list_matches(
-            skip=0, limit=1, status=MatchStatus.QUEUED.value, with_tournament=False
+            skip=0, limit=1, status=MatchStatus.QUEUED.value, with_tournament=False, with_human=False
         )
         if queued_matches:
             return False
 
         running_matches = match_repository.list_matches(
-            skip=0, limit=1, status=MatchStatus.RUNNING.value, with_tournament=False
+            skip=0, limit=1, status=MatchStatus.RUNNING.value, with_tournament=False, with_human=False
         )
 
         return not running_matches

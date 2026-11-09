@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -15,6 +15,7 @@ from app.core.payload_limits import PayloadTooLargeError, cap_log_append, ensure
 from app.core.queue import job_queue
 from app.core.state_init import StateInitValidationError, validate_state_init_data
 from app.models.agent import Agent
+from app.models.arena import Arena
 from app.models.game import GameType
 from app.models.job import JobStatus, MatchJob
 from app.models.match import Match, MatchConfig, MatchStatus
@@ -29,6 +30,18 @@ class MatchServiceError(Exception):
 
 class MatchPermissionError(MatchServiceError):
     """Raised when the caller is not allowed to use the requested agents."""
+
+
+class MatchNotFoundError(MatchServiceError):
+    """Raised when the requested match does not exist."""
+
+
+class MatchConflictError(MatchServiceError):
+    """Raised when the request conflicts with the match's current state (e.g. not your turn)."""
+
+
+# Upper bound on a submitted human move's JSON size; real moves are tiny.
+MAX_HUMAN_MOVE_BYTES = 1024
 
 
 class MatchPayloadTooLargeError(MatchServiceError):
@@ -69,29 +82,13 @@ class MatchService:
         tournament engine): such matches skip global agent stats and are
         ignored by the random auto-scheduler.
         """
-        # Fetch arena
-        arena = self._arena_repository.get_by_id(arena_id)
-        if not arena or not arena.is_active:
-            raise MatchServiceError("Target arena not found or inactive")
+        arena = self._get_active_arena(arena_id)
         game_type = arena.game_type
 
-        # Merge per-game default config and arena config into match config
-        merged_state_init = dict(game_type.additional_data)
-        merged_state_init.update({k: v for k, v in arena.config.items() if k != "turn_time_limit"})
-        merged_state_init.update(config.state_init_data)
-        config.state_init_data = merged_state_init
-
-        if "turn_time_limit" in arena.config:
-            config.turn_time_limit = arena.config["turn_time_limit"]
-
-        if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
-            raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
-
-        # Validate state_init_data per game (treat as untrusted).
-        try:
-            validate_state_init_data(game_type, config.state_init_data)
-        except StateInitValidationError as e:
-            raise MatchServiceError(str(e)) from e
+        # Human-play limits are server-controlled; never accept them from API input.
+        config.human_turn_time_limit = None
+        config.max_duration_seconds = None
+        self._apply_arena_config(arena, config)
 
         self._validate_agents_for_match(arena_id, game_type, agent_ids, owner_user_id=owner_user_id)
 
@@ -115,8 +112,187 @@ class MatchService:
 
         return match
 
+    def _get_active_arena(self, arena_id: UUID) -> Arena:
+        arena = self._arena_repository.get_by_id(arena_id)
+        if not arena or not arena.is_active:
+            raise MatchServiceError("Target arena not found or inactive")
+        return arena
+
+    @staticmethod
+    def _apply_arena_config(arena: Arena, config: MatchConfig) -> None:
+        """Merge per-game defaults and arena config into ``config`` and validate it."""
+        game_type = arena.game_type
+        merged_state_init = dict(game_type.additional_data)
+        merged_state_init.update({k: v for k, v in arena.config.items() if k != "turn_time_limit"})
+        merged_state_init.update(config.state_init_data)
+        config.state_init_data = merged_state_init
+
+        if "turn_time_limit" in arena.config:
+            config.turn_time_limit = arena.config["turn_time_limit"]
+
+        if config.turn_time_limit <= 0 or config.turn_time_limit > settings.MAX_TURN_TIME_LIMIT_SECONDS:
+            raise MatchServiceError(f"turn_time_limit must be between 0.1 and {settings.MAX_TURN_TIME_LIMIT_SECONDS}s")
+
+        # Validate state_init_data per game (treat as untrusted).
+        try:
+            validate_state_init_data(game_type, config.state_init_data)
+        except StateInitValidationError as e:
+            raise MatchServiceError(str(e)) from e
+
+    # --- Human-vs-agent play ---------------------------------------------
+
+    async def create_human_match(
+        self,
+        arena_id: UUID,
+        agent_id: UUID,
+        human_user_id: UUID,
+        human_name: str,
+        human_player_index: int,
+        human_turn_time_limit: float,
+        max_duration_seconds: float,
+    ) -> Match:
+        """
+        Start a match where ``human_user_id`` plays by hand against one agent.
+
+        Any agent of the arena with a working build may be challenged. A user may
+        have only one queued/running human match at a time (it occupies a match
+        runner while waiting on them). The result never touches agent stats/ELO.
+        """
+        arena = self._get_active_arena(arena_id)
+        game_type = arena.game_type
+        if not (game_type.min_players <= 2 <= game_type.max_players):  # noqa: PLR2004
+            raise MatchServiceError(f"Game '{game_type.value}' does not support 1v1 human play")
+        if human_player_index not in (0, 1):
+            raise MatchServiceError("human_player_index must be 0 or 1")
+
+        config = MatchConfig(
+            human_turn_time_limit=human_turn_time_limit,
+            max_duration_seconds=max_duration_seconds,
+        )
+        self._apply_arena_config(arena, config)
+        self._check_agents_eligible(arena_id, game_type, [agent_id])
+
+        await self._ensure_no_active_human_match(human_user_id)
+
+        match = Match(
+            game_type=game_type,
+            arena_id=arena_id,
+            status=MatchStatus.QUEUED,
+            config=config.model_dump(),
+            agent_ids=[str(agent_id)],
+            human_user_id=human_user_id,
+            human_player_index=human_player_index,
+            human_name=human_name,
+        )
+        match = self._repository.save(match)
+
+        job = MatchJob(match_id=match.id, status=JobStatus.QUEUED)
+        job = self._job_repository.save_match_job(job)
+        await job_queue.enqueue_match(match.id, match.config, job.id, match.agent_ids, job.create_images)
+        return match
+
+    def list_human_opponents(self, arena_id: UUID, user_id: UUID) -> list[dict[str, Any]]:
+        """Agents of the arena that can be challenged (active submission with a successful build)."""
+        arena = self._get_active_arena(arena_id)
+        opponents = []
+        for agent, username in self._agent_repository.list_by_arena_with_owner(arena.id):
+            if agent.active_submission is None or not submission_has_successful_build(agent.active_submission):
+                continue
+            opponents.append(
+                {
+                    "id": str(agent.id),
+                    "agent_name": agent.name,
+                    "username": username,
+                    "elo": agent.elo,
+                    "is_mine": agent.user_id == user_id,
+                }
+            )
+        # Own agents first, then by ELO (unrated last).
+        opponents.sort(key=lambda o: (not o["is_mine"], -(o["elo"] if o["elo"] is not None else -1)))
+        return opponents
+
+    def get_agent_names(self, agent_ids: list[UUID] | list[str]) -> dict[str, str]:
+        """Display names for a match's agents (already public via leaderboards)."""
+        return {agent_id: agent.name for agent_id, agent in self._fetch_agents_by_ids(agent_ids).items()}
+
+    async def _ensure_no_active_human_match(self, user_id: UUID) -> None:
+        """
+        Enforce one active human match per user. A running match whose worker
+        stopped reporting (crash/restart) is failed here so it can't lock the user
+        out when the auto-scheduler's stale recovery isn't running.
+        """
+        cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
+        for active in self._repository.list_active_human_matches(user_id):
+            updated_at = active.updated_at
+            if updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=UTC)
+            if active.status == MatchStatus.RUNNING and updated_at < cutoff:
+                logger.warning("Failing stale human match %s (last update %s)", active.id, active.updated_at)
+                await self.update_match(
+                    str(active.id),
+                    status=MatchStatus.FAILED.value,
+                    result={"status": "error", "reason": "Match runner lost or timed out"},
+                )
+                continue
+            raise MatchConflictError(
+                f"You already have an active game ({active.id}). Finish or resign it first."
+            )
+
+    def _get_own_human_match(self, match_id: str, user_id: UUID) -> Match:
+        match = self._repository.get_by_id(match_id)
+        if not match:
+            raise MatchNotFoundError("Match not found")
+        if match.human_user_id is None or match.human_user_id != user_id:
+            raise MatchPermissionError("You are not the human player in this match")
+        return match
+
+    async def submit_human_move(self, match_id: str, user_id: UUID, move: dict[str, Any]) -> None:
+        """
+        Forward the human player's move to the match runner. Full rule validation
+        happens in the worker (gamelib engine); an illegal move is rejected there
+        without forfeiting, and the human keeps their turn.
+        """
+        match = self._get_own_human_match(match_id, user_id)
+        if match.status != MatchStatus.RUNNING:
+            raise MatchConflictError("Match is not running")
+        state = match.game_state or {}
+        if state.get("turn") != match.human_player_index:
+            raise MatchConflictError("It is not your turn")
+        try:
+            ensure_json_within(move, max_bytes=MAX_HUMAN_MOVE_BYTES, field_name="move")
+        except PayloadTooLargeError as e:
+            raise MatchPayloadTooLargeError(str(e)) from e
+
+        payload_move = {**move, "player": match.human_player_index}
+        await job_queue.push_human_move(match.id, {"type": "move", "move": payload_move})
+
+    async def resign_human_match(self, match_id: str, user_id: UUID) -> Match:
+        """
+        Resign a human match. A queued match is cancelled directly (the worker skips
+        matches that are no longer queued); a running one is resigned by the worker.
+        """
+        match = self._get_own_human_match(match_id, user_id)
+        if match.status == MatchStatus.QUEUED:
+            updated = await self.update_match(
+                str(match.id),
+                status=MatchStatus.FAILED.value,
+                logs="[ABORT] Cancelled by player before start",
+                result={"status": "error", "reason": "Cancelled by player"},
+            )
+            return updated or match
+        if match.status != MatchStatus.RUNNING:
+            raise MatchConflictError("Match is already over")
+        await job_queue.push_human_move(match.id, {"type": "resign"})
+        return match
+
     def get_match(self, match_id: str) -> Match | None:
         return self._repository.get_by_id(match_id)
+
+    async def get_human_move_remaining(self, match: Match) -> float | None:
+        """Authoritative seconds left for the human's pending move (None if none)."""
+        if match.human_user_id is None or match.status != MatchStatus.RUNNING:
+            return None
+        return await match_event_publisher.get_human_move_remaining(str(match.id))
 
     @staticmethod
     def _reject_oversized(payload: dict[str, Any], *, max_bytes: int, field_name: str) -> None:
@@ -133,6 +309,7 @@ class MatchService:
         logs: str | None = None,
         result: dict[str, Any] | None = None,
         game_state: dict[str, Any] | None = None,
+        human_turn_seconds: float | None = None,
     ) -> Match | None:
         """Update match fields (used by workers)."""
         match = self._repository.get_by_id(match_id)
@@ -167,8 +344,17 @@ class MatchService:
         # Tournament matches never touch global agent stats/ELO; tournament
         # standings live in the tournament tables.
         became_completed = old_status != MatchStatus.COMPLETED and saved.status == MatchStatus.COMPLETED
-        if became_completed and saved.tournament_id is None:
+        # Human-vs-agent matches don't count either (anyone could farm wins/losses).
+        if became_completed and saved.tournament_id is None and saved.human_user_id is None:
             self._update_agent_stats(saved)
+
+        if saved.human_user_id is not None:
+            # A new state means the pending move (if any) was played; the runner
+            # reports the next human deadline when it starts waiting again.
+            if game_state is not None or saved.status != MatchStatus.RUNNING:
+                await match_event_publisher.clear_human_deadline(match_id)
+            if human_turn_seconds is not None and saved.status == MatchStatus.RUNNING:
+                await match_event_publisher.set_human_deadline(match_id, human_turn_seconds)
 
         # Publish game state update to Redis for SSE subscribers
         await match_event_publisher.publish_game_state(
@@ -177,6 +363,7 @@ class MatchService:
             status=saved.status.value,
             logs=saved.logs,
             result=saved.result,
+            human_move_remaining=await self.get_human_move_remaining(saved),
         )
 
         return saved
@@ -225,12 +412,16 @@ class MatchService:
                 f"{game_type.max_players} agents. Received {len(agent_ids)}."
             )
 
-        agents = self._agent_repository.list_by_ids(agent_ids)
-        if len(agents) != len(agent_ids):
-            raise MatchServiceError("One or more agents were not found")
+        agents = self._check_agents_eligible(arena_id, game_type, agent_ids)
 
         if owner_user_id is not None and all(agent.user_id != owner_user_id for agent in agents):
             raise MatchPermissionError("At least one participating agent must belong to you")
+
+    def _check_agents_eligible(self, arena_id: UUID, game_type: GameType, agent_ids: list[UUID]) -> list[Agent]:
+        """Every agent must exist, belong to the arena/game and have a successful active build."""
+        agents = self._agent_repository.list_by_ids(agent_ids)
+        if len(agents) != len(agent_ids):
+            raise MatchServiceError("One or more agents were not found")
 
         agents_by_id = {agent.id: agent for agent in agents}
         for agent_id in agent_ids:
@@ -243,6 +434,7 @@ class MatchService:
                 raise MatchServiceError(f"Agent {agent.id} does not have an active submission")
             if not submission_has_successful_build(agent.active_submission):
                 raise MatchServiceError(f"Agent {agent.id} does not have a successful active submission")
+        return agents
 
     def _update_agent_stats(self, match: Match) -> None:
         """Update agent stats for a match."""

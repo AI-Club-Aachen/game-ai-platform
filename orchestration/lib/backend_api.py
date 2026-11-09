@@ -235,6 +235,7 @@ class BackendAPI:
         logs: str | None = None,
         result: dict[str, Any] | None = None,
         game_state: dict[str, Any] | None = None,
+        human_turn_seconds: float | None = None,
     ) -> dict[str, Any]:
         """
         Update a match's status and related fields.
@@ -245,6 +246,8 @@ class BackendAPI:
             logs: Optional log lines to append
             result: Optional match result data (scores, winner, etc.)
             game_state: Optional current game state dictionary
+            human_turn_seconds: Human-vs-agent only: seconds the human has for the
+                move the runner is now waiting on (drives the UI countdown)
 
         Returns:
             Updated match data
@@ -259,6 +262,9 @@ class BackendAPI:
 
         if game_state is not None:
             data["game_state"] = game_state
+
+        if human_turn_seconds is not None:
+            data["human_turn_seconds"] = human_turn_seconds
 
         return await self._patch(f"/matches/{match_id}", data)
 

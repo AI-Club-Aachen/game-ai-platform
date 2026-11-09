@@ -30,6 +30,16 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
     image_tags = []
 
     try:
+        # A match can end before a worker picks it up (e.g. a human cancelled
+        # their queued game); don't run it then.
+        try:
+            current = await api.get_match(match_id)
+            if current.get("status") in {"completed", "failed", "client_error"}:
+                logger.info(f"Skipping match {match_id}: already {current.get('status')}")
+                return
+        except Exception as e:
+            logger.debug(f"[{match_id}] Could not pre-check match status: {e}")
+
         if create_images:
             logger.info(f"Creating images for agents: {agent_ids}")
             image_tags = await build_images_for_agents(agent_ids, api)
@@ -55,7 +65,7 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
 
         logger.info("Match finished.")
         status = "completed"
-        valid_reasons = ["Game finished", "Draw", "Turn limit reached", "Time limit exceeded"]
+        valid_reasons = ["Game finished", "Draw", "Turn limit reached", "Time limit exceeded", "Resigned"]
         if result.get("reason") not in valid_reasons:
             status = "client_error"
 

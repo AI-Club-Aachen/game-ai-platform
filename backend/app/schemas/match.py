@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.game import GameType
 from app.models.match import MatchConfig, MatchStatus
@@ -19,6 +19,21 @@ class MatchCreate(MatchBase):
     pass
 
 
+class HumanMatchCreate(BaseModel):
+    """Start a match where the caller plays by hand against one agent."""
+
+    arena_id: UUID
+    agent_id: UUID
+    # Seat the human takes: 0 moves first, 1 moves second.
+    human_player_index: int = Field(default=0, ge=0, le=1)
+
+
+class HumanMoveSubmit(BaseModel):
+    """A move submitted by the human player. ``player`` is filled in server-side."""
+
+    move: dict[str, Any]
+
+
 class MatchUpdate(BaseModel):
     """Schema for updating a match (used by workers)."""
 
@@ -26,6 +41,9 @@ class MatchUpdate(BaseModel):
     logs: str | None = None
     result: dict[str, Any] | None = None
     game_state: dict[str, Any] | None = None
+    # Human-vs-agent: the runner reports how many seconds the human has for the
+    # move it is now waiting on (starts the authoritative countdown).
+    human_turn_seconds: float | None = Field(default=None, ge=0, le=3600)
 
 
 class MatchRead(MatchBase):
@@ -35,6 +53,9 @@ class MatchRead(MatchBase):
     logs: str
     result: dict[str, Any] | None
     game_state: dict[str, Any] | None
+    human_user_id: UUID | None = None
+    human_player_index: int | None = None
+    human_name: str | None = None
     created_at: datetime
     updated_at: datetime
 

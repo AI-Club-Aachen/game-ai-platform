@@ -40,7 +40,7 @@ class _SerialStubRepo:
         self._has_queued = has_queued
         self._has_running = has_running
 
-    def list_matches(self, *, skip, limit, status, with_tournament):
+    def list_matches(self, *, skip, limit, status, with_tournament, with_human=None):
         if status == MatchStatus.QUEUED.value:
             return [object()] if self._has_queued else []
         if status == MatchStatus.RUNNING.value:
