@@ -40,7 +40,7 @@ import {
   InfoOutlined as InfoIcon,
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
-import { matchesApi } from '../services/api/matches';
+import { matchesApi, SchedulerConfig } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
 import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { fromApiGameType, getGameById } from '../config/games';
@@ -143,7 +143,14 @@ export function MatchManagement() {
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
-  const [schedulerConfig, setSchedulerConfig] = useState({ enabled: false, interval_seconds: 10, strategy: 'least_played', scheduling_strategy: 'serial' });
+  const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig>({
+    enabled: false,
+    interval_seconds: 10,
+    strategy: 'least_played',
+    scheduling_strategy: 'serial',
+    human_move_time_limit: 60,
+    human_match_max_duration: 900,
+  });
   const [isSavingScheduler, setIsSavingScheduler] = useState(false);
 
   const selectedArena = arenas.find(a => a.id === newMatchArenaId);
@@ -627,6 +634,29 @@ export function MatchManagement() {
                 <MenuItem value="concurrent">Concurrent (keep all workers busy)</MenuItem>
               </Select>
             </FormControl>
+
+            <Divider />
+            <Typography variant="subtitle2" fontWeight={700}>
+              Human vs Agent Games
+            </Typography>
+            <TextField
+              label="Human Move Time Limit (Seconds)"
+              type="number"
+              fullWidth
+              value={schedulerConfig.human_move_time_limit}
+              onChange={(e) => setSchedulerConfig({ ...schedulerConfig, human_move_time_limit: parseFloat(e.target.value) || 0 })}
+              inputProps={{ min: 5, max: 600, step: 5 }}
+              helperText="Time a human gets per move before forfeiting (5–600s). Applies to newly started games."
+            />
+            <TextField
+              label="Human Game Max Duration (Seconds)"
+              type="number"
+              fullWidth
+              value={schedulerConfig.human_match_max_duration}
+              onChange={(e) => setSchedulerConfig({ ...schedulerConfig, human_match_max_duration: parseFloat(e.target.value) || 0 })}
+              inputProps={{ min: 60, max: 3600, step: 60 }}
+              helperText="Wall-clock cap for a whole human game; it occupies a match runner meanwhile (60–3600s)."
+            />
           </Box>
         </DialogContent>
         <DialogActions>

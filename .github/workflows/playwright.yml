@@ -123,7 +123,13 @@ jobs:
     - name: Dump backend logs on failure
       if: failure()
       working-directory: ./backend
-      run: docker compose --env-file ../.env -f docker-compose.ci.yml logs --no-color
+      run: |
+        # Earlier steps can fail before .env exists or any service has started.
+        if [ -f ../.env ]; then
+          docker compose --env-file ../.env -f docker-compose.ci.yml logs --no-color
+        else
+          echo "No .env found: the job failed before the backend services were started."
+        fi
 
   build-e2e:
     timeout-minutes: 60
@@ -243,4 +249,10 @@ jobs:
     - name: Dump backend logs on failure
       if: failure()
       working-directory: ./backend
-      run: docker compose --env-file ../.env -f docker-compose.ci.yml logs --no-color
+      run: |
+        # Earlier steps can fail before .env exists or any service has started.
+        if [ -f ../.env ]; then
+          docker compose --env-file ../.env -f docker-compose.ci.yml logs --no-color
+        else
+          echo "No .env found: the job failed before the backend services were started."
+        fi

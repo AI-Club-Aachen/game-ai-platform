@@ -86,7 +86,7 @@ function getStatusText(status: number, name0: string, name1: string): { text: st
  * Expects gameState to have the shape:
  * { board: number[], turn: number, status: number }
  */
-export function TicTacToeRenderer({ gameState, agentIds, agentMap, matchStatus, result }: GameRendererProps) {
+export function TicTacToeRenderer({ gameState, agentIds, agentMap, matchStatus, result, interactive }: GameRendererProps) {
   // Resolve a display name for a player index (0 or 1)
   const agentName = (index: number): string => {
     const id = agentIds[index];
@@ -215,23 +215,37 @@ export function TicTacToeRenderer({ gameState, agentIds, agentMap, matchStatus, 
           boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
         }}
       >
-        {board.map((cell: number, index: number) => (
-          <Box
-            key={index}
-            sx={{
-              position: 'relative',
-              overflow: 'hidden',
-              backgroundColor: 'background.paper',
-              transition: 'background-color 0.2s ease',
-              cursor: 'default',
-              '&:hover': {
-                backgroundColor: cell === -1 ? 'action.hover' : undefined,
-              },
-            }}
-          >
-            <CellContent value={cell} />
-          </Box>
-        ))}
+        {board.map((cell: number, index: number) => {
+          const playable = Boolean(interactive?.enabled) && !isGameOver && cell === -1;
+          return (
+            <Box
+              key={index}
+              role={playable ? 'button' : undefined}
+              aria-label={playable ? `Place at cell ${index + 1}` : undefined}
+              tabIndex={playable ? 0 : undefined}
+              onClick={playable ? () => interactive!.onMove({ position: index }) : undefined}
+              onKeyDown={playable ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  interactive!.onMove({ position: index });
+                }
+              } : undefined}
+              sx={{
+                position: 'relative',
+                overflow: 'hidden',
+                backgroundColor: 'background.paper',
+                transition: 'background-color 0.2s ease',
+                cursor: playable ? 'pointer' : 'default',
+                '&:hover': {
+                  backgroundColor: cell === -1 ? 'action.hover' : undefined,
+                },
+                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+              }}
+            >
+              <CellContent value={cell} />
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );

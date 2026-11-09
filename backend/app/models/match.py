@@ -30,6 +30,7 @@ class MatchResultReason(str, Enum):
     TIME_LIMIT_EXCEEDED = "Time limit exceeded"
     INVALID_MOVE = "Invalid move"
     COMMUNICATION_ERROR = "Communication error"
+    RESIGNED = "Resigned"
 
 
 class MatchConfig(BaseModel):
@@ -42,6 +43,9 @@ class MatchConfig(BaseModel):
 
     turn_time_limit: float = 5.0
     state_init_data: dict[str, Any] = {}
+    # Human-vs-agent only, set server-side: seconds per human move, and per game.
+    human_turn_time_limit: float | None = None
+    max_duration_seconds: float | None = None
 
 
 class Match(SQLModel, table=True):
@@ -67,6 +71,10 @@ class Match(SQLModel, table=True):
     # Set for matches played as part of a tournament; such matches are excluded
     # from global agent stats and from the random auto-scheduler.
     tournament_id: UUID | None = Field(default=None, foreign_key="tournaments.id", nullable=True, index=True)
+
+    # Human-vs-agent matches: who plays by hand, and their seat. Skips stats/ELO.
+    human_user_id: UUID | None = Field(default=None, nullable=True, index=True)
+    human_player_index: int | None = Field(default=None, nullable=True)
 
     # Configuration for the match (e.g. which agents, game rules, seed)
     config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

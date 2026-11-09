@@ -40,11 +40,13 @@ class MatchRepository:
         arena_id: UUID | None = None,
         status: list[str] | str | None = None,
         with_tournament: bool | None = None,
+        with_human: bool | None = None,
     ) -> Sequence[Match]:
         """List matches with pagination.
 
         ``with_tournament`` filters by tournament membership: True keeps only
         tournament matches, False only normal matches, None keeps all.
+        ``with_human`` does the same for human-vs-agent matches.
         """
         statement = select(Match)
         if game_type is not None:
@@ -61,6 +63,10 @@ class MatchRepository:
             statement = statement.where(Match.tournament_id.is_not(None))
         elif with_tournament is False:
             statement = statement.where(Match.tournament_id.is_(None))
+        if with_human is True:
+            statement = statement.where(Match.human_user_id.is_not(None))
+        elif with_human is False:
+            statement = statement.where(Match.human_user_id.is_(None))
 
         statement = statement.offset(skip).limit(limit).order_by(Match.created_at.desc())
         return self._session.exec(statement).all()
@@ -70,6 +76,7 @@ class MatchRepository:
         cutoff: datetime,
         limit: int = 100,
         with_tournament: bool | None = None,
+        human_user_id: UUID | None = None,
     ) -> Sequence[Match]:
         """List running matches that have not been updated since ``cutoff``."""
         statement = (
@@ -83,6 +90,8 @@ class MatchRepository:
             statement = statement.where(Match.tournament_id.is_not(None))
         elif with_tournament is False:
             statement = statement.where(Match.tournament_id.is_(None))
+        if human_user_id is not None:
+            statement = statement.where(Match.human_user_id == human_user_id)
         return self._session.exec(statement).all()
 
     def count_active_by_tournament(self, tournament_id: UUID) -> int:
@@ -96,14 +105,25 @@ class MatchRepository:
         return self._session.exec(statement).one()
 
     def count_active_non_tournament(self) -> int:
-        """Number of queued/running non-tournament matches (auto-scheduler concurrency cap)."""
+        """Queued/running matches that count against the auto-scheduler cap (no tournament/human)."""
         statement = (
             select(func.count())
             .select_from(Match)
             .where(Match.tournament_id.is_(None))
+            .where(Match.human_user_id.is_(None))
             .where(Match.status.in_([MatchStatus.QUEUED, MatchStatus.RUNNING]))
         )
         return self._session.exec(statement).one()
+
+    def list_active_human_matches(self, user_id: UUID) -> Sequence[Match]:
+        """Queued/running human-vs-agent matches played by ``user_id``."""
+        statement = (
+            select(Match)
+            .where(Match.human_user_id == user_id)
+            .where(Match.status.in_([MatchStatus.QUEUED, MatchStatus.RUNNING]))
+            .order_by(Match.created_at.desc())
+        )
+        return self._session.exec(statement).all()
 
     # --- Commands ---
 

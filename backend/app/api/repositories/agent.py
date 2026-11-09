@@ -125,6 +125,13 @@ class AgentRepository:
             for agent, username in results
         ]
 
+    def list_with_owner(self, arena_id: UUID | None = None) -> list[tuple[Agent, str]]:
+        """Agents (optionally of one arena) with their owner's username."""
+        statement = select(Agent, User.username).join(User, Agent.user_id == User.id).order_by(Agent.name)
+        if arena_id is not None:
+            statement = statement.where(Agent.arena_id == arena_id)
+        return list(self._session.exec(statement).all())
+
     def save(self, agent: Agent) -> Agent:
         """Persist agent, handling commit/rollback."""
         try:

@@ -19,6 +19,14 @@ export interface GameRendererProps {
   matchStatus?: string | null;
   /** The match result, containing winner and reason if the match is finished */
   result?: any | null;
+  /** Set when the viewer plays a seat by hand; clicks call `onMove` while `enabled` */
+  interactive?: InteractiveSeat;
+}
+
+export interface InteractiveSeat {
+  playerIndex: number;
+  enabled: boolean;
+  onMove: (move: Record<string, unknown>) => void;
 }
 
 /**

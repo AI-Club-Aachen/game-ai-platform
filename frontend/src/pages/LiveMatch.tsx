@@ -13,6 +13,14 @@ import {
   IconButton,
   Divider,
   Tooltip,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  LinearProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -29,6 +37,8 @@ import {
   EmojiEvents,
   Handshake,
   Warning,
+  Flag,
+  Person,
 } from '@mui/icons-material';
 import { useSmartBack } from '../hooks/use-smart-back';
 import { useMatchStream } from '../hooks/useMatchStream';
@@ -37,6 +47,9 @@ import { fromApiGameType, getGameById } from '../config/games';
 import { agentsApi } from '../services/api/agents';
 import { matchesApi } from '../services/api/matches';
 import { containersApi } from '../services/api/containers';
+import { useAuth } from '../context/AuthContext';
+
+const HUMAN_PLAYER_ID = 'human'; // the human's id in results
 
 // ─── Status Chip ──────────────────────────────────────────────────────────────
 
@@ -194,10 +207,12 @@ function MatchResultBanner({
   result,
   status,
   agentMap,
+  viewerPlayerId,
 }: {
   result: any;
   status: string | null;
   agentMap: Record<string, string>;
+  viewerPlayerId?: string | null;
 }) {
   if (!status || !['completed', 'failed', 'client_error'].includes(status)) return null;
 
@@ -227,7 +242,11 @@ function MatchResultBanner({
     bgColor = 'rgba(34,197,94,0.08)';
     borderColor = '#22c55e';
     icon = <EmojiEvents sx={{ fontSize: 28, color: '#f59e0b' }} />;
-    headline = `${winnerName} Wins!`;
+    headline = viewerPlayerId && result?.winner === viewerPlayerId
+      ? 'You Win!'
+      : viewerPlayerId
+        ? 'You Lost'
+        : `${winnerName} Wins!`;
   }
 
   return (
@@ -257,6 +276,115 @@ function MatchResultBanner({
         )}
       </Box>
       <CheckCircle sx={{ fontSize: 18, color: isError ? '#f43f5e' : borderColor, opacity: 0.6 }} />
+    </Box>
+  );
+}
+
+// ─── Human Play Panel ─────────────────────────────────────────────────────────
+
+function HumanPlayPanel({
+  status,
+  isMyTurn,
+  pendingMove,
+  deadline,
+  moveTimeLimit,
+  onResign,
+}: {
+  status: string | null;
+  isMyTurn: boolean;
+  pendingMove: boolean;
+  deadline: number | null;
+  moveTimeLimit: number | null;
+  onResign: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isMyTurn) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(t);
+  }, [isMyTurn]);
+
+  const counting = isMyTurn && !pendingMove && deadline !== null && moveTimeLimit !== null;
+  const remaining = counting ? Math.max(0, (deadline! - now) / 1000) : null;
+  const urgent = remaining !== null && remaining <= 10;
+
+  let headline: string;
+  if (status === 'queued') headline = 'Waiting for a free match runner…';
+  else if (pendingMove) headline = 'Sending your move…';
+  else if (isMyTurn) headline = 'Your turn: click a free cell';
+  else headline = 'Agent is thinking…';
+
+  return (
+    <Box
+      sx={{
+        mb: 2,
+        p: 2,
+        borderRadius: 2,
+        border: 2,
+        borderColor: isMyTurn ? 'primary.main' : 'divider',
+        backgroundColor: isMyTurn ? 'action.hover' : 'transparent',
+        transition: 'border-color 0.25s ease, background-color 0.25s ease',
+      }}
+    >
+      {/* Everything is always rendered so turns never shift the layout. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: 32 }}>
+        <Person color={isMyTurn ? 'primary' : 'disabled'} sx={{ transition: 'color 0.25s ease' }} />
+        <Typography
+          variant="subtitle1"
+          fontWeight={700}
+          noWrap
+          sx={{ flex: 1, minWidth: 0 }}
+          aria-live="polite"
+        >
+          {headline}
+        </Typography>
+        <Typography
+          variant="subtitle1"
+          fontWeight={700}
+          aria-hidden={remaining === null}
+          sx={{
+            width: '4ch',
+            textAlign: 'right',
+            fontFamily: 'monospace',
+            fontVariantNumeric: 'tabular-nums',
+            color: urgent ? 'error.main' : 'text.secondary',
+            visibility: remaining === null ? 'hidden' : 'visible',
+          }}
+        >
+          {remaining !== null ? `${Math.ceil(remaining)}s` : '00s'}
+        </Typography>
+        <Button
+          size="small"
+          color="error"
+          variant="outlined"
+          startIcon={<Flag />}
+          onClick={onResign}
+          sx={{ flexShrink: 0, minWidth: 100 }}
+        >
+          {status === 'queued' ? 'Cancel' : 'Resign'}
+        </Button>
+      </Box>
+
+      <LinearProgress
+        variant={remaining !== null ? 'determinate' : 'indeterminate'}
+        value={remaining !== null ? Math.min(100, (remaining / moveTimeLimit!) * 100) : 0}
+        color={urgent ? 'error' : remaining !== null ? 'primary' : 'inherit'}
+        aria-label={remaining !== null ? 'Time left for your move' : 'Waiting for the agent'}
+        sx={{
+          mt: 1.5,
+          height: 6,
+          borderRadius: 3,
+          ...(remaining === null && {
+            opacity: 0.35,
+            '& .MuiLinearProgress-bar': { animationDuration: '3s' },
+          }),
+          '& .MuiLinearProgress-bar': {
+            borderRadius: 3,
+            ...(remaining !== null && { transition: 'transform 0.2s linear' }),
+          },
+        }}
+      />
     </Box>
   );
 }
@@ -381,6 +509,8 @@ function ReplayControls({
 export function LiveMatch() {
   const { matchId } = useParams<{ matchId: string }>();
   const goBack = useSmartBack('/games/matches');
+  const { user } = useAuth();
+  const [matchConfig, setMatchConfig] = useState<any>(null);
 
   // Pre-fetch: load match metadata + all agents before rendering the page content
   const [agentMap, setAgentMap] = useState<Record<string, string>>({});
@@ -406,7 +536,9 @@ export function LiveMatch() {
       setAgentMap(map);
     });
     // Fetch match to warm agent IDs / game type before SSE connects
-    const fetchMatch = matchesApi.getMatch(matchId).catch(() => null); // non-fatal
+    const fetchMatch = matchesApi.getMatch(matchId)
+      .then(m => setMatchConfig(m?.config ?? null))
+      .catch(() => null); // non-fatal
     Promise.all([fetchAgents, fetchMatch])
       .then(() => setPrefetchDone(true))
       .catch(err => {
@@ -425,6 +557,11 @@ export function LiveMatch() {
     logs,
     isConnected,
     error,
+    humanUserId,
+    humanPlayerIndex,
+    humanName,
+    agentNames,
+    humanMoveDeadline,
   } = useMatchStream(matchId);
 
   const isLoading = matchStatus === null;
@@ -537,6 +674,59 @@ export function LiveMatch() {
   const winnerId = result?.winner;
   const isDraw = winnerId === 'draw';
 
+  // ── Human-vs-agent play ──
+  const isHumanMatch = humanPlayerIndex !== null;
+  const isMyGame = isHumanMatch && !!user && user.id === humanUserId;
+  const playerIds = useMemo(() => {
+    if (humanPlayerIndex === null) return agentIds;
+    const ids = [...agentIds];
+    ids.splice(humanPlayerIndex, 0, HUMAN_PLAYER_ID);
+    return ids;
+  }, [agentIds, humanPlayerIndex]);
+  const playerMap = useMemo(() => {
+    // agentNames covers other users' agents.
+    const names = { ...agentNames, ...agentMap };
+    if (!isHumanMatch) return names;
+    const label = isMyGame ? 'You' : `${humanName ?? 'Human'} (human)`;
+    return { ...names, [HUMAN_PLAYER_ID]: label };
+  }, [agentMap, agentNames, isHumanMatch, isMyGame, humanName]);
+
+  const isMyTurn = isMyGame && matchStatus === 'running' && !hasHistory
+    && gameState?.turn === humanPlayerIndex;
+  const [pendingMove, setPendingMove] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [resignOpen, setResignOpen] = useState(false);
+  const [resigning, setResigning] = useState(false);
+
+  // Any stream event means the runner handled the pending move.
+  useEffect(() => { setPendingMove(false); }, [gameState, logs]);
+
+  const handleHumanMove = async (move: Record<string, unknown>) => {
+    if (!matchId || pendingMove) return;
+    setPendingMove(true);
+    setMoveError(null);
+    try {
+      await matchesApi.submitHumanMove(matchId, move);
+    } catch (err) {
+      setPendingMove(false);
+      setMoveError(err instanceof Error ? err.message : 'Failed to send move');
+    }
+  };
+
+  const handleResign = async () => {
+    if (!matchId) return;
+    setResigning(true);
+    try {
+      await matchesApi.resignHumanMatch(matchId);
+      setResignOpen(false);
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : 'Failed to resign');
+      setResignOpen(false);
+    } finally {
+      setResigning(false);
+    }
+  };
+
   const logsPanelContainers = useMemo(
     () => containerLogs
       .slice()
@@ -600,7 +790,8 @@ export function LiveMatch() {
         <MatchResultBanner
           result={result}
           status={matchStatus}
-          agentMap={agentMap}
+          agentMap={playerMap}
+          viewerPlayerId={isMyGame ? HUMAN_PLAYER_ID : null}
         />
       )}
 
@@ -615,39 +806,42 @@ export function LiveMatch() {
             <Typography variant="h5" fontWeight={700} sx={{ flex: 1 }}>
               {gameInfo?.name ?? gameType ?? 'Loading…'}
             </Typography>
+            {isHumanMatch && (
+              <Chip icon={<Person />} label="Human vs Agent" size="small" variant="outlined" />
+            )}
             <StatusChip status={isError ? 'failed' : matchStatus} />
           </Box>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mb: agentIds.length > 0 ? 2 : 0, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: playerIds.length > 0 ? 2 : 0, fontFamily: 'monospace', wordBreak: 'break-all' }}>
             {matchId}
           </Typography>
 
           {/* ── Agent player cards ── */}
-          {agentIds.length > 0 && (
+          {playerIds.length > 0 && (
             <>
               <Divider sx={{ mb: 2 }} />
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-                {agentIds.length === 2 ? (
+                {playerIds.length === 2 ? (
                   <>
                     <AgentCard
-                      name={agentMap[agentIds[0]] || agentIds[0].slice(0, 8) + '…'}
+                      name={playerMap[playerIds[0]] || playerIds[0].slice(0, 8) + '…'}
                       index={0}
-                      isWinner={isTerminal && !isDraw && winnerId === agentIds[0]}
+                      isWinner={isTerminal && !isDraw && winnerId === playerIds[0]}
                       isDraw={isTerminal && isDraw}
                     />
                     <Typography variant="body2" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.85rem', letterSpacing: 1 }}>
                       VS
                     </Typography>
                     <AgentCard
-                      name={agentMap[agentIds[1]] || agentIds[1].slice(0, 8) + '…'}
+                      name={playerMap[playerIds[1]] || playerIds[1].slice(0, 8) + '…'}
                       index={1}
-                      isWinner={isTerminal && !isDraw && winnerId === agentIds[1]}
+                      isWinner={isTerminal && !isDraw && winnerId === playerIds[1]}
                       isDraw={isTerminal && isDraw}
                     />
                   </>
                 ) : (
-                  agentIds.map((id, i) => {
-                    const name = agentMap[id] || id.slice(0, 8) + '…';
+                  playerIds.map((id, i) => {
+                    const name = playerMap[id] || id.slice(0, 8) + '…';
                     return (
                       <AgentCard
                         key={id}
@@ -668,6 +862,16 @@ export function LiveMatch() {
       {/* ── Game visualization ── */}
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ boxSizing: 'border-box' }}>
+          {isMyGame && !isTerminal && !isLoading && (
+            <HumanPlayPanel
+              status={matchStatus}
+              isMyTurn={isMyTurn}
+              pendingMove={pendingMove}
+              deadline={humanMoveDeadline}
+              moveTimeLimit={typeof matchConfig?.human_turn_time_limit === 'number' ? matchConfig.human_turn_time_limit : null}
+              onResign={() => setResignOpen(true)}
+            />
+          )}
           {isLoading ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 2 }}>
               <CircularProgress size={40} />
@@ -684,10 +888,15 @@ export function LiveMatch() {
               <GameRenderer
                 gameState={displayedGameState}
                 gameType={gameType!}
-                agentIds={agentIds}
-                agentMap={agentMap}
+                agentIds={playerIds}
+                agentMap={playerMap}
                 matchStatus={matchStatus}
                 result={result}
+                interactive={isMyGame && humanPlayerIndex !== null ? {
+                  playerIndex: humanPlayerIndex,
+                  enabled: isMyTurn && !pendingMove,
+                  onMove: handleHumanMove,
+                } : undefined}
               />
 
               {/* Replay controls */}
@@ -796,7 +1005,7 @@ export function LiveMatch() {
               }}
             >
               {logsPanelContainers.map((container) => {
-                const agentName = agentMap[container.agent_id]
+                const agentName = playerMap[container.agent_id]
                   || container.agent_name
                   || `${container.agent_id.slice(0, 8)}...`;
                 const lines = container.logs ? container.logs.split(/\r?\n/) : [];
@@ -841,6 +1050,34 @@ export function LiveMatch() {
         </Card>
       )
       }
+
+      <Snackbar
+        open={!!moveError}
+        autoHideDuration={5000}
+        onClose={() => setMoveError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="warning" variant="filled" onClose={() => setMoveError(null)} sx={{ width: '100%' }}>
+          {moveError}
+        </Alert>
+      </Snackbar>
+
+      <Dialog open={resignOpen} onClose={() => !resigning && setResignOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{matchStatus === 'queued' ? 'Cancel this game?' : 'Resign this game?'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {matchStatus === 'queued'
+              ? 'The game has not started yet. It will be removed from the queue.'
+              : 'The agent will be declared the winner. Human games never affect agent stats or ELO.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResignOpen(false)} disabled={resigning}>Keep playing</Button>
+          <Button onClick={handleResign} color="error" variant="contained" disabled={resigning}>
+            {matchStatus === 'queued' ? 'Cancel game' : 'Resign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container >
   );
 }
