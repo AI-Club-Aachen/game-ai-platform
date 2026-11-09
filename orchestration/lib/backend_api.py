@@ -246,8 +246,7 @@ class BackendAPI:
             logs: Optional log lines to append
             result: Optional match result data (scores, winner, etc.)
             game_state: Optional current game state dictionary
-            human_turn_seconds: Human-vs-agent only: seconds the human has for the
-                move the runner is now waiting on (drives the UI countdown)
+            human_turn_seconds: Seconds the human has for the pending move
 
         Returns:
             Updated match data

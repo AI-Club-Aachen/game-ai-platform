@@ -230,7 +230,6 @@ export function HexRenderer({ gameState, agentIds, agentMap, interactive }: Game
           borderRadius: 2,
           p: 2,
           boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)',
-          // Preview the human's colour on hover / keyboard focus.
           '& .hex-playable:hover polygon, & .hex-playable:focus-visible polygon': {
             fill: interactive?.playerIndex === 0 ? colors.p0 : colors.p1,
             fillOpacity: 0.45,

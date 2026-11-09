@@ -32,7 +32,6 @@ class MatchConfig:
     """Normalized match configuration used by the runner."""
 
     turn_time_limit: float = DEFAULT_TURN_TIME_LIMIT
-    # Human-vs-agent matches only.
     human_turn_time_limit: float = DEFAULT_HUMAN_TURN_TIME_LIMIT
     max_duration_seconds: float | None = None
 
@@ -323,19 +322,13 @@ async def _play_human_turn(
     move_time_limit: float,
     match_deadline: float,
 ) -> TurnOutcome:
-    """
-    Wait for the human's move via Redis. Illegal or malformed moves are logged
-    and ignored (the human keeps the turn) instead of forfeiting the match, since
-    a misclick should not lose the game. Running out of time or resigning does.
-    """
+    """Wait for the human's move. Illegal moves are logged and ignored, not forfeited."""
     current_player = human.player_id
     winner_id = 1 - current_player
-    # Never wait past the match's wall-clock cap.
     wall_remaining = max(0.0, match_deadline - time.monotonic())
     timeout = min(move_time_limit, wall_remaining)
 
-    # Tell the backend the deadline before starting our own clock, so the UI
-    # countdown (derived from it) can only run slightly short, never long.
+    # Report before starting our clock, so the UI countdown can only run short, never long.
     try:
         await api.update_match(match_id, status="running", human_turn_seconds=timeout)
     except Exception as e:
@@ -343,7 +336,6 @@ async def _play_human_turn(
     started = time.monotonic()
 
     async def heartbeat() -> None:
-        # Keeps updated_at fresh so the match is not failed as stale while waiting.
         try:
             await api.update_match(match_id, status="running")
         except Exception as e:
@@ -436,8 +428,7 @@ async def run_match(
             logger.error(f"[{match_id}] Failed to import game modules for type {game_type!r}: {e}")
             return {"status": "error", "reason": f"Game type {game_type} not supported: {e}"}
 
-        # Human-vs-agent match: the human takes one seat, the agent(s) fill the rest.
-        # player_ids / player_images are indexed by player (seat) from here on.
+        # Human-vs-agent: the human takes one seat. From here on, index by seat.
         human_index = match_data.get("human_player_index")
         player_ids: list[str] = list(agent_ids)
         player_images: list[str] = list(image_tags)
@@ -653,8 +644,6 @@ async def run_match(
                     )
                     logger.debug(f"[{match_id}] Turn {turn_count}: backend state updated")
                     if isinstance(cur_agent, HumanPlayer):
-                        # The backend now reports the agent's turn and rejects human
-                        # moves; drop any duplicate the human sent before that.
                         await cur_agent.discard_pending()
                 except Exception as e:
                     logger.error(f"[{match_id}] Turn {turn_count}: failed to update match game_state: {e}")
@@ -706,8 +695,9 @@ async def run_match(
         if winner_result == "draw":
             result_summary = f"Draw after {turn_count} turn(s). Reason: {reason}"
         else:
+            who = "human" if winner_result == HUMAN_PLAYER_ID else f"agent {winner_result}"
             result_summary = (
-                f"Player {winner_id} (agent {winner_result}) wins after {turn_count} turn(s). "
+                f"Player {winner_id} ({who}) wins after {turn_count} turn(s). "
                 f"Reason: {reason}"
             )
         await _log(api, match_id, "running", f"[RESULT] {result_summary}")

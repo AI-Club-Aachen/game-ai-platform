@@ -24,17 +24,19 @@ logger = logging.getLogger("match_runner_worker")
 logger.info(f"Log level set to {_log_level_name}")
 
 
+TERMINAL_STATUSES = {"completed", "failed", "client_error"}
+
+
 async def process_match(match_id: str, config: dict, agent_ids: list[str], api: BackendAPI, create_images: bool):
     logger.info(f"Processing match {match_id}")
 
     image_tags = []
 
     try:
-        # A match can end before a worker picks it up (e.g. a human cancelled
-        # their queued game); don't run it then.
+        # Skip matches that ended while queued (a human cancelled their game).
         try:
             current = await api.get_match(match_id)
-            if current.get("status") in {"completed", "failed", "client_error"}:
+            if current.get("status") in TERMINAL_STATUSES:
                 logger.info(f"Skipping match {match_id}: already {current.get('status')}")
                 return
         except Exception as e:
@@ -48,8 +50,11 @@ async def process_match(match_id: str, config: dict, agent_ids: list[str], api: 
             image_tags = await _get_agent_image_tags(agent_ids, api)
         logger.debug(f"[{match_id}] Image tags for {agent_ids}: {image_tags}")
 
-        # Update status to RUNNING
-        await api.update_match(match_id, status="running")
+        # Update status to RUNNING (refused if the game was cancelled while images were prepared)
+        updated = await api.update_match(match_id, status="running")
+        if isinstance(updated, dict) and updated.get("status") in TERMINAL_STATUSES:
+            logger.info(f"Skipping match {match_id}: already {updated.get('status')}")
+            return
 
         logger.info("Starting Match execution...")
         result = await run_match(match_id, config, agent_ids, image_tags, api)

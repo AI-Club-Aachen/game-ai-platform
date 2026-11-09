@@ -119,10 +119,7 @@ class Settings(BaseSettings):
             "Set to roughly the number of match-runner workers."
         ),
     )
-    # Human-vs-agent play. These are startup defaults; admins can change them at
-    # runtime in the match "Scheduler Settings" (in-memory, like the rest of the
-    # scheduler config). The worker heartbeats while waiting on a human, so the
-    # move limit may exceed MATCH_STALE_TIMEOUT_SECONDS.
+    # Human-vs-agent defaults; admins can change them at runtime in "Scheduler Settings".
     HUMAN_MOVE_TIME_LIMIT_SECONDS: float = Field(
         default=60.0,
         ge=5.0,

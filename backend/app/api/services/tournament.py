@@ -10,7 +10,7 @@ from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.tournament import TournamentRepository
 from app.api.services.match import MatchService, MatchServiceError
-from app.api.services.submission_builds import submission_has_successful_build
+from app.api.services.submission_builds import agent_is_playable
 from app.api.services.tournament_bracket import (
     MatchupSpec,
     deterministic_coin_flip,
@@ -361,7 +361,7 @@ class TournamentService:
                 raise TournamentServiceError(f"Agent {agent.id} does not belong to target arena")
             if agent.game_type != game_type:
                 raise TournamentServiceError(f"Agent {agent.id} does not belong to game '{game_type}'")
-            if agent.active_submission is None or not submission_has_successful_build(agent.active_submission):
+            if not agent_is_playable(agent):
                 raise TournamentServiceError(f"Agent {agent.id} does not have a successful active submission")
 
     @staticmethod

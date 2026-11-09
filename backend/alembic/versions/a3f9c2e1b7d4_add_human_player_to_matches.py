@@ -8,7 +8,6 @@ Create Date: 2026-11-09 12:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-import sqlmodel
 
 from alembic import op
 
@@ -21,15 +20,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Human-vs-agent matches: who plays by hand, in which seat, and their display name.
+    # Human-vs-agent matches: who plays by hand and in which seat.
     op.add_column("matches", sa.Column("human_user_id", sa.Uuid(), nullable=True))
     op.add_column("matches", sa.Column("human_player_index", sa.Integer(), nullable=True))
-    op.add_column("matches", sa.Column("human_name", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
     op.create_index(op.f("ix_matches_human_user_id"), "matches", ["human_user_id"], unique=False)
 
 
 def downgrade() -> None:
     op.drop_index(op.f("ix_matches_human_user_id"), table_name="matches")
-    op.drop_column("matches", "human_name")
     op.drop_column("matches", "human_player_index")
     op.drop_column("matches", "human_user_id")

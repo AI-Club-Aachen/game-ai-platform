@@ -18,17 +18,12 @@ export interface MatchStreamState {
   isConnected: boolean;
   /** Error message if connection failed */
   error: string | null;
-  /** Human-vs-agent matches: the user playing by hand, their seat and display name */
+  /** Human-vs-agent matches only */
   humanUserId: string | null;
   humanPlayerIndex: number | null;
   humanName: string | null;
-  /** Agent UUID → display name, as sent by the server */
   agentNames: Record<string, string>;
-  /**
-   * Local-clock timestamp (ms) when the human's pending move times out, derived
-   * from the server's authoritative remaining time on every event (so it survives
-   * refreshes and re-syncs on heartbeats). Null when no human move is pending.
-   */
+  /** Local timestamp (ms) when the human's pending move times out, from the server */
   humanMoveDeadline: number | null;
 }
 

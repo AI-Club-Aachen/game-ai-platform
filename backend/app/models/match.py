@@ -43,8 +43,7 @@ class MatchConfig(BaseModel):
 
     turn_time_limit: float = 5.0
     state_init_data: dict[str, Any] = {}
-    # Human-vs-agent matches only (set server-side, never from API input):
-    # seconds the human gets per move, and the overall wall-clock cap.
+    # Human-vs-agent only, set server-side: seconds per human move, and per game.
     human_turn_time_limit: float | None = None
     max_duration_seconds: float | None = None
 
@@ -73,12 +72,9 @@ class Match(SQLModel, table=True):
     # from global agent stats and from the random auto-scheduler.
     tournament_id: UUID | None = Field(default=None, foreign_key="tournaments.id", nullable=True, index=True)
 
-    # Set for human-vs-agent matches: the user playing by hand, their seat
-    # (player index) and a display-name snapshot. Such matches skip global
-    # agent stats/ELO and are ignored by the auto-scheduler's queue gates.
+    # Human-vs-agent matches: who plays by hand, and their seat. Skips stats/ELO.
     human_user_id: UUID | None = Field(default=None, nullable=True, index=True)
     human_player_index: int | None = Field(default=None, nullable=True)
-    human_name: str | None = Field(default=None, nullable=True)
 
     # Configuration for the match (e.g. which agents, game rules, seed)
     config: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

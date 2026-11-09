@@ -20,18 +20,13 @@ class MatchCreate(MatchBase):
 
 
 class HumanMatchCreate(BaseModel):
-    """Start a match where the caller plays by hand against one agent."""
-
     arena_id: UUID
     agent_id: UUID
-    # Seat the human takes: 0 moves first, 1 moves second.
-    human_player_index: int = Field(default=0, ge=0, le=1)
+    human_player_index: int = Field(default=0, ge=0, le=1)  # 0 moves first
 
 
 class HumanMoveSubmit(BaseModel):
-    """A move submitted by the human player. ``player`` is filled in server-side."""
-
-    move: dict[str, Any]
+    move: dict[str, Any]  # "player" is set server-side
 
 
 class MatchUpdate(BaseModel):
@@ -41,8 +36,7 @@ class MatchUpdate(BaseModel):
     logs: str | None = None
     result: dict[str, Any] | None = None
     game_state: dict[str, Any] | None = None
-    # Human-vs-agent: the runner reports how many seconds the human has for the
-    # move it is now waiting on (starts the authoritative countdown).
+    # Seconds the human has for the move the runner now waits on.
     human_turn_seconds: float | None = Field(default=None, ge=0, le=3600)
 
 
@@ -55,7 +49,6 @@ class MatchRead(MatchBase):
     game_state: dict[str, Any] | None
     human_user_id: UUID | None = None
     human_player_index: int | None = None
-    human_name: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +61,14 @@ class MatchRead(MatchBase):
         if isinstance(v, dict):
             return MatchConfig(**v)
         return v
+
+
+class PlayableAgentRead(BaseModel):
+    id: UUID
+    agent_name: str
+    username: str
+    elo: int | None
+    is_mine: bool
 
 
 class GameInfo(BaseModel):

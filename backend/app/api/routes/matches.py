@@ -14,8 +14,10 @@ from app.api.deps import (
     VerifiedUserOrHigher,
     WorkerOrVerifiedUser,
     get_match_service,
+    get_user_repository,
     require_worker_api_key,
 )
+from app.api.repositories.user import UserRepository
 from app.api.services.match import (
     MatchConflictError,
     MatchNotFoundError,
@@ -34,7 +36,14 @@ from app.core.rate_limit import limiter
 from app.models.game import GameType
 from app.models.match import MatchStatus
 from app.models.user import UserRole
-from app.schemas.match import HumanMatchCreate, HumanMoveSubmit, MatchCreate, MatchRead, MatchUpdate
+from app.schemas.match import (
+    HumanMatchCreate,
+    HumanMoveSubmit,
+    MatchCreate,
+    MatchRead,
+    MatchUpdate,
+    PlayableAgentRead,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -48,13 +57,13 @@ class MatchSchedulerConfig(BaseModel):
     strategy: str
     # "serial" (one at a time) or "concurrent" (fill up to MATCH_MAX_CONCURRENT_MATCHES)
     scheduling_strategy: str = SCHEDULING_SERIAL
-    # Human-vs-agent play: seconds per human move, and the cap for a whole game.
+    # Human-vs-agent limits: seconds per move, and per game.
     human_move_time_limit: float = Field(default=settings.HUMAN_MOVE_TIME_LIMIT_SECONDS, ge=5.0, le=600.0)
     human_match_max_duration: float = Field(default=settings.HUMAN_MATCH_MAX_DURATION_SECONDS, ge=60.0, le=3600.0)
 
 
 def _get_scheduler_service(request: Request) -> object | None:
-    """The MatchSchedulerService instance registered on the app's task runner."""
+    """The MatchSchedulerService registered on the app's task runner."""
     task_runner = getattr(request.app.state, "task_runner", None)
     if not task_runner:
         return None
@@ -171,11 +180,7 @@ async def create_human_match(
     current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
 ) -> MatchRead:
-    """
-    Start a game where the caller plays by hand against any agent of the arena.
-    Requires the USER role or higher. One active human game per user; the
-    result does not affect agent stats or ELO.
-    """
+    """Play by hand against any agent of the arena. No effect on agent stats/ELO."""
     scheduler = _get_scheduler_service(request)
     move_limit = getattr(scheduler, "human_move_time_limit", settings.HUMAN_MOVE_TIME_LIMIT_SECONDS)
     max_duration = getattr(scheduler, "human_match_max_duration", settings.HUMAN_MATCH_MAX_DURATION_SECONDS)
@@ -184,7 +189,6 @@ async def create_human_match(
             arena_id=match_in.arena_id,
             agent_id=match_in.agent_id,
             human_user_id=current_user.id,
-            human_name=current_user.username,
             human_player_index=match_in.human_player_index,
             human_turn_time_limit=move_limit,
             max_duration_seconds=max_duration,
@@ -196,20 +200,29 @@ async def create_human_match(
 
 
 # GET /api/v1/matches/human/opponents?arena_id=...
-@router.get("/human/opponents", response_model=list[dict])
+@router.get("/human/opponents", response_model=list[PlayableAgentRead])
 def list_human_opponents(
     arena_id: UUID,
     current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
-) -> list[dict]:
-    """
-    Agents of an arena you can play against by hand (any owner, working build).
-    Requires the USER role or higher.
-    """
+) -> list[PlayableAgentRead]:
+    """Agents of an arena you can play against: your own first, then by ELO."""
     try:
-        return service.list_human_opponents(arena_id, current_user.id)
+        agents = service.list_playable_agents(arena_id)
     except MatchServiceError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    opponents = [
+        PlayableAgentRead(
+            id=agent.id,
+            agent_name=agent.name,
+            username=username,
+            elo=agent.elo,
+            is_mine=agent.user_id == current_user.id,
+        )
+        for agent, username in agents
+    ]
+    opponents.sort(key=lambda o: (not o.is_mine, -(o.elo if o.elo is not None else -1)))
+    return opponents
 
 
 # POST /api/v1/matches/{match_id}/human-move
@@ -222,10 +235,7 @@ async def submit_human_move(
     current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
 ) -> dict[str, str]:
-    """
-    Submit a move as the human player. Accepted moves show up on the match's SSE
-    stream; an illegal move is ignored by the runner (logged) and the turn stays yours.
-    """
+    """Submit a move as the human player. Illegal moves are ignored by the runner."""
     try:
         await service.submit_human_move(str(match_id), current_user.id, move_in.move)
     except MatchNotFoundError as e:
@@ -248,7 +258,7 @@ async def resign_human_match(
     current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
 ) -> MatchRead:
-    """Resign (or cancel, if still queued) your human-vs-agent game."""
+    """Resign your human game, or cancel it while queued."""
     try:
         return await service.resign_human_match(str(match_id), current_user.id)
     except MatchNotFoundError as e:
@@ -327,6 +337,7 @@ async def stream_match(
     match_id: str,
     _current_user: VerifiedGuestOrHigher,
     service: MatchService = Depends(get_match_service),
+    user_repository: UserRepository = Depends(get_user_repository),
 ) -> StreamingResponse:
     """
     Stream match game state updates via Server-Sent Events (SSE).
@@ -342,17 +353,18 @@ async def stream_match(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    # Static for the match's lifetime: who sits where, and agent display names
-    # (spectators can't list other users' agents, but names are public on leaderboards).
+    # Sent with every event. Agent names are public (leaderboards).
+    human = user_repository.get_by_id(match.human_user_id) if match.human_user_id else None
     static_fields = {
         "human_user_id": str(match.human_user_id) if match.human_user_id else None,
         "human_player_index": match.human_player_index,
-        "human_name": match.human_name,
+        "human_name": human.username if human else None,
         "agent_names": service.get_agent_names(match.agent_ids or []),
     }
 
     async def event_generator():  # noqa: ANN202
         # Send initial state immediately
+        human_move_remaining = await service.get_human_move_remaining(match)
         initial_event = {
             "game_state": match.game_state,
             "status": match.status.value,
@@ -360,7 +372,7 @@ async def stream_match(
             "agent_ids": [str(aid) for aid in (match.agent_ids or [])],
             "logs": match.logs,
             "result": match.result,
-            "human_move_remaining": await service.get_human_move_remaining(match),
+            "human_move_remaining": human_move_remaining,
             **static_fields,
         }
         yield f"data: {json.dumps(initial_event)}\n\n"

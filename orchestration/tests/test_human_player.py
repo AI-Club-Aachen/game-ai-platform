@@ -125,11 +125,19 @@ def test_wall_clock_cap_ends_without_a_winner():
     assert api.deadlines[0] <= 0.5
 
 
-def test_discard_pending_keeps_resignation():
+@pytest.mark.parametrize(
+    ("pending", "kept"),
+    [
+        ([{"type": "move", "move": {"player": 0, "position": 1}}, {"type": "resign"}], [{"type": "resign"}]),
+        # A move whose payload merely contains "resign" is not a resignation.
+        ([{"type": "move", "move": {"player": 0, "position": "resign"}}], []),
+    ],
+)
+def test_discard_pending_keeps_only_a_resignation(pending, kept):
     match_id = str(uuid.uuid4())
 
     async def scenario():
-        await _push(match_id, {"type": "move", "move": {"player": 0, "position": 1}}, {"type": "resign"})
+        await _push(match_id, *pending)
         human = HumanPlayer(match_id, player_id=0, redis_url=REDIS_URL)
         await human.start()
         try:
@@ -142,7 +150,7 @@ def test_discard_pending_keeps_resignation():
         finally:
             await human.cleanup()
 
-    assert [json.loads(r) for r in asyncio.run(scenario())] == [{"type": "resign"}]
+    assert [json.loads(r) for r in asyncio.run(scenario())] == kept
 
 
 def test_parse_match_config_human_fields():

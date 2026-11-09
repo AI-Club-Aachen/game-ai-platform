@@ -49,8 +49,7 @@ import { matchesApi } from '../services/api/matches';
 import { containersApi } from '../services/api/containers';
 import { useAuth } from '../context/AuthContext';
 
-// Player id the match runner uses for the human seat (result.winner, scores).
-const HUMAN_PLAYER_ID = 'human';
+const HUMAN_PLAYER_ID = 'human'; // the human's id in results
 
 // ─── Status Chip ──────────────────────────────────────────────────────────────
 
@@ -213,7 +212,6 @@ function MatchResultBanner({
   result: any;
   status: string | null;
   agentMap: Record<string, string>;
-  /** Player id of the viewer when they played this match by hand */
   viewerPlayerId?: string | null;
 }) {
   if (!status || !['completed', 'failed', 'client_error'].includes(status)) return null;
@@ -295,7 +293,6 @@ function HumanPlayPanel({
   status: string | null;
   isMyTurn: boolean;
   pendingMove: boolean;
-  /** Server-derived local timestamp (ms) when the current move times out */
   deadline: number | null;
   moveTimeLimit: number | null;
   onResign: () => void;
@@ -308,8 +305,6 @@ function HumanPlayPanel({
     return () => clearInterval(t);
   }, [isMyTurn]);
 
-  // The deadline comes from the match runner (via the server), so it survives
-  // page refreshes and also reflects the overall game time cap.
   const counting = isMyTurn && !pendingMove && deadline !== null && moveTimeLimit !== null;
   const remaining = counting ? Math.max(0, (deadline! - now) / 1000) : null;
   const urgent = remaining !== null && remaining <= 10;
@@ -332,7 +327,7 @@ function HumanPlayPanel({
         transition: 'border-color 0.25s ease, background-color 0.25s ease',
       }}
     >
-      {/* Fixed-height row: every element is always rendered so turns never shift the layout. */}
+      {/* Everything is always rendered so turns never shift the layout. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: 32 }}>
         <Person color={isMyTurn ? 'primary' : 'disabled'} sx={{ transition: 'color 0.25s ease' }} />
         <Typography
@@ -371,7 +366,6 @@ function HumanPlayPanel({
         </Button>
       </Box>
 
-      {/* Always-present bar: countdown on your turn, slow muted pulse otherwise. */}
       <LinearProgress
         variant={remaining !== null ? 'determinate' : 'indeterminate'}
         value={remaining !== null ? Math.min(100, (remaining / moveTimeLimit!) * 100) : 0}
@@ -681,7 +675,6 @@ export function LiveMatch() {
   const isDraw = winnerId === 'draw';
 
   // ── Human-vs-agent play ──
-  // Seats in player order: agent ids with the human inserted at their seat.
   const isHumanMatch = humanPlayerIndex !== null;
   const isMyGame = isHumanMatch && !!user && user.id === humanUserId;
   const playerIds = useMemo(() => {
@@ -691,7 +684,7 @@ export function LiveMatch() {
     return ids;
   }, [agentIds, humanPlayerIndex]);
   const playerMap = useMemo(() => {
-    // Server-sent names cover other users' agents, which the agent list doesn't include.
+    // agentNames covers other users' agents.
     const names = { ...agentNames, ...agentMap };
     if (!isHumanMatch) return names;
     const label = isMyGame ? 'You' : `${humanName ?? 'Human'} (human)`;
@@ -705,8 +698,7 @@ export function LiveMatch() {
   const [resignOpen, setResignOpen] = useState(false);
   const [resigning, setResigning] = useState(false);
 
-  // Any stream event (new state, log line, heartbeat) means the runner handled
-  // the pending move (accepted, or ignored as illegal), so allow input again.
+  // Any stream event means the runner handled the pending move.
   useEffect(() => { setPendingMove(false); }, [gameState, logs]);
 
   const handleHumanMove = async (move: Record<string, unknown>) => {
@@ -1059,7 +1051,6 @@ export function LiveMatch() {
       )
       }
 
-      {/* ── Move / resign errors (a toast, so the board never shifts) ── */}
       <Snackbar
         open={!!moveError}
         autoHideDuration={5000}
@@ -1071,7 +1062,6 @@ export function LiveMatch() {
         </Alert>
       </Snackbar>
 
-      {/* ── Resign confirmation ── */}
       <Dialog open={resignOpen} onClose={() => !resigning && setResignOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{matchStatus === 'queued' ? 'Cancel this game?' : 'Resign this game?'}</DialogTitle>
         <DialogContent>

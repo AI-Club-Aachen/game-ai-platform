@@ -76,6 +76,7 @@ class MatchRepository:
         cutoff: datetime,
         limit: int = 100,
         with_tournament: bool | None = None,
+        human_user_id: UUID | None = None,
     ) -> Sequence[Match]:
         """List running matches that have not been updated since ``cutoff``."""
         statement = (
@@ -89,6 +90,8 @@ class MatchRepository:
             statement = statement.where(Match.tournament_id.is_not(None))
         elif with_tournament is False:
             statement = statement.where(Match.tournament_id.is_(None))
+        if human_user_id is not None:
+            statement = statement.where(Match.human_user_id == human_user_id)
         return self._session.exec(statement).all()
 
     def count_active_by_tournament(self, tournament_id: UUID) -> int:
@@ -102,10 +105,7 @@ class MatchRepository:
         return self._session.exec(statement).one()
 
     def count_active_non_tournament(self) -> int:
-        """
-        Number of queued/running auto-schedulable matches (auto-scheduler concurrency
-        cap). Tournament and human-vs-agent matches are not counted.
-        """
+        """Queued/running matches that count against the auto-scheduler cap (no tournament/human)."""
         statement = (
             select(func.count())
             .select_from(Match)

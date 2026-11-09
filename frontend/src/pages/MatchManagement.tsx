@@ -635,7 +635,6 @@ export function MatchManagement() {
               </Select>
             </FormControl>
 
-            {/* Human-vs-agent limits apply whether or not the auto-scheduler is enabled. */}
             <Divider />
             <Typography variant="subtitle2" fontWeight={700}>
               Human vs Agent Games

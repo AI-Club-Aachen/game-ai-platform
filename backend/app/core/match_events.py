@@ -63,10 +63,7 @@ class MatchEventPublisher:
         await redis.publish(channel, payload)
         logger.debug("Published game state update to %s", channel)
 
-    # --- Human move deadline ---------------------------------------------
-    # The match runner reports how long the human has for the current move; the
-    # deadline lives here so every SSE event (including the first one after a
-    # page refresh) can carry the authoritative time left.
+    # --- Human move deadline (survives page refreshes) ---------------------
 
     async def set_human_deadline(self, match_id: str, seconds: float) -> None:
         redis = await self._ensure_connected()
@@ -78,7 +75,7 @@ class MatchEventPublisher:
         await redis.delete(_human_deadline_key(match_id))
 
     async def get_human_move_remaining(self, match_id: str) -> float | None:
-        """Seconds left for the human's current move, or None if no move is pending."""
+        """Seconds left for the human's pending move, or None."""
         redis = await self._ensure_connected()
         raw = await redis.get(_human_deadline_key(match_id))
         if raw is None:

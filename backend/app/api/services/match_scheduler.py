@@ -1,7 +1,6 @@
 import logging
 import random
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlmodel import Session
@@ -11,7 +10,6 @@ from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.services.match import MatchService
-from app.api.services.submission_builds import submission_has_successful_build
 from app.core.config import settings
 from app.db.connection import engine
 from app.models.agent import Agent
@@ -38,9 +36,7 @@ class MatchSchedulerService:
         self.strategy = "least_played"
         # How many matches to keep in flight (see constants above).
         self.scheduling_strategy = SCHEDULING_SERIAL
-        # Human-vs-agent play limits, applied to newly started human matches.
-        # Not used by the auto-scheduler itself; they live here so admins edit
-        # them alongside the other match settings.
+        # Human-vs-agent limits; kept here so admins edit them with the other settings.
         self.human_move_time_limit = settings.HUMAN_MOVE_TIME_LIMIT_SECONDS
         self.human_match_max_duration = settings.HUMAN_MATCH_MAX_DURATION_SECONDS
 
@@ -61,7 +57,8 @@ class MatchSchedulerService:
             arena_repository = ArenaRepository(session)
             match_service = MatchService(match_repository, job_repository, agent_repository, arena_repository)
 
-            await self._fail_stale_running_matches(match_repository, match_service)
+            # Otherwise the queue gate sees an abandoned match as RUNNING forever.
+            await match_service.fail_stale_running_matches(with_tournament=False)
 
             free_slots = self._free_slots(match_repository)
             if free_slots <= 0:
@@ -69,7 +66,7 @@ class MatchSchedulerService:
                 return
 
             # Get available agents grouped by arena
-            available_agents = self._get_available_agents_by_arena(agent_repository)
+            available_agents = self._get_available_agents_by_arena(match_service)
 
             # remove arenas with less than 2 available agents
             available_agents = {arena_id: agents for arena_id, agents in available_agents.items() if len(agents) >= 2}  # noqa: PLR2004
@@ -139,66 +136,12 @@ class MatchSchedulerService:
 
         return not running_matches
 
-    async def _fail_stale_running_matches(
-        self,
-        match_repository: MatchRepository,
-        match_service: MatchService,
-    ) -> None:
-        """
-        Recover matches abandoned by a killed/restarted worker.
-
-        The match runner sets a match to RUNNING before executing it. If that process or
-        its backend connection dies before publishing a terminal status, the scheduler's
-        queue gate would otherwise see RUNNING forever and stop scheduling new matches.
-        Stale tournament matches are recovered by the tournament scheduler instead.
-        """
-        cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
-        stale_matches = match_repository.list_stale_running_matches(cutoff=cutoff, with_tournament=False)
-        for match in stale_matches:
-            logger.warning(
-                "Marking stale running match %s as failed; last update at %s exceeded %ss timeout",
-                match.id,
-                match.updated_at,
-                settings.MATCH_STALE_TIMEOUT_SECONDS,
-            )
-            await match_service.update_match(
-                str(match.id),
-                status=MatchStatus.FAILED.value,
-                result={
-                    "status": "error",
-                    "reason": "Match runner lost or timed out",
-                    "details": (
-                        "Match remained in running state without worker updates beyond "
-                        f"{settings.MATCH_STALE_TIMEOUT_SECONDS} seconds."
-                    ),
-                },
-            )
-
-    def _get_available_agents_by_arena(self, agent_repository: AgentRepository) -> dict[UUID, list[Agent]]:
-        """
-        Get a list of available agents that can be scheduled for matches.
-        Returns a dictionary of arena ID to Agent objects.
-        """
-        # Get all agents, fetching in batches
+    @staticmethod
+    def _get_available_agents_by_arena(match_service: MatchService) -> dict[UUID, list[Agent]]:
+        """Playable agents (working active build) grouped by arena ID."""
         available_by_arena: dict[UUID, list[Agent]] = defaultdict(list)
-
-        skip = 0
-        limit = 100
-
-        while True:
-            agents, total = agent_repository.list_agents(skip=skip, limit=limit)
-            if not agents:
-                break
-
-            # Filter agents that have active submissions with successful builds
-            for agent in agents:
-                if agent.active_submission and submission_has_successful_build(agent.active_submission):
-                    available_by_arena[agent.arena_id].append(agent)
-
-            skip += limit
-            if skip >= total:
-                break
-
+        for agent, _owner in match_service.list_playable_agents():
+            available_by_arena[agent.arena_id].append(agent)
         return dict(available_by_arena)
 
     def _choose_agents_for_match(

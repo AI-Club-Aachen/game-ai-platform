@@ -146,7 +146,11 @@ async def test_human_game_move_flow(api_client, fake_email_client, db_session):
 
 
 async def test_cancel_queued_game_frees_the_slot(api_client, fake_email_client, db_session):
-    _, headers = await _member(api_client, fake_email_client, db_session)
+    username = random_username()
+    user_id, token = await _create_member_and_token(
+        api_client, fake_email_client, db_session, username, random_email(), strong_password()
+    )
+    headers = {"Authorization": token}
     agent = _make_built_agent(db_session, GameType.TICTACTOE)
 
     match_id = (await _start_game(api_client, headers, agent)).json()["id"]
@@ -158,6 +162,18 @@ async def test_cancel_queued_game_frees_the_slot(api_client, fake_email_client, 
     resp = await api_client.post(f"{API_PREFIX}/matches/{match_id}/resign", headers=headers)
     assert resp.status_code == 409
 
+    # A worker that picked the game up meanwhile can't revive it.
+    revived = await _match_service(db_session).update_match(match_id, status=MatchStatus.RUNNING.value)
+    assert revived.status == MatchStatus.FAILED
+
+    # The stream of a finished game sends one event: seats and display names included.
+    resp = await api_client.get(f"{API_PREFIX}/matches/{match_id}/stream", headers=headers)
+    assert resp.status_code == 200
+    event = json.loads(resp.text.removeprefix("data: ").strip())
+    assert event["human_user_id"] == user_id
+    assert event["human_name"] == username
+    assert event["agent_names"] == {str(agent.id): agent.name}
+
     assert (await _start_game(api_client, headers, agent)).status_code == 201
 
 
@@ -165,16 +181,27 @@ async def test_stale_running_game_does_not_lock_user_out(api_client, fake_email_
     _, headers = await _member(api_client, fake_email_client, db_session)
     agent = _make_built_agent(db_session, GameType.TICTACTOE)
 
+    stale_at = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS + 30)
     match_id = (await _start_game(api_client, headers, agent)).json()["id"]
     _set_running(db_session, match_id, turn=0)
     match = db_session.get(Match, uuid.UUID(match_id))
-    match.updated_at = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS + 30)
-    db_session.add(match)
+    match.updated_at = stale_at
+    # A stale match that isn't this user's human game is left to the schedulers.
+    other = Match(
+        game_type=agent.game_type,
+        arena_id=agent.arena_id,
+        status=MatchStatus.RUNNING,
+        agent_ids=[str(agent.id)],
+        updated_at=stale_at,
+    )
+    db_session.add_all([match, other])
     db_session.commit()
 
     assert (await _start_game(api_client, headers, agent)).status_code == 201
     db_session.refresh(match)
+    db_session.refresh(other)
     assert match.status == MatchStatus.FAILED
+    assert other.status == MatchStatus.RUNNING
 
 
 async def test_guest_cannot_start_human_game(api_client, fake_email_client, db_session):
@@ -249,7 +276,6 @@ async def test_human_game_skips_stats_and_scheduler_gates(db_session):
         arena_id=agent.arena_id,
         agent_id=agent.id,
         human_user_id=uuid.uuid4(),
-        human_name="tester",
         human_player_index=1,
         human_turn_time_limit=30.0,
         max_duration_seconds=600.0,
@@ -345,7 +371,6 @@ async def test_human_move_deadline_is_server_side(db_session):
         arena_id=agent.arena_id,
         agent_id=agent.id,
         human_user_id=uuid.uuid4(),
-        human_name="tester",
         human_player_index=0,
         human_turn_time_limit=60.0,
         max_duration_seconds=900.0,

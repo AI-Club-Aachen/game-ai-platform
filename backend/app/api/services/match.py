@@ -8,7 +8,7 @@ from app.api.repositories.agent import AgentRepository
 from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
-from app.api.services.submission_builds import submission_has_successful_build
+from app.api.services.submission_builds import agent_is_playable
 from app.core.config import settings
 from app.core.match_events import match_event_publisher
 from app.core.payload_limits import PayloadTooLargeError, cap_log_append, ensure_json_within
@@ -37,11 +37,11 @@ class MatchNotFoundError(MatchServiceError):
 
 
 class MatchConflictError(MatchServiceError):
-    """Raised when the request conflicts with the match's current state (e.g. not your turn)."""
+    """Raised when the request conflicts with the match's current state."""
 
 
-# Upper bound on a submitted human move's JSON size; real moves are tiny.
-MAX_HUMAN_MOVE_BYTES = 1024
+MAX_HUMAN_MOVE_BYTES = 1024  # real moves are tiny
+_TERMINAL_STATUSES = {MatchStatus.COMPLETED, MatchStatus.FAILED, MatchStatus.CLIENT_ERROR}
 
 
 class MatchPayloadTooLargeError(MatchServiceError):
@@ -85,7 +85,7 @@ class MatchService:
         arena = self._get_active_arena(arena_id)
         game_type = arena.game_type
 
-        # Human-play limits are server-controlled; never accept them from API input.
+        # Human-play limits are server-set only.
         config.human_turn_time_limit = None
         config.max_duration_seconds = None
         self._apply_arena_config(arena, config)
@@ -146,18 +146,11 @@ class MatchService:
         arena_id: UUID,
         agent_id: UUID,
         human_user_id: UUID,
-        human_name: str,
         human_player_index: int,
         human_turn_time_limit: float,
         max_duration_seconds: float,
     ) -> Match:
-        """
-        Start a match where ``human_user_id`` plays by hand against one agent.
-
-        Any agent of the arena with a working build may be challenged. A user may
-        have only one queued/running human match at a time (it occupies a match
-        runner while waiting on them). The result never touches agent stats/ELO.
-        """
+        """Start a game where ``human_user_id`` plays one agent by hand. One active game per user."""
         arena = self._get_active_arena(arena_id)
         game_type = arena.game_type
         if not (game_type.min_players <= 2 <= game_type.max_players):  # noqa: PLR2004
@@ -172,7 +165,13 @@ class MatchService:
         self._apply_arena_config(arena, config)
         self._check_agents_eligible(arena_id, game_type, [agent_id])
 
-        await self._ensure_no_active_human_match(human_user_id)
+        # A dead runner must not lock the user out (the auto-scheduler may be off).
+        await self.fail_stale_running_matches(human_user_id=human_user_id)
+        active = self._repository.list_active_human_matches(human_user_id)
+        if active:
+            raise MatchConflictError(
+                f"You already have an active game ({active[0].id}). Finish or resign it first."
+            )
 
         match = Match(
             game_type=game_type,
@@ -182,7 +181,6 @@ class MatchService:
             agent_ids=[str(agent_id)],
             human_user_id=human_user_id,
             human_player_index=human_player_index,
-            human_name=human_name,
         )
         match = self._repository.save(match)
 
@@ -191,52 +189,19 @@ class MatchService:
         await job_queue.enqueue_match(match.id, match.config, job.id, match.agent_ids, job.create_images)
         return match
 
-    def list_human_opponents(self, arena_id: UUID, user_id: UUID) -> list[dict[str, Any]]:
-        """Agents of the arena that can be challenged (active submission with a successful build)."""
-        arena = self._get_active_arena(arena_id)
-        opponents = []
-        for agent, username in self._agent_repository.list_by_arena_with_owner(arena.id):
-            if agent.active_submission is None or not submission_has_successful_build(agent.active_submission):
-                continue
-            opponents.append(
-                {
-                    "id": str(agent.id),
-                    "agent_name": agent.name,
-                    "username": username,
-                    "elo": agent.elo,
-                    "is_mine": agent.user_id == user_id,
-                }
-            )
-        # Own agents first, then by ELO (unrated last).
-        opponents.sort(key=lambda o: (not o["is_mine"], -(o["elo"] if o["elo"] is not None else -1)))
-        return opponents
+    def list_playable_agents(self, arena_id: UUID | None = None) -> list[tuple[Agent, str]]:
+        """Agents with a working active build and their owner's username, optionally of one active arena."""
+        if arena_id is not None:
+            arena_id = self._get_active_arena(arena_id).id
+        return [
+            (agent, username)
+            for agent, username in self._agent_repository.list_with_owner(arena_id)
+            if agent_is_playable(agent)
+        ]
 
     def get_agent_names(self, agent_ids: list[UUID] | list[str]) -> dict[str, str]:
-        """Display names for a match's agents (already public via leaderboards)."""
+        """Agent id -> name."""
         return {agent_id: agent.name for agent_id, agent in self._fetch_agents_by_ids(agent_ids).items()}
-
-    async def _ensure_no_active_human_match(self, user_id: UUID) -> None:
-        """
-        Enforce one active human match per user. A running match whose worker
-        stopped reporting (crash/restart) is failed here so it can't lock the user
-        out when the auto-scheduler's stale recovery isn't running.
-        """
-        cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
-        for active in self._repository.list_active_human_matches(user_id):
-            updated_at = active.updated_at
-            if updated_at.tzinfo is None:
-                updated_at = updated_at.replace(tzinfo=UTC)
-            if active.status == MatchStatus.RUNNING and updated_at < cutoff:
-                logger.warning("Failing stale human match %s (last update %s)", active.id, active.updated_at)
-                await self.update_match(
-                    str(active.id),
-                    status=MatchStatus.FAILED.value,
-                    result={"status": "error", "reason": "Match runner lost or timed out"},
-                )
-                continue
-            raise MatchConflictError(
-                f"You already have an active game ({active.id}). Finish or resign it first."
-            )
 
     def _get_own_human_match(self, match_id: str, user_id: UUID) -> Match:
         match = self._repository.get_by_id(match_id)
@@ -247,11 +212,7 @@ class MatchService:
         return match
 
     async def submit_human_move(self, match_id: str, user_id: UUID, move: dict[str, Any]) -> None:
-        """
-        Forward the human player's move to the match runner. Full rule validation
-        happens in the worker (gamelib engine); an illegal move is rejected there
-        without forfeiting, and the human keeps their turn.
-        """
+        """Forward the human's move to the runner, which ignores illegal moves (no forfeit)."""
         match = self._get_own_human_match(match_id, user_id)
         if match.status != MatchStatus.RUNNING:
             raise MatchConflictError("Match is not running")
@@ -267,10 +228,7 @@ class MatchService:
         await job_queue.push_human_move(match.id, {"type": "move", "move": payload_move})
 
     async def resign_human_match(self, match_id: str, user_id: UUID) -> Match:
-        """
-        Resign a human match. A queued match is cancelled directly (the worker skips
-        matches that are no longer queued); a running one is resigned by the worker.
-        """
+        """Cancel a queued game, or have the runner resign a running one."""
         match = self._get_own_human_match(match_id, user_id)
         if match.status == MatchStatus.QUEUED:
             updated = await self.update_match(
@@ -289,10 +247,42 @@ class MatchService:
         return self._repository.get_by_id(match_id)
 
     async def get_human_move_remaining(self, match: Match) -> float | None:
-        """Authoritative seconds left for the human's pending move (None if none)."""
+        """Seconds left for the human's pending move, or None."""
         if match.human_user_id is None or match.status != MatchStatus.RUNNING:
             return None
         return await match_event_publisher.get_human_move_remaining(str(match.id))
+
+    async def fail_stale_running_matches(
+        self,
+        *,
+        with_tournament: bool | None = None,
+        human_user_id: UUID | None = None,
+    ) -> int:
+        """Fail RUNNING matches whose worker stopped reporting. Returns how many."""
+        cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
+        stale_matches = self._repository.list_stale_running_matches(
+            cutoff=cutoff, with_tournament=with_tournament, human_user_id=human_user_id
+        )
+        for match in stale_matches:
+            logger.warning(
+                "Marking stale running match %s as failed; last update at %s exceeded %ss timeout",
+                match.id,
+                match.updated_at,
+                settings.MATCH_STALE_TIMEOUT_SECONDS,
+            )
+            await self.update_match(
+                str(match.id),
+                status=MatchStatus.FAILED.value,
+                result={
+                    "status": "error",
+                    "reason": "Match runner lost or timed out",
+                    "details": (
+                        "Match remained in running state without worker updates beyond "
+                        f"{settings.MATCH_STALE_TIMEOUT_SECONDS} seconds."
+                    ),
+                },
+            )
+        return len(stale_matches)
 
     @staticmethod
     def _reject_oversized(payload: dict[str, Any], *, max_bytes: int, field_name: str) -> None:
@@ -315,6 +305,9 @@ class MatchService:
         match = self._repository.get_by_id(match_id)
         if not match:
             return None
+        # A cancelled human game stays over even if a worker picked it up meanwhile.
+        if match.human_user_id is not None and match.status in _TERMINAL_STATUSES:
+            return match
 
         old_status = match.status
 
@@ -344,26 +337,26 @@ class MatchService:
         # Tournament matches never touch global agent stats/ELO; tournament
         # standings live in the tournament tables.
         became_completed = old_status != MatchStatus.COMPLETED and saved.status == MatchStatus.COMPLETED
-        # Human-vs-agent matches don't count either (anyone could farm wins/losses).
+        # Nor do human games (anyone could farm wins/losses).
         if became_completed and saved.tournament_id is None and saved.human_user_id is None:
             self._update_agent_stats(saved)
 
         if saved.human_user_id is not None:
-            # A new state means the pending move (if any) was played; the runner
-            # reports the next human deadline when it starts waiting again.
+            # A new state ends the pending human move; the runner reports the next deadline.
             if game_state is not None or saved.status != MatchStatus.RUNNING:
                 await match_event_publisher.clear_human_deadline(match_id)
             if human_turn_seconds is not None and saved.status == MatchStatus.RUNNING:
                 await match_event_publisher.set_human_deadline(match_id, human_turn_seconds)
 
         # Publish game state update to Redis for SSE subscribers
+        human_move_remaining = await self.get_human_move_remaining(saved)
         await match_event_publisher.publish_game_state(
             match_id=match_id,
             game_state=saved.game_state or {},
             status=saved.status.value,
             logs=saved.logs,
             result=saved.result,
-            human_move_remaining=await self.get_human_move_remaining(saved),
+            human_move_remaining=human_move_remaining,
         )
 
         return saved
@@ -430,9 +423,7 @@ class MatchService:
                 raise MatchServiceError(f"Agent {agent.id} does not belong to the target arena")
             if agent.game_type != game_type:
                 raise MatchServiceError(f"Agent {agent.id} does not belong to game '{game_type}'")
-            if agent.active_submission is None:
-                raise MatchServiceError(f"Agent {agent.id} does not have an active submission")
-            if not submission_has_successful_build(agent.active_submission):
+            if not agent_is_playable(agent):
                 raise MatchServiceError(f"Agent {agent.id} does not have a successful active submission")
         return agents
 

@@ -13,9 +13,7 @@ export interface SchedulerConfig {
     interval_seconds: number;
     strategy: string;
     scheduling_strategy: string;
-    /** Seconds a human player gets per move in human-vs-agent games */
     human_move_time_limit: number;
-    /** Wall-clock cap (seconds) for a whole human-vs-agent game */
     human_match_max_duration: number;
 }
 
@@ -106,10 +104,7 @@ export const matchesApi = {
         });
     },
 
-    /**
-     * Start a game where the current user plays by hand against an agent.
-     * human_player_index 0 = you move first, 1 = the agent moves first.
-     */
+    /** Play by hand against an agent; human_player_index 0 moves first. */
     createHumanMatch: async (data: { arena_id: string; agent_id: string; human_player_index: number }) => {
         return apiRequest<{ id: string; status: string; agent_ids: string[] }>('/matches/human', {
             method: 'POST',
@@ -117,18 +112,13 @@ export const matchesApi = {
         });
     },
 
-    /**
-     * Agents of an arena the current user can play against by hand.
-     */
     getHumanOpponents: async (arenaId: string) => {
         return apiRequest<HumanOpponent[]>(`/matches/human/opponents?arena_id=${encodeURIComponent(arenaId)}`, {
             method: 'GET',
         });
     },
 
-    /**
-     * Submit a move as the human player. `player` is filled in by the server.
-     */
+    /** `player` is filled in by the server. */
     submitHumanMove: async (matchId: string, move: Record<string, unknown>) => {
         return apiRequest<{ status: string }>(`/matches/${matchId}/human-move`, {
             method: 'POST',
@@ -136,9 +126,7 @@ export const matchesApi = {
         });
     },
 
-    /**
-     * Resign (or cancel, if still queued) your human-vs-agent game.
-     */
+    /** Resign, or cancel while queued. */
     resignHumanMatch: async (matchId: string) => {
         return apiRequest<{ id: string; status: string }>(`/matches/${matchId}/resign`, {
             method: 'POST',

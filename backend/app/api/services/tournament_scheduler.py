@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session
 
@@ -10,9 +9,7 @@ from app.api.repositories.match import MatchRepository
 from app.api.repositories.tournament import TournamentRepository
 from app.api.services.match import MatchService
 from app.api.services.tournament import TournamentService
-from app.core.config import settings
 from app.db.connection import engine
-from app.models.match import MatchStatus
 
 
 logger = logging.getLogger(__name__)
@@ -40,42 +37,11 @@ class TournamentSchedulerService:
                 tournament_repository, match_repository, agent_repository, match_service, arena_repository
             )
 
-            await self._fail_stale_tournament_matches(match_repository, match_service)
+            # FAILED then flows into the normal retry/needs-attention path.
+            await match_service.fail_stale_running_matches(with_tournament=True)
 
             for tournament in tournament_repository.list_active():
                 try:
                     await tournament_service.advance_tournament(tournament)
                 except Exception:
                     logger.exception("Error advancing tournament %s", tournament.id)
-
-    async def _fail_stale_tournament_matches(
-        self,
-        match_repository: MatchRepository,
-        match_service: MatchService,
-    ) -> None:
-        """
-        Recover tournament matches abandoned by a killed/restarted worker, mirroring
-        the match scheduler's stale handling (which skips tournament matches). The
-        resulting FAILED status flows into the normal retry/needs-attention path.
-        """
-        cutoff = datetime.now(UTC) - timedelta(seconds=settings.MATCH_STALE_TIMEOUT_SECONDS)
-        stale_matches = match_repository.list_stale_running_matches(cutoff=cutoff, with_tournament=True)
-        for match in stale_matches:
-            logger.warning(
-                "Marking stale running tournament match %s as failed; last update at %s exceeded %ss timeout",
-                match.id,
-                match.updated_at,
-                settings.MATCH_STALE_TIMEOUT_SECONDS,
-            )
-            await match_service.update_match(
-                str(match.id),
-                status=MatchStatus.FAILED.value,
-                result={
-                    "status": "error",
-                    "reason": "Match runner lost or timed out",
-                    "details": (
-                        "Match remained in running state without worker updates beyond "
-                        f"{settings.MATCH_STALE_TIMEOUT_SECONDS} seconds."
-                    ),
-                },
-            )

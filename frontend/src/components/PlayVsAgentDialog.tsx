@@ -26,14 +26,9 @@ interface PlayVsAgentDialogProps {
   open: boolean;
   onClose: () => void;
   arenaId: string;
-  /** Preselect this agent if it is a valid opponent */
   initialAgentId?: string;
 }
 
-/**
- * Lets the user pick any playable agent of an arena and a seat, then starts a
- * human-vs-agent game and opens its live page.
- */
 export function PlayVsAgentDialog({ open, onClose, arenaId, initialAgentId }: PlayVsAgentDialogProps) {
   const navigate = useNavigate();
   const [opponents, setOpponents] = useState<HumanOpponent[]>([]);
