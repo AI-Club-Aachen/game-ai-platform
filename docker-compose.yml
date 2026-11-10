@@ -147,6 +147,8 @@ services:
       dockerfile: Dockerfile.worker
     working_dir: /orchestration
     command: python match_runner_worker.py
+    deploy:
+      replicas: ${MATCH_RUNNER_REPLICAS:-1}
     environment:
       - BACKEND_URL=${WORKER_BACKEND_URL:-http://backend:${BACKEND_PORT:-8000}/api/v1}
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@gameai-redis:6379/0
