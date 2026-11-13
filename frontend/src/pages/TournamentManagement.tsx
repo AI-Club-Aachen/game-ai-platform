@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert,
   Autocomplete,
@@ -28,6 +28,7 @@ import {
   TablePagination,
   TextField,
   Typography,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -181,7 +182,7 @@ export function TournamentManagement() {
     return names;
   }, [agents]);
 
-  const handleOpenCreateDialog = () => {
+  const handleOpenCreateDialog = async () => {
     setNewName('');
     if (arenas.length > 0) {
       setNewArenaId(arenas[0].id);
@@ -190,6 +191,18 @@ export function TournamentManagement() {
     setTurnTimeLimit(DEFAULT_TURN_TIME_LIMIT);
     setMaxConcurrent(DEFAULT_MAX_CONCURRENT);
     setCreateDialogOpen(true);
+    // Prefill with the defaults configured on the Platform Settings page.
+    try {
+      const { settings } = await platformApi.getSettings();
+      const value = (name: string) => settings.find((s) => s.name === name)?.value;
+      const turn = value('TOURNAMENT_DEFAULT_TURN_TIME_LIMIT_SECONDS');
+      const concurrent = value('TOURNAMENT_MAX_CONCURRENT_MATCHES');
+      // Only replace values the admin has not edited while the request was running.
+      if (typeof turn === 'number') setTurnTimeLimit((prev) => (prev === DEFAULT_TURN_TIME_LIMIT ? turn : prev));
+      if (typeof concurrent === 'number') setMaxConcurrent((prev) => (prev === DEFAULT_MAX_CONCURRENT ? concurrent : prev));
+    } catch {
+      // Keep the built-in defaults.
+    }
   };
 
   const handleCreateTournament = async () => {
@@ -561,6 +574,13 @@ export function TournamentManagement() {
                 sx={{ width: 200 }}
               />
             </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+              Defaults come from{' '}
+              <Link component={RouterLink} to="/settings-admin#tournaments">
+                Platform Settings
+              </Link>
+              . Changes here apply to this tournament only.
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>

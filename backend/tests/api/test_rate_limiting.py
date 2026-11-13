@@ -92,6 +92,15 @@ class TestRateLimitSettings:
         assert s.TRUST_PROXY_HEADERS is False
         assert s.rate_limiting_active is True
 
+    def test_empty_env_vars_fall_back_to_defaults(self, monkeypatch):
+        # docker-compose passes unset optional vars as "" (${VAR:-}).
+        for name in ("RATE_LIMIT_LOGIN", "TRUST_PROXY_HEADERS", "MAX_UPLOAD_BYTES"):
+            monkeypatch.setenv(name, "")
+        s = Settings(_env_file=None, **REQUIRED_SETTINGS)
+        assert EXPECTED_CATEGORY_DEFAULTS["RATE_LIMIT_LOGIN"] == s.RATE_LIMIT_LOGIN
+        assert s.TRUST_PROXY_HEADERS is False
+        assert s.MAX_UPLOAD_BYTES == 10 * 1024 * 1024
+
     def test_malformed_limit_string_rejected(self):
         with pytest.raises(ValidationError, match="RATE_LIMIT_LOGIN"):
             Settings(_env_file=None, **REQUIRED_SETTINGS, RATE_LIMIT_LOGIN="not-a-limit")

@@ -15,11 +15,8 @@ from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.api.services.match import MatchService
-from app.api.services.match_scheduler import MatchSchedulerService
 from app.core.config import settings
 from app.core.queue import human_moves_key
-from app.core.tasks import BackgroundTaskRunner
-from app.main import app
 from app.models.agent import Agent
 from app.models.game import GameType
 from app.models.match import Match, MatchStatus
@@ -317,50 +314,29 @@ async def test_regular_match_cannot_set_human_limits(api_client, fake_email_clie
     assert resp.json()["human_user_id"] is None
 
 
-async def test_scheduler_settings_control_human_limits(api_client, fake_email_client, db_session):
-    """Admins set the human move/game limits in the scheduler settings; new games use them."""
-    # The in-memory test client doesn't run the lifespan; register an (unstarted) runner.
-    runner = BackgroundTaskRunner()
-    runner.add_task(
-        func=MatchSchedulerService().check_and_queue_matches,
-        interval_seconds=10.0,
-        name="match_scheduler",
-        is_enabled=False,
+async def test_settings_page_controls_human_limits(api_client, fake_email_client, db_session):
+    """Admins set the human move/game limits on the settings page; new games use them."""
+    _, admin_token = await _create_admin_and_token(
+        api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
     )
-    previous = getattr(app.state, "task_runner", None)
-    app.state.task_runner = runner
-    try:
-        _, admin_token = await _create_admin_and_token(
-            api_client, fake_email_client, db_session, random_username(), random_email(), strong_password()
-        )
-        admin = {"Authorization": admin_token}
-        config = (await api_client.get(f"{API_PREFIX}/matches/scheduler/config", headers=admin)).json()
-        assert config["human_move_time_limit"] == settings.HUMAN_MOVE_TIME_LIMIT_SECONDS
-        assert config["human_match_max_duration"] == settings.HUMAN_MATCH_MAX_DURATION_SECONDS
+    admin = {"Authorization": admin_token}
+    url = f"{API_PREFIX}/platform/settings"
 
-        bad = await api_client.put(
-            f"{API_PREFIX}/matches/scheduler/config", json={**config, "human_move_time_limit": 1}, headers=admin
-        )
-        assert bad.status_code == 422
+    bad = await api_client.put(url, json={"values": {"HUMAN_MOVE_TIME_LIMIT_SECONDS": 1}}, headers=admin)
+    assert bad.status_code == 422
 
-        resp = await api_client.put(
-            f"{API_PREFIX}/matches/scheduler/config",
-            json={**config, "human_move_time_limit": 120, "human_match_max_duration": 1800},
-            headers=admin,
-        )
-        assert resp.status_code == 200
-        assert resp.json()["human_move_time_limit"] == 120
+    resp = await api_client.put(
+        url,
+        json={"values": {"HUMAN_MOVE_TIME_LIMIT_SECONDS": 120, "HUMAN_MATCH_MAX_DURATION_SECONDS": 1800}},
+        headers=admin,
+    )
+    assert resp.status_code == 200
 
-        _, headers = await _member(api_client, fake_email_client, db_session)
-        agent = _make_built_agent(db_session, GameType.TICTACTOE)
-        match = (await _start_game(api_client, headers, agent)).json()
-        assert match["config"]["human_turn_time_limit"] == 120
-        assert match["config"]["max_duration_seconds"] == 1800
-    finally:
-        if previous is None:
-            del app.state.task_runner
-        else:
-            app.state.task_runner = previous
+    _, headers = await _member(api_client, fake_email_client, db_session)
+    agent = _make_built_agent(db_session, GameType.TICTACTOE)
+    match = (await _start_game(api_client, headers, agent)).json()
+    assert match["config"]["human_turn_time_limit"] == 120
+    assert match["config"]["max_duration_seconds"] == 1800
 
 
 async def test_human_move_deadline_is_server_side(db_session):

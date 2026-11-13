@@ -1,5 +1,6 @@
 import io
 import zipfile
+from datetime import datetime, timezone
 
 import docker
 import pytest
@@ -209,6 +210,32 @@ def test_builder_prevents_tag_collision(docker_client, create_zip, track_images)
     assert img2.id == res2["image_id"]
 
 
+def test_same_agent_built_in_the_same_second_gets_distinct_tags(
+    docker_client, create_zip, track_images, monkeypatch
+):
+    """Two match runners build the same agent at once; each removes its own tag after the match."""
+    import lib.agent_builder as agent_builder
+
+    frozen = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen
+
+    monkeypatch.setattr(agent_builder, "datetime", FrozenDatetime)
+    zip_bytes = create_zip({"agent.py": "print('hello')", "requirements.txt": ""})
+
+    res1 = build_from_zip(zip_bytes, owner_id="same_owner")
+    track_images(res1["image_id"])
+    res2 = build_from_zip(zip_bytes, owner_id="same_owner")
+    track_images(res2["image_id"])
+
+    assert res1["tag"] != res2["tag"]
+    docker_client.images.remove(res1["tag"], force=True)
+    assert docker_client.images.get(res2["tag"]).id == res2["image_id"]
+
+
 def test_builder_success_torch_requirements(docker_client, create_zip, track_images, monkeypatch):
     """Test building from a valid zip file with torch_requirements.txt."""
     monkeypatch.setenv("BUILD_LOCAL_BASE_IMAGE", "True")
@@ -266,3 +293,39 @@ def test_get_base_image_name(monkeypatch):
     assert get_base_image_name("torch_requirements.txt", build_local_base=False) == "myrepo/agent-base-torch:v1"
     assert get_base_image_name("custom_requirements.txt", build_local_base=False) == "myrepo/agent-base-custom:v1"
 
+
+
+def test_build_retries_transient_docker_errors(monkeypatch):
+    """Concurrent builds/prunes on one daemon can fail a build spuriously; those are retried."""
+    import lib.agent_builder as agent_builder
+
+    calls = []
+
+    def flaky_build(client, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise BuildError('failed commit on ref "sha256:abc": commit failed: lease does not exist: not found')
+        return "image"
+
+    monkeypatch.setattr(agent_builder, "_build_image_with_timeout", flaky_build)
+    monkeypatch.setattr(agent_builder.time, "sleep", lambda _s: None)
+
+    assert agent_builder._build_image_with_retry(None, tag="t") == "image"
+    assert len(calls) == 2
+
+
+def test_build_does_not_retry_real_build_errors(monkeypatch):
+    import lib.agent_builder as agent_builder
+
+    calls = []
+
+    def broken_build(client, **kwargs):
+        calls.append(kwargs)
+        raise BuildError("The command '/bin/sh -c pip install nope' returned a non-zero code: 1")
+
+    monkeypatch.setattr(agent_builder, "_build_image_with_timeout", broken_build)
+    monkeypatch.setattr(agent_builder.time, "sleep", lambda _s: None)
+
+    with pytest.raises(BuildError):
+        agent_builder._build_image_with_retry(None, tag="t")
+    assert len(calls) == 1

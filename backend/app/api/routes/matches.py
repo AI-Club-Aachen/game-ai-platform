@@ -6,10 +6,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
 
 from app.api.deps import (
-    CurrentAdmin,
     VerifiedGuestOrHigher,
     VerifiedUserOrHigher,
     WorkerOrVerifiedUser,
@@ -25,10 +23,6 @@ from app.api.services.match import (
     MatchPermissionError,
     MatchService,
     MatchServiceError,
-)
-from app.api.services.match_scheduler import (
-    SCHEDULING_SERIAL,
-    VALID_SCHEDULING_STRATEGIES,
 )
 from app.core.config import settings
 from app.core.match_events import subscribe_match_events
@@ -49,100 +43,6 @@ from app.schemas.match import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class MatchSchedulerConfig(BaseModel):
-    enabled: bool
-    interval_seconds: float
-    strategy: str
-    # "serial" (one at a time) or "concurrent" (fill up to MATCH_MAX_CONCURRENT_MATCHES)
-    scheduling_strategy: str = SCHEDULING_SERIAL
-    # Human-vs-agent limits: seconds per move, and per game.
-    human_move_time_limit: float = Field(default=settings.HUMAN_MOVE_TIME_LIMIT_SECONDS, ge=5.0, le=600.0)
-    human_match_max_duration: float = Field(default=settings.HUMAN_MATCH_MAX_DURATION_SECONDS, ge=60.0, le=3600.0)
-
-
-def _get_scheduler_service(request: Request) -> object | None:
-    """The MatchSchedulerService registered on the app's task runner."""
-    task_runner = getattr(request.app.state, "task_runner", None)
-    if not task_runner:
-        return None
-    for task in task_runner.tasks:
-        if task.name == "match_scheduler":
-            return getattr(task.func, "__self__", None)
-    return None
-
-
-@router.get("/scheduler/config", response_model=MatchSchedulerConfig)
-@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
-def get_scheduler_config(
-    request: Request,
-    _admin: CurrentAdmin,
-) -> MatchSchedulerConfig:
-    """Get the current match scheduler configuration. Admin only."""
-    task_runner = getattr(request.app.state, "task_runner", None)
-    if not task_runner:
-        raise HTTPException(status_code=500, detail="Task runner not found")
-
-    for task in task_runner.tasks:
-        if task.name == "match_scheduler":
-            service = task.func.__self__ if hasattr(task.func, "__self__") else None
-            strategy = getattr(service, "strategy", "random")
-            scheduling_strategy = getattr(service, "scheduling_strategy", SCHEDULING_SERIAL)
-            return MatchSchedulerConfig(
-                enabled=task.is_enabled,
-                interval_seconds=task.interval_seconds,
-                strategy=strategy,
-                scheduling_strategy=scheduling_strategy,
-                human_move_time_limit=getattr(
-                    service, "human_move_time_limit", settings.HUMAN_MOVE_TIME_LIMIT_SECONDS
-                ),
-                human_match_max_duration=getattr(
-                    service, "human_match_max_duration", settings.HUMAN_MATCH_MAX_DURATION_SECONDS
-                ),
-            )
-
-    raise HTTPException(status_code=404, detail="Scheduler task not found")
-
-
-@router.put("/scheduler/config", response_model=MatchSchedulerConfig)
-@limiter.limit(lambda: settings.RATE_LIMIT_ADMIN)
-def update_scheduler_config(
-    config: MatchSchedulerConfig,
-    request: Request,
-    _admin: CurrentAdmin,
-) -> MatchSchedulerConfig:
-    """Update the match scheduler configuration. Admin only."""
-    task_runner = getattr(request.app.state, "task_runner", None)
-    if not task_runner:
-        raise HTTPException(status_code=500, detail="Task runner not found")
-
-    if config.scheduling_strategy not in VALID_SCHEDULING_STRATEGIES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"scheduling_strategy must be one of {sorted(VALID_SCHEDULING_STRATEGIES)}",
-        )
-
-    for task in task_runner.tasks:
-        if task.name == "match_scheduler":
-            task.is_enabled = config.enabled
-            task.interval_seconds = config.interval_seconds
-            if hasattr(task.func, "__self__"):
-                task.func.__self__.strategy = config.strategy
-                task.func.__self__.scheduling_strategy = config.scheduling_strategy
-                task.func.__self__.human_move_time_limit = config.human_move_time_limit
-                task.func.__self__.human_match_max_duration = config.human_match_max_duration
-
-            return MatchSchedulerConfig(
-                enabled=task.is_enabled,
-                interval_seconds=task.interval_seconds,
-                strategy=config.strategy,
-                scheduling_strategy=config.scheduling_strategy,
-                human_move_time_limit=config.human_move_time_limit,
-                human_match_max_duration=config.human_match_max_duration,
-            )
-
-    raise HTTPException(status_code=404, detail="Scheduler task not found")
 
 
 # POST /api/v1/matches/
@@ -175,23 +75,20 @@ async def create_match(
 @router.post("/human", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
 @limiter.limit(lambda: settings.RATE_LIMIT_MATCH_CREATE)
 async def create_human_match(
-    request: Request,
+    request: Request,  # noqa: ARG001
     match_in: HumanMatchCreate,
     current_user: VerifiedUserOrHigher,
     service: MatchService = Depends(get_match_service),
 ) -> MatchRead:
     """Play by hand against any agent of the arena. No effect on agent stats/ELO."""
-    scheduler = _get_scheduler_service(request)
-    move_limit = getattr(scheduler, "human_move_time_limit", settings.HUMAN_MOVE_TIME_LIMIT_SECONDS)
-    max_duration = getattr(scheduler, "human_match_max_duration", settings.HUMAN_MATCH_MAX_DURATION_SECONDS)
     try:
         return await service.create_human_match(
             arena_id=match_in.arena_id,
             agent_id=match_in.agent_id,
             human_user_id=current_user.id,
             human_player_index=match_in.human_player_index,
-            human_turn_time_limit=move_limit,
-            max_duration_seconds=max_duration,
+            human_turn_time_limit=settings.HUMAN_MOVE_TIME_LIMIT_SECONDS,
+            max_duration_seconds=settings.HUMAN_MATCH_MAX_DURATION_SECONDS,
         )
     except MatchConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e

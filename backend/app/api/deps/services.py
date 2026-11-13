@@ -11,6 +11,7 @@ from app.api.repositories.arena import ArenaRepository
 from app.api.repositories.job import JobRepository
 from app.api.repositories.match import MatchRepository
 from app.api.repositories.platform_flag import PlatformFlagRepository
+from app.api.repositories.platform_setting import PlatformSettingRepository
 from app.api.repositories.submission import SubmissionRepository
 from app.api.repositories.tournament import TournamentRepository
 from app.api.repositories.user import UserRepository
@@ -22,6 +23,7 @@ from app.api.services.email import EmailNotificationService
 from app.api.services.job import JobService
 from app.api.services.match import MatchService
 from app.api.services.platform import PlatformService
+from app.api.services.runtime_settings import RuntimeSettingsService
 from app.api.services.submission import SubmissionService
 from app.api.services.tournament import TournamentService
 from app.api.services.user import UserService
@@ -104,6 +106,13 @@ def get_platform_service(
 ) -> PlatformService:
     """Provide a PlatformService with an injected PlatformFlagRepository."""
     return PlatformService(flag_repository)
+
+
+def get_runtime_settings_service(
+    session: Annotated[Session, Depends(get_session)],
+) -> RuntimeSettingsService:
+    """Provide a RuntimeSettingsService bound to the current DB session."""
+    return RuntimeSettingsService(PlatformSettingRepository(session))
 
 
 def get_user_service(

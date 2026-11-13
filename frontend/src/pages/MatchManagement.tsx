@@ -26,8 +26,6 @@ import {
   CircularProgress,
   Autocomplete,
   Divider,
-  Switch,
-  FormControlLabel,
   InputAdornment,
   Tooltip,
 } from '@mui/material';
@@ -38,14 +36,14 @@ import {
   Visibility as VisibilityIcon,
   Settings as SettingsIcon,
   InfoOutlined as InfoIcon,
-  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
-import { matchesApi, SchedulerConfig } from '../services/api/matches';
+import { matchesApi } from '../services/api/matches';
 import { agentsApi, Agent } from '../services/api/agents';
 import { arenasApi, ArenaRead } from '../services/api/arenas';
 import { fromApiGameType, getGameById } from '../config/games';
 import { PrimarySecondaryCell } from '../components/common/TableCells';
 import { StatusIndicator } from '../components/common/StatusIndicator';
+import { SchedulerStatus } from '../components/matches/SchedulerStatus';
 
 // Mirrors backend MatchConfig – update here when new fields are added.
 interface MatchConfig {
@@ -142,17 +140,6 @@ export function MatchManagement() {
   const [isCreating, setIsCreating] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  const [schedulerDialogOpen, setSchedulerDialogOpen] = useState(false);
-  const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig>({
-    enabled: false,
-    interval_seconds: 10,
-    strategy: 'least_played',
-    scheduling_strategy: 'serial',
-    human_move_time_limit: 60,
-    human_match_max_duration: 900,
-  });
-  const [isSavingScheduler, setIsSavingScheduler] = useState(false);
-
   const selectedArena = arenas.find(a => a.id === newMatchArenaId);
   const selectedGameConfig = selectedArena ? getGameById(fromApiGameType(selectedArena.game_type)) : null;
   const minRequiredAgents = selectedGameConfig?.minPlayers ?? 2;
@@ -245,31 +232,6 @@ export function MatchManagement() {
     }
   };
 
-  const handleOpenSchedulerDialog = async () => {
-    try {
-      const config = await matchesApi.getSchedulerConfig();
-      setSchedulerConfig(config);
-      setSchedulerDialogOpen(true);
-    } catch (err: any) {
-      console.error('Failed to get scheduler config:', err);
-      setSnackbarMessage('Failed to get scheduler configuration');
-    }
-  };
-
-  const handleSaveSchedulerConfig = async () => {
-    setIsSavingScheduler(true);
-    try {
-      await matchesApi.updateSchedulerConfig(schedulerConfig);
-      setSnackbarMessage('Scheduler configuration saved successfully');
-      setSchedulerDialogOpen(false);
-    } catch (err: any) {
-      console.error('Failed to update scheduler config:', err);
-      setSnackbarMessage('Failed to update scheduler configuration. ' + (err.message || ''));
-    } finally {
-      setIsSavingScheduler(false);
-    }
-  };
-
   const findAgent = (agentId: string) => agents.find(agent => agent.id === agentId);
 
   const getAgentLabel = (agentId: string) => findAgent(agentId)?.name || shortId(agentId);
@@ -317,14 +279,6 @@ export function MatchManagement() {
             Refresh
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<ScheduleIcon />}
-            onClick={handleOpenSchedulerDialog}
-            sx={{ mr: 2 }}
-          >
-            Scheduler Settings
-          </Button>
-          <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleOpenDialog}
@@ -333,6 +287,8 @@ export function MatchManagement() {
           </Button>
         </Box>
       </Box>
+
+      <SchedulerStatus onError={setSnackbarMessage} />
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
@@ -580,96 +536,6 @@ export function MatchManagement() {
             startIcon={isCreating ? <CircularProgress size={20} /> : <PlayIcon />}
           >
             Start Match
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Scheduler Settings Dialog */}
-      <Dialog open={schedulerDialogOpen} onClose={() => setSchedulerDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Scheduler Settings</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={schedulerConfig.enabled}
-                  onChange={(e) => setSchedulerConfig({ ...schedulerConfig, enabled: e.target.checked })}
-                  color="primary"
-                />
-              }
-              label="Enable Match Scheduler"
-            />
-
-            <TextField
-              label="Interval (Seconds)"
-              type="number"
-              fullWidth
-              value={schedulerConfig.interval_seconds}
-              onChange={(e) => setSchedulerConfig({ ...schedulerConfig, interval_seconds: parseFloat(e.target.value) || 10 })}
-              disabled={!schedulerConfig.enabled}
-              inputProps={{ min: 1, step: 1 }}
-              helperText="How often the scheduler checks for queued matches."
-            />
-
-            <FormControl fullWidth disabled={!schedulerConfig.enabled}>
-              <InputLabel>Agent Selection</InputLabel>
-              <Select
-                value={schedulerConfig.strategy}
-                label="Agent Selection"
-                onChange={(e) => setSchedulerConfig({ ...schedulerConfig, strategy: e.target.value })}
-              >
-                <MenuItem value="random">Random</MenuItem>
-                <MenuItem value="least_played">Least Played (prioritize agents with fewer games)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth disabled={!schedulerConfig.enabled}>
-              <InputLabel>Scheduling Mode</InputLabel>
-              <Select
-                value={schedulerConfig.scheduling_strategy}
-                label="Scheduling Mode"
-                onChange={(e) => setSchedulerConfig({ ...schedulerConfig, scheduling_strategy: e.target.value })}
-              >
-                <MenuItem value="serial">Serial (one match at a time)</MenuItem>
-                <MenuItem value="concurrent">Concurrent (keep all workers busy)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Divider />
-            <Typography variant="subtitle2" fontWeight={700}>
-              Human vs Agent Games
-            </Typography>
-            <TextField
-              label="Human Move Time Limit (Seconds)"
-              type="number"
-              fullWidth
-              value={schedulerConfig.human_move_time_limit}
-              onChange={(e) => setSchedulerConfig({ ...schedulerConfig, human_move_time_limit: parseFloat(e.target.value) || 0 })}
-              inputProps={{ min: 5, max: 600, step: 5 }}
-              helperText="Time a human gets per move before forfeiting (5–600s). Applies to newly started games."
-            />
-            <TextField
-              label="Human Game Max Duration (Seconds)"
-              type="number"
-              fullWidth
-              value={schedulerConfig.human_match_max_duration}
-              onChange={(e) => setSchedulerConfig({ ...schedulerConfig, human_match_max_duration: parseFloat(e.target.value) || 0 })}
-              inputProps={{ min: 60, max: 3600, step: 60 }}
-              helperText="Wall-clock cap for a whole human game; it occupies a match runner meanwhile (60–3600s)."
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSchedulerDialogOpen(false)} variant="outlined" disabled={isSavingScheduler}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveSchedulerConfig}
-            variant="contained"
-            disabled={isSavingScheduler}
-            startIcon={isSavingScheduler ? <CircularProgress size={20} /> : <SettingsIcon />}
-          >
-            Save
           </Button>
         </DialogActions>
       </Dialog>

@@ -18,7 +18,8 @@ import {
   Gavel,
   Policy,
   Cookie,
-  Description
+  Description,
+  Tune
 } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import './Sidebar.css';
@@ -106,6 +107,10 @@ export function Sidebar({ onToggle }: SidebarProps) {
             <NavLink to="/tournaments-admin" className="sidebar-link">
               <MilitaryTech />
               {!isCollapsed && <span>Tournament Management</span>}
+            </NavLink>
+            <NavLink to="/settings-admin" className="sidebar-link">
+              <Tune />
+              {!isCollapsed && <span>Platform Settings</span>}
             </NavLink>
           </>
         )}

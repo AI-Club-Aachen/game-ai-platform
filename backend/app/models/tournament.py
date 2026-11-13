@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
+from pydantic import Field as ConfigField
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
+from app.core.config import settings
 from app.models.game import GameType
 
 
@@ -62,8 +64,8 @@ class TournamentConfig(BaseModel):
     new per-tournament settings without touching the DB schema.
     """
 
-    turn_time_limit: float = 10.0
-    max_concurrent_matches: int = 64
+    turn_time_limit: float = ConfigField(default_factory=lambda: settings.TOURNAMENT_DEFAULT_TURN_TIME_LIMIT_SECONDS)
+    max_concurrent_matches: int = ConfigField(default_factory=lambda: settings.TOURNAMENT_MAX_CONCURRENT_MATCHES)
     state_init_data: dict[str, Any] = {}
 
 
