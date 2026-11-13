@@ -1,0 +1,37 @@
+name: Environment Consistency
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docker-compose*.yml'
+      - '.env.example'
+      - 'backend/app/core/config.py'
+      - 'backend/app/core/runtime_settings.py'
+      - 'orchestration/**'
+      - 'scripts/check_env.py'
+      - '.github/workflows/env-consistency.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docker-compose*.yml'
+      - '.env.example'
+      - 'backend/app/core/config.py'
+      - 'backend/app/core/runtime_settings.py'
+      - 'orchestration/**'
+      - 'scripts/check_env.py'
+      - '.github/workflows/env-consistency.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check-env:
+    name: Settings, compose and .env.example agree
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check environment configuration
+        run: python3 scripts/check_env.py

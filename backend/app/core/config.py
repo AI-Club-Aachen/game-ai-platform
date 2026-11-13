@@ -1,7 +1,7 @@
 """Application settings with security validation and environment configuration"""
 
 import os
-from typing import ClassVar
+from typing import ClassVar, Literal
 from urllib.parse import urlsplit
 
 from limits import parse_many
@@ -16,6 +16,8 @@ class Settings(BaseSettings):
         env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # Compose passes unset optional vars as "" (${VAR:-}); treat that as unset.
+        env_ignore_empty=True,
         extra="ignore",
         json_schema_extra={"ALLOW_ORIGINS": {"description": "Comma-separated list of allowed CORS origins"}},
     )
@@ -112,14 +114,28 @@ class Settings(BaseSettings):
             "marks it as failed. This recovers matches abandoned by killed/restarted workers."
         ),
     )
+    MATCH_RUNNER_REPLICAS: int = Field(
+        default=1,
+        ge=1,
+        description="Number of match-runner containers the deployment starts (each plays one match at a time).",
+    )
     MATCH_MAX_CONCURRENT_MATCHES: int = Field(
-        default=4,
+        default=1,
         description=(
-            "Concurrent-strategy target for queued/running non-tournament matches. "
-            "Set to roughly the number of match-runner workers."
+            "Concurrent-strategy target for queued/running non-tournament matches. Defaults to MATCH_RUNNER_REPLICAS."
         ),
     )
-    # Human-vs-agent defaults; admins can change them at runtime in "Scheduler Settings".
+    MATCH_SCHEDULER_ENABLED: bool = Field(default=False, description="Automatically queue arena matches.")
+    MATCH_SCHEDULER_INTERVAL_SECONDS: float = Field(
+        default=10.0, ge=1.0, le=3600.0, description="How often the scheduler checks for matches to queue."
+    )
+    MATCH_SCHEDULER_SELECTION: Literal["least_played", "random"] = Field(
+        default="least_played", description="How the scheduler picks the two agents of a match."
+    )
+    MATCH_SCHEDULING_STRATEGY: Literal["serial", "concurrent"] = Field(
+        default="serial",
+        description="serial: one match in flight; concurrent: up to MATCH_MAX_CONCURRENT_MATCHES.",
+    )
     HUMAN_MOVE_TIME_LIMIT_SECONDS: float = Field(
         default=60.0,
         ge=5.0,
@@ -168,34 +184,41 @@ class Settings(BaseSettings):
     SUBMISSIONS_DIR: str = "uploads/submissions"
     MAX_AGENTS_PER_ARENA: int = Field(
         default=0,
+        ge=0,
         description="Maximum number of agents a user can create per arena. 0 disables the limit.",
     )
 
     # Upload limits (H-4)
     MAX_UPLOAD_BYTES: int = Field(
         default=10 * 1024 * 1024,
+        ge=0,
         description="Maximum accepted submission upload size in bytes. 0 disables the limit.",
     )
     MAX_SUBMISSIONS_PER_USER: int = Field(
         default=0,
+        ge=0,
         description="Maximum number of submissions a user may store. 0 disables the quota.",
     )
 
     # Logs truncated server-side; oversized result/game-state rejected.
     MAX_LOG_APPEND_BYTES: int = Field(
         default=64 * 1024,
+        ge=0,
         description="Maximum size of a single worker log append (characters). 0 disables the cap.",
     )
     MAX_TOTAL_LOG_BYTES: int = Field(
         default=1024 * 1024,
+        ge=0,
         description="Maximum total stored log size; the oldest content is truncated. 0 disables the cap.",
     )
     MAX_RESULT_BYTES: int = Field(
         default=256 * 1024,
+        ge=0,
         description="Maximum serialized size of a match result payload in bytes. 0 disables the cap.",
     )
     MAX_GAME_STATE_BYTES: int = Field(
         default=1024 * 1024,
+        ge=0,
         description="Maximum serialized size of a match game-state payload in bytes. 0 disables the cap.",
     )
 
@@ -474,6 +497,14 @@ class Settings(BaseSettings):
         if v < 2:  # noqa: PLR2004
             raise ValueError("MAX_TOURNAMENT_ENTRANTS must be at least 2")
         return v
+
+    @model_validator(mode="after")
+    def derive_match_concurrency(self) -> "Settings":
+        """Without an explicit value, keep as many matches in flight as there are runners."""
+        if "MATCH_MAX_CONCURRENT_MATCHES" not in self.model_fields_set:
+            self.MATCH_MAX_CONCURRENT_MATCHES = self.MATCH_RUNNER_REPLICAS
+            self.model_fields_set.discard("MATCH_MAX_CONCURRENT_MATCHES")  # still "not set explicitly"
+        return self
 
     @model_validator(mode="after")
     def validate_smtp_required_in_production(self) -> "Settings":

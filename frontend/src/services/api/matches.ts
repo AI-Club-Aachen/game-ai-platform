@@ -8,15 +8,6 @@ export interface HumanOpponent {
     is_mine: boolean;
 }
 
-export interface SchedulerConfig {
-    enabled: boolean;
-    interval_seconds: number;
-    strategy: string;
-    scheduling_strategy: string;
-    human_move_time_limit: number;
-    human_match_max_duration: number;
-}
-
 /**
  * Matches API
  */
@@ -138,24 +129,5 @@ export const matchesApi = {
      */
     getMatchStreamUrl: (matchId: string): string => {
         return `${API_BASE_URL}/matches/${matchId}/stream`;
-    },
-
-    /**
-     * Get scheduler configuration
-     */
-    getSchedulerConfig: async () => {
-        return apiRequest<SchedulerConfig>('/matches/scheduler/config', {
-            method: 'GET',
-        });
-    },
-
-    /**
-     * Update scheduler configuration
-     */
-    updateSchedulerConfig: async (config: SchedulerConfig) => {
-        return apiRequest<SchedulerConfig>('/matches/scheduler/config', {
-            method: 'PUT',
-            body: JSON.stringify(config),
-        });
     },
 };

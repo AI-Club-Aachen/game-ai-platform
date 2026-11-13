@@ -48,6 +48,7 @@ from app.api.deps.services import (
     get_match_service,
     get_platform_flag_repository,
     get_platform_service,
+    get_runtime_settings_service,
     get_submission_service,
     get_tournament_service,
     get_user_repository,
@@ -71,6 +72,7 @@ __all__ = [
     "get_tournament_service",
     "get_platform_flag_repository",
     "get_platform_service",
+    "get_runtime_settings_service",
     # Authentication
     "CurrentUser",
     "OptionalUser",

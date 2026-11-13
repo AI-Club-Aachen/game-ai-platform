@@ -7,6 +7,7 @@ from .game import GameType
 from .job import BuildJob, JobStatus, MatchJob
 from .match import Match, MatchStatus
 from .platform_flag import PlatformFlag
+from .platform_setting import PlatformSetting
 from .submission import Submission
 from .tournament import (
     Tournament,
@@ -30,6 +31,7 @@ __all__ = [
     "MatchJob",
     "JobStatus",
     "PlatformFlag",
+    "PlatformSetting",
     "Tournament",
     "TournamentEntrant",
     "TournamentGame",

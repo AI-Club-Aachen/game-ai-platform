@@ -23,8 +23,9 @@ DEFAULT_TURN_TIME_LIMIT: float = 10.0  # seconds
 DEFAULT_HUMAN_TURN_TIME_LIMIT: float = 60.0  # seconds
 
 # Resource-exhaustion caps; configurable via env.
-MAX_HISTORY_STATES: int = int(os.getenv("MATCH_MAX_HISTORY_STATES", "5000"))
-MATCH_WALL_CLOCK_SECONDS: float = float(os.getenv("MATCH_WALL_CLOCK_SECONDS", "600"))
+# `or`: compose passes unset vars as "".
+MAX_HISTORY_STATES: int = int(os.getenv("MATCH_MAX_HISTORY_STATES") or "5000")
+MATCH_WALL_CLOCK_SECONDS: float = float(os.getenv("MATCH_WALL_CLOCK_SECONDS") or "600")
 
 
 @dataclass(frozen=True)

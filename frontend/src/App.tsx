@@ -12,6 +12,7 @@ import { ContainerManagement } from './pages/ContainerManagement';
 import { UserManagement } from './pages/UserManagement';
 import { MatchManagement } from './pages/MatchManagement';
 import { TournamentManagement } from './pages/TournamentManagement';
+import { PlatformSettings } from './pages/PlatformSettings';
 import { Profile } from './pages/Profile';
 import { Leaderboard } from './pages/Leaderboard';
 import { Matches } from './pages/Matches';
@@ -65,6 +66,7 @@ function App() {
               <Route path="containers" element={<ProtectedRoute requiredRole="admin"><ContainerManagement /></ProtectedRoute>} />
               <Route path="matches-admin" element={<ProtectedRoute requiredRole="admin"><MatchManagement /></ProtectedRoute>} />
               <Route path="tournaments-admin" element={<ProtectedRoute requiredRole="admin"><TournamentManagement /></ProtectedRoute>} />
+              <Route path="settings-admin" element={<ProtectedRoute requiredRole="admin"><PlatformSettings /></ProtectedRoute>} />
               <Route path="agents/new" element={<NewAgent />} />
               <Route path="submissions/new" element={<NewSubmission />} />
               <Route path="submissions/:id" element={<SubmissionDetails />} />

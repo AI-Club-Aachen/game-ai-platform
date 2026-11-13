@@ -922,8 +922,8 @@ own ≥1 participating agent (M-1).
 | GET | `/submissions/{id}/download` | owner/admin or WorkerKey | owner/admin or WorkerKey | **C-2 fixed**; **M-2 fixed** |
 | POST | `/submissions` | User+ | User+ | **H-1 fixed**; **H-4 fixed** |
 | DELETE | `/submissions/{id}` | User+ owner/admin | User+ owner/admin | **H-1 fixed**; **M-2 fixed** |
-| GET | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
-| PUT | `/matches/scheduler/config` | Admin (CurrentAdmin) | Admin | **C-2 fixed** |
+| GET | `/platform/settings` | Admin (CurrentAdmin) | Admin | replaces `/matches/scheduler/config`; secrets masked |
+| PUT | `/platform/settings` | Admin (CurrentAdmin) | Admin | replaces `/matches/scheduler/config`; only runtime-editable settings |
 | POST | `/matches` | User+ (own agent, M-1) | User+ (own agent) | **H-1/M-1 fixed**; **M-10** state_init whitelisted |
 | GET | `/matches/{id}` | Guest+ or WorkerKey | Guest+ or WorkerKey | **H-2/C-2 fixed** (worker reads at run time) |
 | GET | `/matches` | Guest+ | Guest+ (policy 2) | **H-2 fixed**; **M-4** limit open |

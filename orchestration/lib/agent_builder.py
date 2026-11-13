@@ -3,11 +3,13 @@ import hashlib
 import io
 import logging
 import os
+import random
 import re
 import shutil
 import stat
 import tempfile
 import time
+import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -154,6 +156,34 @@ def _build_image_with_timeout(
     return client.images.get(tag)
 
 
+# Docker daemon errors that come from concurrent builds or image prunes (several match
+# runners build agents at the same time), not from the submission. Retrying succeeds.
+_TRANSIENT_BUILD_ERRORS = (
+    "lease does not exist",
+    "failed commit on ref",
+    "failed to commit",
+    "failed to export layer",
+    "mount callback failed",
+)
+_BUILD_ATTEMPTS = 3
+
+
+def _build_image_with_retry(client, **kwargs):
+    """``_build_image_with_timeout``, retried when the daemon reports a transient error."""
+    for attempt in range(1, _BUILD_ATTEMPTS + 1):
+        try:
+            return _build_image_with_timeout(client, **kwargs)
+        except BuildError as e:
+            transient = any(marker in str(e) for marker in _TRANSIENT_BUILD_ERRORS)
+            if not transient or attempt == _BUILD_ATTEMPTS:
+                raise
+            delay = attempt + random.uniform(0, 1)
+            logger.warning(
+                f"Transient Docker build error (attempt {attempt}/{_BUILD_ATTEMPTS}), retrying in {delay:.1f}s: {e}"
+            )
+            time.sleep(delay)
+
+
 def _content_hash(root: Path) -> str:
     h = hashlib.sha256()
     for p in sorted([p for p in root.rglob("*") if p.is_file()]):
@@ -228,7 +258,7 @@ def get_base_image_name(requirements_file: str, build_local_base: bool) -> str:
         else:
             env_var = f"AGENT_BASE_IMAGE_{suffix.upper()}"
             default_image = f"ghcr.io/ai-club-aachen/game-ai-platform/agent-base-{suffix}:latest"
-        return os.environ.get(env_var, default_image)
+        return os.environ.get(env_var) or default_image
 
 
 def build_from_zip(
@@ -379,7 +409,9 @@ def build_from_zip(
 
         sha = _content_hash(ctx)
         ts_str = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        base_tag = f"{repo_prefix}-{sha[:8]}-{ts_str}"
+        # Random suffix: concurrent match runners build the same agent at the same second,
+        # and each removes its image after the match, so tags must never be shared.
+        base_tag = f"{repo_prefix}-{sha[:8]}-{ts_str}-{uuid.uuid4().hex[:8]}"
         full_tag = f"{base_tag}:latest"
         labels = {
             f"{base_label_ns}.owner_id": str(owner_id),
@@ -389,7 +421,7 @@ def build_from_zip(
         }
 
         # Build with no network (egress disabled) and wall-clock timeout.
-        image = _build_image_with_timeout(
+        image = _build_image_with_retry(
             client,
             path=str(ctx),
             dockerfile=str(dockerfile_path),

@@ -168,8 +168,8 @@ ANON_DENIED_ROUTES = [
     ("GET", f"{API_PREFIX}/matches/{SOME_ID}"),
     ("GET", f"{API_PREFIX}/matches/{SOME_ID}/stream"),
     ("PATCH", f"{API_PREFIX}/matches/{SOME_ID}"),
-    ("GET", f"{API_PREFIX}/matches/scheduler/config"),
-    ("PUT", f"{API_PREFIX}/matches/scheduler/config"),
+    ("GET", f"{API_PREFIX}/platform/settings"),
+    ("PUT", f"{API_PREFIX}/platform/settings"),
     ("GET", f"{API_PREFIX}/jobs/build/{SOME_ID}"),
     ("PATCH", f"{API_PREFIX}/jobs/build/{SOME_ID}"),
     ("GET", f"{API_PREFIX}/jobs/match/{SOME_ID}"),
@@ -312,7 +312,7 @@ async def test_user_role_cannot_manage_users(api_client, fake_email_client, db_s
         ("PATCH", f"{API_PREFIX}/users/{target_id}/role"),
         ("DELETE", f"{API_PREFIX}/users/{target_id}"),
         ("PATCH", f"{API_PREFIX}/users/{target_id}/verify-email"),
-        ("GET", f"{API_PREFIX}/matches/scheduler/config"),
+        ("GET", f"{API_PREFIX}/platform/settings"),
     ]
     for method, path in attempts:
         kwargs = {"json": {"role": "admin"}} if path.endswith("/role") else {}
@@ -430,8 +430,8 @@ async def test_worker_key_cannot_reach_jwt_routes(api_client, fake_email_client)
         ("PATCH", f"{API_PREFIX}/users/{target_id}/role"),
         ("DELETE", f"{API_PREFIX}/users/{target_id}"),
         ("GET", f"{API_PREFIX}/users/me"),
-        ("GET", f"{API_PREFIX}/matches/scheduler/config"),
-        ("PUT", f"{API_PREFIX}/matches/scheduler/config"),
+        ("GET", f"{API_PREFIX}/platform/settings"),
+        ("PUT", f"{API_PREFIX}/platform/settings"),
         ("POST", f"{API_PREFIX}/agents"),
         ("POST", f"{API_PREFIX}/matches"),
         ("GET", f"{API_PREFIX}/agents"),

@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 # fills up to settings.MATCH_MAX_CONCURRENT_MATCHES.
 SCHEDULING_SERIAL = "serial"
 SCHEDULING_CONCURRENT = "concurrent"
-VALID_SCHEDULING_STRATEGIES = {SCHEDULING_SERIAL, SCHEDULING_CONCURRENT}
 
 
 class MatchSchedulerService:
@@ -31,14 +30,16 @@ class MatchSchedulerService:
     Manages the scheduling of matches based on certain criteria.
     """
 
-    def __init__(self) -> None:
-        # Which agents to pair for a new match.
-        self.strategy = "least_played"
-        # How many matches to keep in flight (see constants above).
-        self.scheduling_strategy = SCHEDULING_SERIAL
-        # Human-vs-agent limits; kept here so admins edit them with the other settings.
-        self.human_move_time_limit = settings.HUMAN_MOVE_TIME_LIMIT_SECONDS
-        self.human_match_max_duration = settings.HUMAN_MATCH_MAX_DURATION_SECONDS
+    # Configured via settings (admin-editable at runtime, see app/core/runtime_settings.py).
+    @property
+    def strategy(self) -> str:
+        """Which agents to pair for a new match."""
+        return settings.MATCH_SCHEDULER_SELECTION
+
+    @property
+    def scheduling_strategy(self) -> str:
+        """How many matches to keep in flight (see constants above)."""
+        return settings.MATCH_SCHEDULING_STRATEGY
 
     async def check_and_queue_matches(self) -> None:
         """

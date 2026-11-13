@@ -4,16 +4,18 @@ from collections.abc import AsyncGenerator, Generator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, delete
 
 from app.api.deps import get_email_client, get_email_notification_service
 from app.api.services.email import EmailNotificationService
+from app.core import runtime_settings
 from app.core.config import settings
 from app.core.match_events import match_event_publisher
 from app.core.queue import job_queue
 from app.core.rate_limit import limiter
 from app.db.session import get_session
 from app.main import app
+from app.models.platform_setting import PlatformSetting
 from tests.fakes import FakeEmailClient
 
 
@@ -71,6 +73,16 @@ def override_get_session(test_engine):
         yield
     finally:
         app.dependency_overrides.pop(get_session, None)
+
+
+@pytest.fixture(autouse=True)
+def reset_runtime_settings(test_engine):
+    """Undo admin setting overrides (DB rows and the live settings object) after each test."""
+    yield
+    with Session(test_engine) as session:
+        session.exec(delete(PlatformSetting))
+        session.commit()
+    runtime_settings.apply_overrides({})
 
 
 @pytest.fixture(scope="session")

@@ -16,8 +16,10 @@ from fastapi.responses import JSONResponse
 from redis import asyncio as aioredis
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from sqlmodel import Session
 from starlette.responses import Response
 
+from app.api.repositories.platform_setting import PlatformSettingRepository
 from app.api.routes import (
     agent_containers,
     agents,
@@ -32,10 +34,13 @@ from app.api.routes import (
     users,
 )
 from app.api.services.match_scheduler import MatchSchedulerService
+from app.api.services.runtime_settings import RuntimeSettingsService
 from app.api.services.tournament_scheduler import TournamentSchedulerService
+from app.core import runtime_settings
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.core.tasks import BackgroundTaskRunner
+from app.db.connection import engine
 from scripts.seed_db import seed
 
 
@@ -101,6 +106,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("Rate limiting running with memory backend fallback")
         redis = None
 
+    # Admin overrides from the settings page win over the environment.
+    overrides: dict[str, Any] = {}
+    try:
+        with Session(engine) as session:
+            overrides = RuntimeSettingsService(PlatformSettingRepository(session)).load()
+    except Exception:
+        logger.exception("Failed to load setting overrides; using environment values")
+    runtime_settings.log_effective_config(overrides)
+
     # Ensure upload directories exist
     try:
         submissions_dir = Path(settings.SUBMISSIONS_DIR)
@@ -116,9 +130,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     match_scheduler = MatchSchedulerService()
     task_runner.add_task(
         func=match_scheduler.check_and_queue_matches,
-        interval_seconds=10.0,
+        interval_seconds=lambda: settings.MATCH_SCHEDULER_INTERVAL_SECONDS,
         name="match_scheduler",
-        is_enabled=False,
+        is_enabled=lambda: settings.MATCH_SCHEDULER_ENABLED,
     )
 
     # Register tournament scheduler (advances running tournaments round by round)

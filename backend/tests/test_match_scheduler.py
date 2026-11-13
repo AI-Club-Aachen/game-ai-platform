@@ -64,8 +64,8 @@ def test_serial_strategy_queues_one_at_a_time():
 
 def test_concurrent_strategy_fills_up_to_target(monkeypatch):
     monkeypatch.setattr(settings, "MATCH_MAX_CONCURRENT_MATCHES", 5)
+    monkeypatch.setattr(settings, "MATCH_SCHEDULING_STRATEGY", SCHEDULING_CONCURRENT)
     scheduler = MatchSchedulerService()
-    scheduler.scheduling_strategy = SCHEDULING_CONCURRENT
     # Nothing in flight -> fill all 5 slots (serial would only ever return 1).
     assert scheduler._free_slots(_ConcurrentStubRepo(0)) == 5  # noqa: SLF001
     # Partially busy -> top up the remainder.
@@ -74,8 +74,8 @@ def test_concurrent_strategy_fills_up_to_target(monkeypatch):
 
 def test_concurrent_strategy_capped_at_target(monkeypatch):
     monkeypatch.setattr(settings, "MATCH_MAX_CONCURRENT_MATCHES", 4)
+    monkeypatch.setattr(settings, "MATCH_SCHEDULING_STRATEGY", SCHEDULING_CONCURRENT)
     scheduler = MatchSchedulerService()
-    scheduler.scheduling_strategy = SCHEDULING_CONCURRENT
     # At or above the target -> no new matches (don't flood the queue).
     assert scheduler._free_slots(_ConcurrentStubRepo(4)) == 0  # noqa: SLF001
     assert scheduler._free_slots(_ConcurrentStubRepo(6)) <= 0  # noqa: SLF001

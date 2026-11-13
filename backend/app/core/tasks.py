@@ -12,9 +12,16 @@ logger = logging.getLogger(__name__)
 class RecurringTask:
     name: str
     func: Callable[[], Awaitable[Any]]
-    interval_seconds: float
+    # A value, or a callable read before every run (e.g. lambda: settings.X).
+    interval_seconds: float | Callable[[], float]
     task_obj: asyncio.Task | None = None
-    is_enabled: bool = True
+    is_enabled: bool | Callable[[], bool] = True
+
+    def enabled(self) -> bool:
+        return self.is_enabled() if callable(self.is_enabled) else self.is_enabled
+
+    def interval(self) -> float:
+        return self.interval_seconds() if callable(self.interval_seconds) else self.interval_seconds
 
 
 class BackgroundTaskRunner:
@@ -29,9 +36,9 @@ class BackgroundTaskRunner:
     def add_task(
         self,
         func: Callable[[], Awaitable[Any]],
-        interval_seconds: float,
+        interval_seconds: float | Callable[[], float],
         name: str | None = None,
-        is_enabled: bool = True,
+        is_enabled: bool | Callable[[], bool] = True,
     ) -> None:
         """
         Explicitly add an async function as a recurring background task.
@@ -40,7 +47,7 @@ class BackgroundTaskRunner:
         self.tasks.append(
             RecurringTask(name=task_name, func=func, interval_seconds=interval_seconds, is_enabled=is_enabled)
         )
-        logger.info(f"Registered background task '{task_name}' with interval {interval_seconds}s")
+        logger.info(f"Registered background task '{task_name}'")
 
     def start(self) -> None:
         """Start all registered background tasks."""
@@ -71,7 +78,7 @@ class BackgroundTaskRunner:
         """The main loop for a single recurring task."""
         while self._running:
             try:
-                if task.is_enabled:
+                if task.enabled():
                     logger.debug(f"Running background task: {task.name}")
                     await task.func()
             except asyncio.CancelledError:
@@ -83,7 +90,7 @@ class BackgroundTaskRunner:
             try:
                 waited = 0.0
                 # Sleep in short increments so that if interval_seconds is reduced, we wake up sooner.
-                while waited < task.interval_seconds:
+                while waited < task.interval():
                     if not self._running:
                         break
                     await asyncio.sleep(0.5)
